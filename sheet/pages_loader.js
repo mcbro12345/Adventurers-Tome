@@ -1074,8 +1074,15 @@ function wireDie(root) {
     // The Roll20 companion extension says hello to sheet pages: note on their record that they have it (and which
     // version), at most once a day, so the admin Users list can show who's installed it. Nothing is sent to the extension.
     addEventListener('message', e => { if (e.source !== window || !ME) return; const d = e.data; if (!d || d.__dnd20 !== 'hi' || d.dir !== 'toSheet') return;
-      const v = String(d.version || 'yes').slice(0, 20); if (v === 'mock' || (ME.ext === v && Date.now() - (ME.extAt || 0) < 864e5)) return;
-      ME.ext = v; ME.extAt = Date.now(); UREF.update({ ext: v, extAt: ME.extAt }).catch(() => {}); });
+      const v = String(d.version || 'yes').slice(0, 20), inst = String(d.install || '').slice(0, 20); if (v === 'mock') return;
+      // an admin asked them to switch to the store copy, and they have: the prompt is done
+      if (ME.extNag && inst === 'normal') { ME.extNag = 0; UREF.update({ extNag: 0 }).catch(() => {}); if (window.pgDevExtNag) window.pgDevExtNag(0); }
+      if (ME.ext === v && (ME.extInst || '') === inst && Date.now() - (ME.extAt || 0) < 864e5) return;
+      // the audit log: a first install, a new version, or a switch between a developer copy and the store one
+      const kind = i => i === 'development' ? 'developer copy' : i === 'normal' ? 'store version' : '', ver = x => /^[\d.]+$/.test(x) ? 'v' + x : '';
+      if (!ME.ext) pgLog('ext_install', { detail: [ver(v), kind(inst)].filter(Boolean).join(', ') });
+      else if (ME.ext !== v || (inst && ME.extInst && ME.extInst !== inst)) pgLog('ext_update', { detail: `${ver(ME.ext) || 'an older version'}${ME.extInst && kind(ME.extInst) ? ' (' + kind(ME.extInst) + ')' : ''} → ${ver(v) || 'a new version'}${kind(inst) ? ' (' + kind(inst) + ')' : ''}` });
+      ME.ext = v; ME.extInst = inst; ME.extAt = Date.now(); UREF.update(Object.assign({ ext: v, extAt: ME.extAt }, inst ? { extInst: inst } : {})).catch(() => {}); });
     // Only a page someone has actually looked at keeps them online. A page the browser loads out of sight (Chrome
     // preparing a page you might open from the address bar, Opera's Speed Dial refreshing its preview, a link opened in
     // a background tab) never counts, and a tab left in the background stops counting 15 minutes after it was last on
@@ -1131,7 +1138,7 @@ function wireDie(root) {
   // (when the database refuses even their own account record, an admin has signed them out or blocked them)
   const LOCKED = 'You’ve been signed out.';
   { const k0 = kicked(ME); if (k0) { kick(k0); return; } if (ACCT_ERR === 'permission-denied') { kick(window.PG_TEST ? 'Test site: the database turned down your account record (' + ACCT_ERR + ').' : ''); return; } }  // only an admin's sign-out or a block says why
-  UREF.onSnapshot(d => { { const nm = d.exists && String(d.data().name || ''); if (nm && nm !== NAME) { const old = NAME; NAME = nm; if (ME) ME.name = nm; try { window.dispatchEvent(new CustomEvent('pg-myname', { detail: { name: nm, old } })); } catch (e) {} } } /* renamed (by an admin, or on another device): every open page picks it up straight away */ { const sa = d.exists && Number(d.data().seenAt), sf = d.exists && Number(d.data().seenFg); if (sa > (window.pgSeenAt || 0)) window.pgSeenAt = sa; if (sf > (window.pgFgAt || 0)) window.pgFgAt = sf; } const k = kicked(d.exists ? d.data() : null); if (k) kick(k); else { const u = d.exists ? d.data() : null, ra = Number(u && u.reloadAt) || 0; if (PG_RA === null) PG_RA = ra; else if (ra && ra !== PG_RA) { PG_RA = ra; location.reload(); return; } pgMsg(u); } }, e => { if (e && e.code === 'permission-denied') kick(LOCKED); });
+  UREF.onSnapshot(d => { { const nm = d.exists && String(d.data().name || ''); if (nm && nm !== NAME) { const old = NAME; NAME = nm; if (ME) ME.name = nm; try { window.dispatchEvent(new CustomEvent('pg-myname', { detail: { name: nm, old } })); } catch (e) {} } } /* renamed (by an admin, or on another device): every open page picks it up straight away */ { const sa = d.exists && Number(d.data().seenAt), sf = d.exists && Number(d.data().seenFg); if (sa > (window.pgSeenAt || 0)) window.pgSeenAt = sa; if (sf > (window.pgFgAt || 0)) window.pgFgAt = sf; } const k = kicked(d.exists ? d.data() : null); if (k) kick(k); else { const u = d.exists ? d.data() : null, ra = Number(u && u.reloadAt) || 0; if (PG_RA === null) PG_RA = ra; else if (ra && ra !== PG_RA) { PG_RA = ra; location.reload(); return; } if (ME && u) ME.extNag = Number(u.extNag) || 0; if (window.pgDevExtNag) window.pgDevExtNag(Number(u && u.extNag) || 0); pgMsg(u); } }, e => { if (e && e.code === 'permission-denied') kick(LOCKED); });
   // A message from the site's admin: pops up once (on whichever device sees it first), on any page.
   // Web addresses in a message become links (opened in a new tab). Runs on already-escaped text.
   function linkify(h) { return h.replace(/\b(?:https?:\/\/|www\.)[^\s<]+/gi, u => { const tail = (u.match(/[.,;:!?)\]'"]+$/) || [''])[0], url = tail ? u.slice(0, -tail.length) : u;
@@ -1293,11 +1300,11 @@ function wireDie(root) {
     const lootGive = party && party.mgr ? { chars: () => fs.collection('parties').doc(pid).collection('cards').get().then(qs => qs.docs.map(d => { const c = d.data() || {}; return { id: d.id, name: c.name || 'A character', thumb: c.thumb || '', player: c.player || '', owner: c.owner || '' }; })),
       split: (() => { const SC = () => fs.collection('parties').doc(pid).collection('split');
         return { open: async (b, name, units) => { const ref = SC().doc(b), old = await ref.collection('items').get().catch(() => null); const bt = fs.batch(); if (old) old.docs.forEach(d => bt.delete(d.ref));
-            bt.set(ref, { name: String(name || 'Loot').slice(0, 80), open: true, at: Date.now(), by: EMAIL, handedBy: '', handedAt: 0 }); units.slice(0, 200).forEach((u, k) => bt.set(ref.collection('items').doc(u.id), Object.assign({ to: '', toName: '', setBy: '', at: 0, handed: false, applied: false, ord: k }, u)));
+            bt.set(ref, { name: String(name || 'Loot').slice(0, 80), open: true, at: Date.now(), by: EMAIL, handedBy: '', handedAt: 0 }); units.slice(0, 200).forEach((u, k) => bt.set(ref.collection('items').doc(u.id), Object.assign({ to: '', toName: '', shares: {}, setBy: '', at: 0, handed: false, applied: false, ord: k }, u)));
             await bt.commit(); pgLog('party_send', { target: pid, tName: party.name, detail: 'split → ' + name }); },
           close: b => SC().doc(b).set({ open: false }, { merge: true }),
           remove: async b => { const ref = SC().doc(b), qs = await ref.collection('items').get().catch(() => null); const bt = fs.batch(); if (qs) qs.docs.forEach(d => bt.delete(d.ref)); bt.delete(ref); await bt.commit(); },
-          watch: (b, cb) => { const ref = SC().doc(b); let meta = null, items = []; const u1 = ref.onSnapshot(d => { meta = d.exists ? d.data() : null; cb(meta, items); }, () => {}), u2 = ref.collection('items').onSnapshot(qs => { items = qs.docs.map(d => Object.assign({ id: d.id }, d.data())).sort((a, c) => a.ord - c.ord); cb(meta, items); }, () => {}); return () => { u1(); u2(); }; },
+          watch: (b, cb) => { const ref = SC().doc(b); let meta = null, items = [], g1 = false, g2 = false; const go = () => { if (g1 && g2) cb(meta, items); }; /* (only once both the split and its things have loaded) */ const u1 = ref.onSnapshot(d => { meta = d.exists ? d.data() : null; g1 = true; go(); }, () => {}), u2 = ref.collection('items').onSnapshot(qs => { items = qs.docs.map(d => Object.assign({ id: d.id }, d.data())).sort((a, c) => a.ord - c.ord); g2 = true; go(); }, () => {}); return () => { u1(); u2(); }; },
           applied: (b, id) => SC().doc(b).collection('items').doc(id).update({ applied: true }) }; })(),
       give: (to, kind, data) => ptySend(fs, EMAIL, pid, to, kind, Object.assign({}, data, { ask: true }), '', ((ME && ME.name) || EMAIL.split('@')[0]) + (party.owner && party.owner !== EMAIL ? ' (co-DM)' : ' (DM)')).then(r => { pgLog('party_send', { target: pid, tName: party.name, detail: kind + ' → ' + to }); return r; }) } : null;
     return Object.assign({ fs, EMAIL, party, back: { href: URLS.parties(G), label: 'Parties' },
@@ -1502,38 +1509,62 @@ function wireDie(root) {
   // what; then every player's character has to agree (changing a pick clears the agreements). When the last one agrees,
   // their sheet hands it all out (each thing goes to its character like any party gift).
   const SPL = { un: null, box: {}, items: {}, unI: {}, hide: {}, busy: false };
-  function splitStop() { if (SPL.un) SPL.un(); SPL.un = null; Object.values(SPL.unI).forEach(f => f()); SPL.unI = {}; SPL.box = {}; SPL.items = {}; splitPaint(); }
+  function splitStop() { if (SPL.un) SPL.un(); SPL.un = null; if (SPL.unC) SPL.unC(); SPL.unC = null; SPL.cards = null; SPL.pd = null; if (SPL.unP) SPL.unP(); SPL.unP = null; Object.values(SPL.unI).forEach(f => f()); SPL.unI = {}; SPL.box = {}; SPL.items = {}; splitPaint(); }
   function splitWatch(pid) {
     splitStop(); if (!pid || role() !== 'owner' || NPC || NPCJ) return;
     SPL.un = PCOL.doc(pid).collection('split').where('open', '==', true).onSnapshot(qs => { const now = new Set(qs.docs.map(d => d.id));
       Object.keys(SPL.unI).forEach(id => { if (!now.has(id)) { SPL.unI[id](); delete SPL.unI[id]; delete SPL.box[id]; delete SPL.items[id]; } });
       qs.docs.forEach(d => { const was = SPL.box[d.id]; SPL.box[d.id] = d.data(); if (was && (was.ok || []).length && !(d.data().ok || []).length && (was.ok || []).includes(C)) splToast('Someone changed the split — agree again when you’re happy with it.');
+        // the party's characters (names, pictures) and who plays them, straight from the party
+        if (!SPL.unC) { SPL.unC = PCOL.doc(pid).collection('cards').onSnapshot(q3 => { SPL.cards = {}; q3.docs.forEach(x => { SPL.cards[x.id] = x.data(); }); splitPaint(); }, () => {}); SPL.unP = PCOL.doc(pid).onSnapshot(x => { SPL.pd = x.exists ? x.data() : null; splitPaint(); }, () => {}); }
         if (!SPL.unI[d.id]) SPL.unI[d.id] = d.ref.collection('items').onSnapshot(q2 => { SPL.items[d.id] = q2.docs.map(x => Object.assign({ id: x.id }, x.data())).sort((a, b) => a.ord - b.ord); splitPaint(); }, () => {}); });
       splitPaint(); }, () => {});
   }
-  const splitChars = () => { const ids = (PTY && PTY.chars) || []; return ids.map(id => Object.assign({ id }, PTY_CARDS[id] || {})).filter(c => c.name || c.id === C).map(c => c.id === C && !c.name ? Object.assign(c, { name: (window.sheetSummary && window.sheetSummary().name) || 'You' }) : c); };
+  const splitChars = () => { const pd = SPL.pd || PTY, cards = Object.assign({}, PTY_CARDS, SPL.cards || {}), ids = (pd && pd.chars) || []; return ids.map(id => Object.assign({ id }, cards[id] || {})).filter(c => c.name || c.id === C).map(c => c.id === C && !c.name ? Object.assign(c, { name: (window.sheetSummary && window.sheetSummary().name) || 'You' }) : c); };
   // who has to agree: every character a player plays (not the DM's own NPCs)
-  const splitVoters = () => { const dms = PTY ? [PTY.dm].concat(PTY.mgrs || []) : []; return splitChars().filter(c => c.id === C || (c.owner && !dms.includes(c.owner) && !c.npc)); };
+  const splitVoters = () => { const pd = SPL.pd || PTY, dms = pd ? [pd.dm].concat(pd.mgrs || []) : []; return splitChars().filter(c => c.id === C || (c.owner && !dms.includes(c.owner) && !c.npc)); };
+  const splStack = u => !!u.cur || Number(u.qty) > 1;
+  const splN = v => Math.max(0, Math.floor(Number(v) || 0));
+  const splShared = u => splStack(u) ? Object.values(u.shares || {}).reduce((t, v) => t + splN(v), 0) : (u.to ? 1 : 0);
+  const splAmt = (u, n) => u.cur ? `${n.toLocaleString()} ${u.cur}` : `${n}`;
   function splitPaint() {
     const open = Object.keys(SPL.box).filter(id => SPL.box[id] && SPL.box[id].open && (SPL.items[id] || []).some(u => !u.handed));
     let pill = document.getElementById('pg-splitpill'); const shown = open.filter(id => !SPL.hide[id]), hidden = open.filter(id => SPL.hide[id]);
-    if (hidden.length && !shown.length) { if (!pill) { pill = document.createElement('button'); pill.id = 'pg-splitpill'; pill.type = 'button'; document.body.appendChild(pill); pill.onclick = () => { Object.keys(SPL.hide).forEach(id => { delete SPL.hide[id]; }); splitPaint(); }; } const b0 = SPL.box[hidden[0]], waiting = !(b0.ok || []).includes(C); pill.innerHTML = `<span class="pgs-pi" aria-hidden="true">✦</span>${waiting ? 'Split the loot' : 'Waiting on the party'}: ${escH(b0.name || 'Loot')}`; } else if (pill) pill.remove();
+    if (hidden.length && !shown.length) { if (!pill) { pill = document.createElement('button'); pill.id = 'pg-splitpill'; pill.type = 'button'; document.body.appendChild(pill); pill.onclick = () => { Object.keys(SPL.hide).forEach(id => { delete SPL.hide[id]; }); splitPaint(); }; } const b0 = SPL.box[hidden[0]], waiting = !(b0.ok || []).includes(C); pill.innerHTML = `<span class="pgs-pi" aria-hidden="true">✦</span>${waiting ? 'Party loot — your turn' : 'Party loot — waiting on the party'}`; } else if (pill) pill.remove();
     let m = document.querySelector('.pg-split'); const id = shown[0];
     if (!id) { if (m) m.remove(); return; }
-    const box = SPL.box[id], items = SPL.items[id] || [], chars = splitChars(), voters = splitVoters(), ok = box.ok || [], picked = items.filter(u => u.to).length, mine = ok.includes(C), going = !!box.going;
+    // (not while someone's typing an amount in it — it catches up when they leave the box)
+    if (m && m.contains(document.activeElement) && document.activeElement.matches('.pgs-n')) { SPL.pend = true; return; } SPL.pend = false;
+    const box = SPL.box[id], items = SPL.items[id] || [], chars = splitChars(), voters = splitVoters(), ok = box.ok || [], picked = items.filter(u => splShared(u) > 0).length, mine = ok.includes(C), going = !!box.going;
     if (!m) { m = document.createElement('div'); m.className = 'pg-out pg-split'; pgOutFade(m); document.body.appendChild(m);
       m.addEventListener('click', e => { const b = e.target.closest('button'); if (!b || !m.contains(b)) { if (e.target === m) { SPL.hide[m.dataset.id] = true; splitPaint(); } return; }
         const sid = m.dataset.id; if (b.dataset.k === 'x') { SPL.hide[sid] = true; return splitPaint(); } if (b.dataset.k === 'ok') return splitAgree(sid, true); if (b.dataset.k === 'unok') return splitAgree(sid, false);
-        if (b.dataset.to != null) return splitSet(sid, b.dataset.u, b.dataset.to); }); }
+        if (b.dataset.to != null) return splitSet(sid, b.dataset.u, b.dataset.to);
+        if (b.dataset.sh != null) { const u = (SPL.items[sid] || []).find(x => x.id === b.dataset.u); if (u) splitShare(sid, u.id, { [b.dataset.sh]: splN((u.shares || {})[b.dataset.sh]) + Number(b.dataset.d) }); return; }
+        if (b.dataset.even != null) { const u = (SPL.items[sid] || []).find(x => x.id === b.dataset.even), cs = splitChars(); if (!u || !cs.length) return; const q = splN(u.qty), each = Math.floor(q / cs.length), sh = {}; cs.forEach((c, k) => { sh[c.id] = each + (k < q % cs.length ? 1 : 0); }); return splitShare(sid, u.id, sh, true); } });
+      m.addEventListener('change', e => { const i = e.target.closest && e.target.closest('.pgs-n'); if (!i) return; const sid = m.dataset.id; splitShare(sid, i.dataset.u, { [i.dataset.sh]: splN(i.value) }); });
+      m.addEventListener('focusout', e => { if (e.target.matches && e.target.matches('.pgs-n') && SPL.pend) setTimeout(splitPaint, 0); });
+      m.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches && e.target.matches('.pgs-n')) e.target.blur(); }); }
     m.dataset.id = id;
     const chip = (u, c) => `<button type="button" class="pgs-c${u.to === c.id ? ' on' : ''}" data-u="${escH(u.id)}" data-to="${escH(c.id)}" aria-pressed="${u.to === c.id}" title="${escH(c.name)}" ${going ? 'disabled' : ''}>${c.thumb ? `<img src="${escH(c.thumb)}" alt="">` : `<span>${escH(String(c.name || '?').slice(0, 1))}</span>`}<b>${escH(String(c.name || '').split(' ')[0])}</b></button>`;
     const votes = voters.map(c => `<span class="pgs-v${ok.includes(c.id) ? ' yes' : ''}" title="${escH(c.name)}${ok.includes(c.id) ? ' agrees' : ' hasn’t agreed yet'}">${ok.includes(c.id) ? '✓' : '…'} ${escH(String(c.name || '').split(' ')[0])}</span>`).join('');
-    m.innerHTML = `<div class="pg-out-card pgs-card" role="dialog" aria-modal="true" aria-labelledby="pgs-h"><h2 id="pgs-h">Split the loot: ${escH(box.name || 'Loot')}</h2>
-      <p class="pgs-hint">Work out together who gets each thing — everyone in the party sees the same list. When everyone agrees, it’s handed out. Changing a pick clears the agreements. Anything nobody takes stays with the DM.</p>
-      <div class="pgs-list">${items.map(u => `<div class="pgs-row${u.handed ? ' handed' : ''}"><div class="pgs-it"><b>${escH(u.name)}</b>${u.rarity ? `<span class="pgs-rar r-${escH(String(u.rarity).replace(/\s+/g, ''))}">${escH(u.rarity)}</span>` : ''}${u.sub ? `<small>${escH(u.sub)}</small>` : ''}</div>
-        <div class="pgs-cs">${u.handed ? `<span class="pgs-done">${escH(u.toName ? 'Given to ' + u.toName : 'Handed out')}</span>` : chars.map(c => chip(u, c)).join('') + `<button type="button" class="pgs-c none${!u.to ? ' on' : ''}" data-u="${escH(u.id)}" data-to="" aria-pressed="${!u.to}" title="Nobody — it stays with the DM" ${going ? 'disabled' : ''}>Nobody</button>`}</div></div>`).join('')}</div>
+    // (the window itself stays put while it updates — only what's inside it changes, so it doesn't flash or jump)
+    let card = m.querySelector(':scope > .pgs-card'); if (!card) { card = document.createElement('div'); card.className = 'pg-out-card pgs-card'; card.setAttribute('role', 'dialog'); card.setAttribute('aria-modal', 'true'); card.setAttribute('aria-labelledby', 'pgs-h'); m.appendChild(card); }
+    const lst0 = card.querySelector('.pgs-list'), st0 = lst0 ? lst0.scrollTop : 0, hd0 = card.querySelector(':scope > .mw-head');
+    card.innerHTML = `<h2 id="pgs-h">Party Loot Distribution</h2>
+      <p class="pgs-hint">Decide together who gets what. Once everyone agrees, it’s handed out.</p>
+      <div class="pgs-list">${items.map(u => { const st = splStack(u), q = splN(u.qty), sh = u.shares || {}, used = splShared(u), left = q - used, dis = going ? 'disabled' : '';
+        const head = `<div class="pgs-it"><b>${escH(u.name)}</b>${u.rarity ? `<span class="pgs-rar r-${escH(String(u.rarity).replace(/\s+/g, ''))}">${escH(u.rarity)}</span>` : ''}${st ? `<span class="pgs-q">${u.cur ? escH(splAmt(u, q)) : '×' + q}</span>` : ''}${u.sub ? `<small>${escH(u.sub)}</small>` : ''}</div>`;
+        if (u.handed) return `<div class="pgs-row handed">${head}<div class="pgs-cs"><span class="pgs-done">${st ? escH('Handed out: ' + Object.entries(sh).filter(([, v]) => splN(v)).map(([k, v]) => `${String((chars.find(c => c.id === k) || {}).name || 'someone').split(' ')[0]} ${splAmt(u, splN(v))}`).join(', ')) : escH(u.toName ? 'Given to ' + u.toName : 'Handed out')}</span></div></div>`;
+        if (!st) return `<div class="pgs-row">${head}<div class="pgs-cs">${chars.map(c => chip(u, c)).join('') + `<button type="button" class="pgs-c none${!u.to ? ' on' : ''}" data-u="${escH(u.id)}" data-to="" aria-pressed="${!u.to}" title="Nobody — it stays with the DM" ${dis}>Nobody</button>`}</div></div>`;
+        return `<div class="pgs-row stack">${head}<div class="pgs-sh">${chars.map(c => { const n = splN(sh[c.id]); return `<div class="pgs-s${n ? ' on' : ''}">${c.thumb ? `<img src="${escH(c.thumb)}" alt="">` : `<span class="pgs-av">${escH(String(c.name || '?').slice(0, 1))}</span>`}<b title="${escH(c.name)}">${escH(String(c.name || '').split(' ')[0])}</b>
+            <span class="pgs-st"><button type="button" data-u="${escH(u.id)}" data-sh="${escH(c.id)}" data-d="-1" aria-label="One less for ${escH(c.name)}" ${n && !going ? '' : 'disabled'}>−</button><input class="pgs-n" type="number" min="0" max="${q}" inputmode="numeric" value="${n}" data-u="${escH(u.id)}" data-sh="${escH(c.id)}" aria-label="${escH(u.name)} for ${escH(c.name)}" ${dis}><button type="button" data-u="${escH(u.id)}" data-sh="${escH(c.id)}" data-d="1" aria-label="One more for ${escH(c.name)}" ${left > 0 && !going ? '' : 'disabled'}>+</button></span></div>`; }).join('')}</div>
+          <div class="pgs-left"><span>${left > 0 ? `${escH(splAmt(u, left))} left — stays with the DM` : 'All of it is shared out'}</span><button type="button" class="pgs-even" data-even="${escH(u.id)}" ${dis}>Split evenly</button></div></div>`; }).join('')}</div>
       <div class="pgs-votes"><span class="pgs-vl">${going ? 'Everyone agreed — handing it out…' : `${ok.filter(x => voters.some(c => c.id === x)).length} of ${voters.length} agree`}</span>${votes}</div>
-      <div class="pg-out-row"><span class="pgs-sum">${picked} of ${items.length} picked</span><span class="grow"></span><button type="button" class="pg-out-no" data-k="x">Later</button>${mine ? `<button type="button" class="pg-out-no" data-k="unok" ${going ? 'disabled' : ''}>Take back my OK</button>` : `<button type="button" class="pg-out-yes" data-k="ok" ${picked && !going && !SPL.busy ? '' : 'disabled'} title="${picked ? '' : 'Pick who gets something first'}">I agree</button>`}</div></div>`;
+      <div class="pg-out-row"><span class="pgs-sum">${picked} of ${items.length} picked</span><span class="grow"></span><button type="button" class="pg-out-no" data-k="x">Later</button>${mine ? `<button type="button" class="pg-out-yes pgs-agreed" data-k="unok" aria-pressed="true" title="You agreed — click to take it back" ${going ? 'disabled' : ''}>Agreed <span aria-hidden="true">✓</span></button>` : `<button type="button" class="pg-out-yes" data-k="ok" ${picked && !going && !SPL.busy ? '' : 'disabled'} title="${picked ? '' : 'Pick who gets something first'}">I agree</button>`}</div>`;
+    if (hd0) { card.prepend(hd0); const h = card.querySelector('#pgs-h'); if (h) h.classList.add('mw-hid'); } const lst1 = card.querySelector('.pgs-list'); if (lst1) { lst1.scrollTop = st0;
+      // shadows above and below the list while there's more to scroll to that way
+      const sh = () => { card.classList.toggle('pgs-shtop', lst1.scrollTop > 2); card.classList.toggle('pgs-shbot', lst1.scrollTop + lst1.clientHeight < lst1.scrollHeight - 2); }; lst1.addEventListener('scroll', sh, { passive: true }); sh(); if (!card._ro && window.ResizeObserver) { card._ro = new ResizeObserver(() => { const l = card.querySelector('.pgs-list'); if (l) l.dispatchEvent(new Event('scroll')); }); card._ro.observe(card); } }
   }
   const splitRef = sid => PCOL.doc(PTY_ID).collection('split').doc(sid);
   async function splitSet(sid, uid0, to) {
@@ -1541,6 +1572,15 @@ function wireDie(root) {
     it.to = to; it.toName = ch ? ch.name || '' : ''; if (SPL.box[sid]) SPL.box[sid].ok = []; splitPaint();
     try { const ref = splitRef(sid); await fs.runTransaction(async tx => { const b = await tx.get(ref); if (!b.exists || !b.data().open || b.data().going) throw new Error('closed');
         tx.update(ref.collection('items').doc(uid0), { to, toName: it.toName, setBy: EMAIL, at: Date.now() }); tx.update(ref, { ok: [], rev: (Number(b.data().rev) || 0) + 1 }); }); }
+    catch (e) { splToast('Couldn’t change that — the split may have ended.'); }
+  }
+  async function splitShare(sid, uid0, ch, replace) {
+    const it = (SPL.items[sid] || []).find(u => u.id === uid0); if (!it || it.handed || (SPL.box[sid] || {}).going) return;
+    const fit = (sh0, q) => { const sh = Object.assign({}, replace ? {} : sh0); Object.entries(ch).forEach(([k, v]) => { const others = Object.entries(sh).filter(([x]) => x !== k).reduce((t, [, w]) => t + splN(w), 0); sh[k] = Math.min(splN(v), Math.max(0, q - others)); if (!sh[k]) delete sh[k]; }); return sh; };
+    const nw = fit(it.shares || {}, splN(it.qty)); if (JSON.stringify(nw) === JSON.stringify(it.shares || {})) return splitPaint();
+    it.shares = nw; if (SPL.box[sid]) SPL.box[sid].ok = []; splitPaint();
+    try { const ref = splitRef(sid), ir = ref.collection('items').doc(uid0); await fs.runTransaction(async tx => { const b = await tx.get(ref), i = await tx.get(ir); if (!b.exists || !b.data().open || b.data().going || !i.exists || i.data().handed) throw new Error('closed');
+        tx.update(ir, { shares: fit(i.data().shares || {}, splN(i.data().qty)), setBy: EMAIL, at: Date.now() }); tx.update(ref, { ok: [], rev: (Number(b.data().rev) || 0) + 1 }); }); }
     catch (e) { splToast('Couldn’t change that — the split may have ended.'); }
   }
   async function splitAgree(sid, yes) {
@@ -1554,10 +1594,14 @@ function wireDie(root) {
   async function splitHandOut(sid) {
     const box = SPL.box[sid] || {}, ref = splitRef(sid); SPL.busy = true; splitPaint(); let n = 0;
     try { const items = (await ref.collection('items').get()).docs;
-      for (const d of items) { const u = d.data(); if (!u.to || u.handed) continue;
+      for (const d of items) { const u = d.data(); if (!splShared(u) || u.handed) continue;
         try { await d.ref.update({ handed: true }); } catch (e) { continue; }
         let pay = null; try { pay = JSON.parse(u.pay || 'null'); } catch (e) {} if (!pay) continue;
-        try { await ptySend(fs, EMAIL, PTY_ID, u.to, pay[0], Object.assign({}, pay[1], { split: sid }), C, box.name || 'Loot'); n++; } catch (e) { console.warn('split send', e); } }
+        // who gets how many: one character for a single thing, or each share of a stack / of the coins
+        const gets = splStack(u) ? Object.entries(u.shares || {}).map(([k, v]) => [k, splN(v)]).filter(([, v]) => v > 0) : [[u.to, 1]];
+        for (const [to, q] of gets) { const data = JSON.parse(JSON.stringify(pay[1] || {}));
+          if (pay[0] === 'coins') { Object.keys(data).forEach(k => delete data[k]); data[u.cur || 'gp'] = q; } else if (pay[0] === 'item') data.item = Object.assign({}, data.item, { qty: q }); else data.qty = q;
+          try { await ptySend(fs, EMAIL, PTY_ID, to, pay[0], Object.assign(data, { split: sid }), C, box.name || 'Loot'); n++; } catch (e) { console.warn('split send', e); } } }
       await ref.update({ open: false, handedBy: 'The party', handedAt: Date.now() }).catch(() => {});
       splToast(`Everyone agreed — ${n} thing${n === 1 ? '' : 's'} from <b>${escH(box.name || 'the loot')}</b> handed out.`);
     } catch (e) { splToast('Couldn’t hand it out: ' + escH((e && e.message) || 'check your connection')); }
@@ -2765,6 +2809,7 @@ function hub(fs, auth, G, ctx) {
       hidewel: ami('<path d="M20 6L9 17l-5-5"/>'), hidenotice: ami('<path d="M20 6L9 17l-5-5"/>'),
       quiet: ami('<path d="M5 12h14"/><path d="M12 5v14" opacity=".35"/><circle cx="12" cy="12" r="9"/>'),
       reload: ami('<path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/>'),
+      extnag: ami('<path d="M20 7l-8-4-8 4v10l8 4 8-4z"/><path d="M12 8v5"/><path d="M12 16.5v.01"/>'), extnagoff: ami('<path d="M20 7l-8-4-8 4v10l8 4 8-4z"/><path d="M8 12l3 3 5-6"/>'),
       rename: ami('<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/>'),
       pic: ami('<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/>'),
       newfor: ami('<path d="M12 5v14M5 12h14"/>'), add: ami('<path d="M12 5v14M5 12h14"/>'),
@@ -3043,10 +3088,10 @@ function hub(fs, auth, G, ctx) {
       const devs = u => { const now = Date.now(), pc = u.seenPc && now - u.seenPc < ONLINE, ph = u.seenPhone && now - u.seenPhone < ONLINE; return pc || ph ? [pc && [IC_PC, 'a computer'], ph && [IC_PH, 'a phone or tablet']].filter(Boolean) : null; };
       const devHTML = u => { const d = devs(u); return d ? `<span class="adm-devs">${d.map(x => x[0]).join('')}</span>` : ''; }, devTxt = u => { const d = devs(u); return d ? ' On ' + d.map(x => x[1]).join(' and ') + '.' : ''; };
       const seen = u => isOn(u) ? (u.seenFg && Date.now() - u.seenFg > ONLINE ? `<span class="adm-online bg" title="Idle: has Adventurer’s Tome open in a tab, but hasn’t had it on screen for a few minutes (another tab or app is in front, or the window is minimised). After 15 minutes like this they show as offline.${devTxt(u)}"><i></i><b>Idle</b>${devHTML(u)}</span>` : `<span class="adm-online" title="Has Adventurer’s Tome open and on screen right now.${devTxt(u)}"><i></i><b>Online</b>${devHTML(u)}</span>`) : u.seenAt ? esc(ago(u.seenAt)) : '<span class="adm-dim">—</span>';
-      const extCell = u => u.ext ? `<span class="adm-tag ext-on" title="Roll20 companion extension seen ${esc(ago(u.extAt || 0))}">Installed${/^[\d.]+$/.test(u.ext) ? ' · v' + esc(u.ext) : ''}</span>` : '<span class="adm-dim">—</span>';
+      const extCell = u => (u.ext ? `<span class="adm-tag ext-on${u.extInst === 'development' ? ' ext-dev' : ''}" title="Roll20 companion extension seen ${esc(ago(u.extAt || 0))}${u.extInst === 'development' ? ' — a developer copy (loaded by hand)' : u.extInst === 'normal' ? ' — from the store' : ''}">Installed${/^[\d.]+$/.test(u.ext) ? ' · v' + esc(u.ext) : ''}${u.extInst === 'development' ? ' · dev' : ''}</span>` : '<span class="adm-dim">—</span>') + (u.extNag ? ' <span class="adm-tag ext-nag" title="Asked to switch to the store version">Prompt on</span>' : '');
       l.innerHTML = rows.length ? `<div class="adm-tw"><table class="adm-t us-t"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Joined</th><th>Last active</th><th>Extension</th><th></th><th></th></tr></thead><tbody>${capR('us', rows).map(u => { const [rl, rc] = u.banned ? ['Blocked', 'r-blk'] : roleOf(u.id), open = UOPEN.has(u.id);
           return `<tr data-u="${esc(u.id)}"><td><span class="adm-who">${ava(u.name, u.id)}<span class="us-nm"><b>${esc(u.name || '—')}</b><small class="us-em">${esc(u.id)}</small></span></span></td><td class="adm-mail" title="${esc(u.id)}">${esc(u.id)}</td><td><span class="adm-tag ${rc}">${rl}</span></td><td>${when(u.createdAt)}</td><td>${seen(u)}</td><td>${extCell(u)}</td>
-            <td><button class="adm-btn sm" data-uc="${esc(u.id)}">Characters ${open ? '▾' : '▸'}</button></td><td class="adm-act">${kebab([['msg', 'Send a message…', u.id], ['welcome', 'Show welcome message again', u.id], ['renotice', 'Show the notice again', u.id], ['hidewel', 'Mark the welcome message seen', u.id], ['hidenotice', 'Mark the current notice seen', u.id], ['quiet', QUIET.has(u.id) ? 'Count in notice numbers' : 'Leave out of notice numbers', u.id], ['reload', 'Refresh their page', u.id], ['rename', 'Rename…', u.id], ['pic', 'Change picture…', u.id], ['newfor', 'New character for them', u.id]].concat(IS_OWNER && !ownerEm(u.id) ? [ADMINS.includes(u.id) ? ['unadmin', 'Remove admin', u.id] : ['mkadmin', 'Make admin', u.id]] : [], ownerEm(u.id) || u.id === EMAIL ? [] : [['signout', 'Sign out everywhere', u.id]].concat(u.banned ? [['unblock', 'Unblock', u.id]] : [], [['delacct', 'Delete account…', u.id, 'danger']])))}</td></tr>
+            <td><button class="adm-btn sm" data-uc="${esc(u.id)}">Characters ${open ? '▾' : '▸'}</button></td><td class="adm-act">${kebab([['msg', 'Send a message…', u.id], ['welcome', 'Show welcome message again', u.id], ['renotice', 'Show the notice again', u.id], ['hidewel', 'Mark the welcome message seen', u.id], ['hidenotice', 'Mark the current notice seen', u.id], ['quiet', QUIET.has(u.id) ? 'Count in notice numbers' : 'Leave out of notice numbers', u.id], ['reload', 'Refresh their page', u.id], u.extNag ? ['extnagoff', 'Stop the extension switch prompt', u.id] : ['extnag', 'Ask them to switch to the store extension', u.id], ['rename', 'Rename…', u.id], ['pic', 'Change picture…', u.id], ['newfor', 'New character for them', u.id]].concat(IS_OWNER && !ownerEm(u.id) ? [ADMINS.includes(u.id) ? ['unadmin', 'Remove admin', u.id] : ['mkadmin', 'Make admin', u.id]] : [], ownerEm(u.id) || u.id === EMAIL ? [] : [['signout', 'Sign out everywhere', u.id]].concat(u.banned ? [['unblock', 'Unblock', u.id]] : [], [['delacct', 'Delete account…', u.id, 'danger']])))}</td></tr>
             <tr class="adm-subrow" data-sub="${esc(u.id)}"${open ? '' : ' hidden'}><td colspan="8"></td></tr>`; }).join('')}</tbody></table></div>${moreR('us', rows)}`
         : `<p class="adm-empty">${UROWS.length ? 'Nobody matches these filters.' : 'No accounts yet.'}</p>`;
       const fill = async (em, cell, fresh) => { const show = cs => { cell.innerHTML = ctable(cs, false) + `<button class="adm-btn sm" data-newfor="${esc(em)}">＋ New character for ${esc(nameOf(em))}</button>`; wire(cell, () => fill(em, cell, true)); };
@@ -3094,6 +3139,9 @@ function hub(fs, auth, G, ctx) {
         if (act === 'hidewel') { await ref.update({ welcomeSeen: Date.now() }); pgLog('welcome_mark_seen', { target: em, tName: nm }); toast(nm + ' is marked as having seen the welcome message.'); done(); return; }
         if (act === 'hidenotice') { const n = await cfgCol.doc('notice').get().then(d => d.exists ? d.data() : null, () => null); if (!n || !n.id) { toast('There’s no notice out right now.'); return; }
           await ref.update({ noticeSeen: n.id }); pgLog('notice_mark_seen', { target: em, tName: nm, detail: n.text }); toast(nm + ' is marked as having seen the current notice. (“Show the notice again” undoes it.)'); return; }
+        // the "switch to the official Roll20 extension" window, sent by hand: it shows on their pages (once a day if they put it off) until they're on the store copy or it's stopped here
+        if (act === 'extnag' || act === 'extnagoff') { const on = act === 'extnag'; await ref.update({ extNag: on ? Date.now() : 0 }); u.extNag = on ? Date.now() : 0; pgLog(on ? 'user_extnag' : 'user_extnag_off', { target: em, tName: nm });
+          toast(on ? nm + ' will be asked to switch to the store version of the Roll20 extension' + (u.seenAt && Date.now() - u.seenAt < 4 * 60000 ? ' — it pops up now.' : ' next time they open the site.') : 'Stopped the extension prompt for ' + nm + '.'); done(); return; }
         if (act === 'reload') { await ref.update({ reloadAt: Date.now() }); toast(nm + '’s open pages will refresh now.'); pgLog('user_reload', { target: em, tName: nm }); return; }
         if (act === 'msg') { const last = u.msg && u.msg.text ? `<p class="hub-hint pm-last">Last message (${esc(new Date(u.msg.at || 0).toLocaleString())}) · ${u.msgSeen && u.msgSeen === u.msg.id ? '<b>seen</b>' : 'not seen yet'}:<br>“${esc(String(u.msg.text).slice(0, 200))}${String(u.msg.text).length > 200 ? '…' : ''}”</p>` : '';
           modal.innerHTML = `<div class="hub-card"><h2>Message ${esc(nm)}</h2><p class="hub-hint">It pops up for them on Adventurer’s Tome: right away if they have it open, otherwise the next time they do. They see it once.</p>${last}
@@ -3126,8 +3174,8 @@ function hub(fs, auth, G, ctx) {
     const ACTS = { signin: 'Signed in', account: 'Created their account', signout: 'Signed out', open: 'Opened', create: 'Created', edit: 'Edited', delete: 'Deleted', give: 'Gave away', remove: 'Removed from the lists',
       share: 'Shared', unshare: 'Stopped sharing', access: 'Changed access to', leave: 'Gave up access to', picture: 'Changed their picture',
       audit_clear: 'Cleared the audit log', rename_user: 'Renamed', admin_add: 'Made an admin:', admin_remove: 'Removed admin:', user_picture: 'Changed the picture of', user_signout: 'Signed out everywhere:', user_block: 'Blocked', user_unblock: 'Unblocked', user_delete: 'Deleted the account of', message: 'Sent a message to', notice: 'Sent a notice to', news_post: 'Posted to What’s new:', news_edit: 'Edited a What’s new update:', news_remove: 'Removed a What’s new update:', news_rot: 'Changed the What’s new rotation:', notice_revoke: 'Revoked the notice to', notice_revoke_one: 'Kept the notice from', notice_restore_one: 'Gave the notice back to', welcome_revoke_one: 'Kept the welcome message from', welcome_restore_one: 'Gave the welcome message back to', notice_mark_seen: 'Marked the notice seen for', welcome_mark_seen: 'Marked the welcome message seen for', notice_edit: 'Edited the notice to', notice_resend: 'Re-sent the notice to', welcome: 'Saved the welcome message for', welcome_off: 'Turned off the welcome message for', welcome_reset: 'Reset the welcome message for', user_reload: 'Refreshed the pages of', online: 'Came online', offline: 'Went offline',
-      party_create: 'Created the party', party_codm: 'Changed the co-DMs of', party_delete: 'Deleted the party', party_chat_clear: 'Cleared the chat of', party_add: 'Added a character to', party_npc: 'Added an NPC to', desk_open: 'Opened the DM’s Desk', party_hb: 'Added a homebrew item to', party_join: 'Joined the party', party_leave: 'Left the party', party_remove: 'Took a character out of', party_invite: 'Invited someone to', party_send: 'Used party actions in', party_access: 'Changed their access to', party_dm: 'Handed over' };
-    const AGROUPS = [['Signing in', ['signin', 'online', 'offline', 'account', 'signout']], ['Parties', ['party_create', 'party_delete', 'party_add', 'party_npc', 'party_join', 'party_leave', 'party_remove', 'party_invite', 'party_send', 'party_access', 'party_dm', 'party_codm', 'party_chat_clear', 'desk_open', 'party_hb']], ['Characters', ['open', 'create', 'edit', 'delete', 'give', 'remove']], ['Sharing', ['share', 'unshare', 'access', 'leave']], ['Pictures', ['picture', 'user_picture']], ['Admin', ['audit_clear', 'rename_user', 'admin_add', 'admin_remove', 'user_signout', 'user_block', 'user_unblock', 'user_delete', 'message', 'notice', 'notice_resend', 'notice_revoke', 'notice_revoke_one', 'notice_restore_one', 'notice_mark_seen', 'notice_edit', 'welcome', 'welcome_off', 'welcome_reset', 'welcome_revoke_one', 'welcome_restore_one', 'welcome_mark_seen', 'news_post', 'news_edit', 'news_remove', 'news_rot', 'user_reload']]];
+      party_create: 'Created the party', party_codm: 'Changed the co-DMs of', party_delete: 'Deleted the party', party_chat_clear: 'Cleared the chat of', party_add: 'Added a character to', party_npc: 'Added an NPC to', desk_open: 'Opened the DM’s Desk', party_hb: 'Added a homebrew item to', party_join: 'Joined the party', party_leave: 'Left the party', party_remove: 'Took a character out of', party_invite: 'Invited someone to', party_send: 'Used party actions in', party_access: 'Changed their access to', party_dm: 'Handed over', ext_install: 'Installed the Roll20 extension', ext_update: 'Updated the Roll20 extension', user_extnag: 'Asked to switch to the store Roll20 extension:', user_extnag_off: 'Stopped the extension prompt for' };
+    const AGROUPS = [['Signing in', ['signin', 'online', 'offline', 'account', 'signout']], ['Parties', ['party_create', 'party_delete', 'party_add', 'party_npc', 'party_join', 'party_leave', 'party_remove', 'party_invite', 'party_send', 'party_access', 'party_dm', 'party_codm', 'party_chat_clear', 'desk_open', 'party_hb']], ['Characters', ['open', 'create', 'edit', 'delete', 'give', 'remove']], ['Sharing', ['share', 'unshare', 'access', 'leave']], ['Pictures', ['picture', 'user_picture']], ['Roll20 extension', ['ext_install', 'ext_update']], ['Admin', ['audit_clear', 'rename_user', 'admin_add', 'admin_remove', 'user_signout', 'user_block', 'user_unblock', 'user_delete', 'message', 'notice', 'notice_resend', 'notice_revoke', 'notice_revoke_one', 'notice_restore_one', 'notice_mark_seen', 'notice_edit', 'welcome', 'welcome_off', 'welcome_reset', 'welcome_revoke_one', 'welcome_restore_one', 'welcome_mark_seen', 'news_post', 'news_edit', 'news_remove', 'news_rot', 'user_reload', 'user_extnag', 'user_extnag_off']]];
     const CHAR_ACTS = new Set(['open', 'create', 'edit', 'delete', 'give', 'remove', 'share', 'unshare', 'access', 'leave']);
     let AF = { who: [], act: [], q: '', from: '', to: '', range: '' }, AROWS, AOPEN = {} = [], ALAST = null, AFULL = false, APEOPLE = null;
     const auditCol = fs.collection('audit');
@@ -4772,4 +4820,55 @@ function pgRevealPanels() { try { if (matchMedia('(prefers-reduced-motion: reduc
   window.pgBgdSync = sync;
   const go = () => { sync(); new MutationObserver(sync).observe(document.body, { attributes: true, attributeFilter: ['class'], childList: true, subtree: true }); addEventListener('popstate', () => setTimeout(sync)); };
   if (document.body) go(); else document.addEventListener('DOMContentLoaded', go);
+})();
+// ----- A developer copy of the Roll20 extension: ask them to switch to the official store version -----
+// The extension says hi with how it was installed ('development' = loaded by hand from the download). Hand-loaded copies
+// never update themselves and may carry unfinished changes, so this explains how to swap it for the store one.
+(() => { if (window.__pgDevExt) return; window.__pgDevExt = 1;
+  // Copies older than 1.4.5 don't say how they were installed. Once 1.4.5 is out on both stores, any copy that still
+  // doesn't say must be a hand-loaded one (store copies update themselves): then flip this on.
+  const OLD_COPIES_ARE_DEV = false, NEW = [1, 4, 5];
+  const STORE = 'https://chromewebstore.google.com/detail/mgpepimfnfhagocgdbmmngiennbijgcd', AMO = 'https://addons.mozilla.org/en-US/firefox/addon/adventurers-tome-roll20/';
+  const SNOOZE = 'pg-devext-later', esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  const older = v => { const a = String(v || '0').split('.').map(Number); for (let i = 0; i < 3; i++) { if ((a[i] || 0) !== NEW[i]) return (a[i] || 0) < NEW[i]; } return false; };
+  const browser = () => { const ua = navigator.userAgent || '', br = ((navigator.userAgentData && navigator.userAgentData.brands) || []).map(b => b.brand).join(' ');
+    if (/Firefox\//.test(ua)) return { name: 'Firefox', ff: true, url: 'about:debugging#/runtime/this-firefox' };
+    if (/Edg\//.test(ua) || /Edge/.test(br)) return { name: 'Microsoft Edge', url: 'edge://extensions', add: 'Get', extra: 'If Edge asks, click <b>Allow extensions from other stores</b> first.' };
+    if (/OPR\//.test(ua) || /Opera/.test(br)) return { name: 'Opera', url: 'opera://extensions', add: 'Add to Opera', extra: 'Opera needs its <a href="https://addons.opera.com/extensions/details/install-chrome-extensions/" target="_blank" rel="noopener">Install Chrome Extensions</a> add-on for this.' };
+    if (navigator.brave || /Brave/.test(br)) return { name: 'Brave', url: 'brave://extensions', add: 'Add to Brave' };
+    if (/Vivaldi/.test(ua)) return { name: 'Vivaldi', url: 'vivaldi://extensions', add: 'Add to Chrome' };
+    return { name: 'Chrome', url: 'chrome://extensions', add: 'Add to Chrome' }; };
+  let shown = null;
+  function show(ver) {
+    let snz = 0; try { snz = Number(localStorage.getItem(SNOOZE)) || 0; } catch (e) {} if (Date.now() < snz || shown || document.querySelector('.pg-devext')) return;
+    const b = browser(), copy = (u) => `<button type="button" class="pgx-url" data-copy="${esc(u)}" title="Copy — browsers only open this page when you paste it into the address bar"><code>${esc(u)}</code><span aria-hidden="true">⧉</span></button>`;
+    const steps = b.ff ? [
+      `<b>Remove the developer copy.</b> Open ${copy(b.url)} (click to copy it, then paste it into the address bar). Under <b>Temporary Extensions</b>, find <b>Adventurer’s Tome ↔ Roll20</b> and click <b>Remove</b>. (Restarting Firefox also removes it.)`,
+      `<b>Add the official one</b> from Firefox Add-ons: click <b>Add to Firefox</b>, then <b>Add</b>. It updates itself from then on and stays after Firefox restarts.<div class="pgx-go"><a class="pg-out-yes pgx-btn" href="${AMO}" target="_blank" rel="noopener">Open Firefox Add-ons</a></div>`,
+      'Come back and <b>reload this page</b>. If you use Roll20, reload your Roll20 tab too.']
+    : [
+      `<b>Remove the developer copy.</b> Open ${copy(b.url)} (click to copy it, then paste it into the address bar). Find <b>Adventurer’s Tome ↔ Roll20</b> and click <b>Remove</b>. You can turn <b>Developer mode</b> off afterwards.`,
+      `<b>Add the official one</b> from the Chrome Web Store: click <b>${esc(b.add)}</b>. It updates itself from then on.${b.extra ? ` <span class="pgx-hint">${b.extra}</span>` : ''}<div class="pgx-go"><a class="pg-out-yes pgx-btn" href="${STORE}" target="_blank" rel="noopener">Open the Chrome Web Store</a></div>`,
+      'Come back and <b>reload this page</b>. If you use Roll20, reload your Roll20 tab too.'];
+    const m = document.createElement('div'); m.className = 'pg-out pg-devext'; if (typeof pgOutFade === 'function') pgOutFade(m); shown = m;
+    m.innerHTML = `<div class="pg-out-card pgx-card" role="dialog" aria-modal="true" aria-labelledby="pgx-h"><h2 id="pgx-h">Switch to the official Roll20 extension</h2>
+      <p class="pgx-warn"><span aria-hidden="true">⚠</span><span>You’re using a <b>developer copy</b> of the Roll20 extension${ver ? ` (v${esc(ver)})` : ''}. Developer copies don’t update themselves and can have bugs — please switch to the official store version. It’s the same extension and keeps itself up to date.</span></p>
+      <p class="pgx-sub">In ${esc(b.name)}, it takes about a minute:</p><ol class="pgx-steps">${steps.map(x => `<li>${x}</li>`).join('')}</ol>
+      <div class="pg-out-row"><button type="button" class="pg-out-no" data-k="later">Remind me tomorrow</button><button type="button" class="pg-out-yes" data-k="reload">I’ve switched — reload</button></div></div>`;
+    m.addEventListener('click', e => { const t = e.target.closest('button'); if (!t) { if (e.target === m) close(true); return; }
+      if (t.dataset.copy) { const u = t.dataset.copy; (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject()).then(() => { t.classList.add('ok'); const c = t.querySelector('span'); if (c) c.textContent = '✓ Copied'; setTimeout(() => { t.classList.remove('ok'); if (c) c.textContent = '⧉'; }, 1800); }, () => { const r = document.createRange(); r.selectNodeContents(t.querySelector('code')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }); return; }
+      if (t.dataset.k === 'later') return close(true); if (t.dataset.k === 'reload') return location.reload(); });
+    document.body.appendChild(m);
+  }
+  function close(snooze) { if (snooze) try { localStorage.setItem(SNOOZE, String(Date.now() + 864e5)); } catch (e) {} if (shown) { shown.remove(); shown = null; } }
+  addEventListener('message', e => { if (e.source !== window) return; const d = e.data; if (!d || d.__dnd20 !== 'hi' || d.dir !== 'toSheet' || d.version === 'mock') return;
+    const dev = d.install ? d.install === 'development' : (OLD_COPIES_ARE_DEV && older(d.version));
+    if (dev) { const go = () => show(d.version); document.body ? setTimeout(go, 1200) : addEventListener('DOMContentLoaded', () => setTimeout(go, 1200)); }
+    else if (shown && (!NAG || d.install === 'normal')) close(false); });
+  // ask whichever copy is installed to say hi (it already does when the page opens, but this page may have missed it)
+  const ask = () => window.postMessage({ __dnd20: 'hello', dir: 'toExt' }, '*'); if (document.readyState === 'loading') addEventListener('DOMContentLoaded', ask); else ask();
+  // an admin sent it by hand (Admin → Users): shown whether or not the extension says how it was installed
+  let NAG = 0, lastVer = ''; window.pgDevExtNag = n => { const was = NAG; NAG = n || 0; if (NAG && !was) { const go = () => show(lastVer); document.body ? setTimeout(go, 1500) : addEventListener('DOMContentLoaded', () => setTimeout(go, 1500)); } else if (!NAG && was && shown) close(false); };
+  addEventListener('message', e => { if (e.source === window && e.data && e.data.__dnd20 === 'hi' && e.data.dir === 'toSheet') lastVer = String(e.data.version || ''); });
+  window.pgDevExtTest = (v) => show(v || '1.4.4');
 })();

@@ -11,6 +11,8 @@ async function games() {
 }
 chrome.runtime.onMessage.addListener((msg, sender, send) => {
   (async () => {
+    // how this copy was installed: 'development' when it was loaded by hand (Load unpacked / temporary add-on)
+    if (msg.type === 'self') { try { const me = await chrome.management.getSelf(); return send({ install: me.installType || '' }); } catch (e) { return send({ install: '' }); } }
     if (msg.type === 'campaigns') return send({ list: await games() });
     if (msg.type === 'roll' || msg.type === 'post' || msg.type === 'tokens') {
       const list = await games();

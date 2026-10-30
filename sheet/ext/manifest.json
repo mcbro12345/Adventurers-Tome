@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Adventurer’s Tome ↔ Roll20",
-  "version": "1.4.4",
+  "version": "1.4.5",
   "description": "Rolls from your Adventurer’s Tome sheet in Roll20 chat, results back on the sheet, and auras that follow your tokens.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA4A4d+2F0czdgfrsYye0WJLKGPuFsF14ERbKZcE+kzNB+OWk7ziKiBs7b8K7g1lMqS4vUGcXTCJiKfa6GQyIQoob6AcyggdOHIn9MvHV59V40L9gxbY7/4bP7ePhr1KjCBciY3qWFoTqXpVRfbBt0zOwcYxcmgPPLI7kl9/bYpRyQRThUHT9sjNZl5wok1j67yfHZObrNJ/k9f4y42BJZx0DYX+B9cII0QdEzohSrgq/vtWEDwV+u8Ry6duLpTEiP5Jn92iAiXgh77PFVpQJaSxKoBmkfeDJctXRUBgnP0q9Cl62XA+nT2WhcNP/YlYbVmpbT4fMd/9OSWEvKLlOLxQIDAQAB",
   "icons": {

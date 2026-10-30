@@ -11,10 +11,13 @@
   const mine = () => de.getAttribute('data-dnd20') === ME;
   const CAPS = ['tokens']; // what this copy can do beyond rolling: read where tokens are on the map
   const reply = (msg) => window.postMessage(Object.assign({ dir: 'toSheet' }, msg), '*');
+  // How this copy was installed (the site asks people with a hand-loaded developer copy to switch to the store one).
+  let INSTALL = ''; const ready = new Promise((ok) => { try { chrome.runtime.sendMessage({ type: 'self' }, (r) => { void chrome.runtime.lastError; INSTALL = (r && r.install) || ''; ok(); }); } catch (e) { ok(); } setTimeout(ok, 1500); });
+  const hi = () => ready.then(() => reply({ __dnd20: 'hi', version: VERSION, caps: CAPS, install: INSTALL, store: ME.endsWith('|store') }));
   window.addEventListener('message', (e) => {
     const d = e.data;
     if (!d || typeof d !== 'object' || !d.__dnd20 || d.dir !== 'toExt' || e.source !== window || !mine()) return;
-    if (d.__dnd20 === 'hello') { reply({ __dnd20: 'hi', version: VERSION, caps: CAPS }); return; }
+    if (d.__dnd20 === 'hello') { hi(); return; }
     const req = { type: d.__dnd20, expr: d.expr, label: d.label, lines: Array.isArray(d.lines) ? d.lines.slice(0, 6).map(String) : undefined, who: d.who, campaign: d.campaign };
     try {
       chrome.runtime.sendMessage(req, (res) => {
@@ -23,5 +26,5 @@
       });
     } catch (err) { reply({ __dnd20: d.__dnd20, id: d.id, error: 'The extension was reloaded — refresh this page.' }); }
   });
-  if (mine()) reply({ __dnd20: 'hi', version: VERSION, caps: CAPS });
+  if (mine()) hi();
 })();

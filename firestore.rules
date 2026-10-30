@@ -86,7 +86,9 @@ service cloud.firestore {
       allow list: if admin();
       allow create: if admin() || (signedIn() && em == me() && request.resource.data.email == me()
         && request.resource.data.keys().hasOnly(['email', 'name', 'nameLower', 'keys', 'createdAt', 'seenAt', 'gpic']));
-      allow update: if admin() || (signedIn() && em == me() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenAt', 'seenFg', 'pic', 'picChar', 'picColor', 'picClear', 'picMode', 'gpic', 'name', 'nameLower', 'keys', 'msgSeen', 'noticeSeen', 'welcomeSeen', 'partyOrder', 'seenPc', 'seenPhone', 'ext', 'extAt'])
+      allow update: if admin() || (signedIn() && em == me() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenAt', 'seenFg', 'pic', 'picChar', 'picColor', 'picClear', 'picMode', 'gpic', 'name', 'nameLower', 'keys', 'msgSeen', 'noticeSeen', 'welcomeSeen', 'partyOrder', 'seenPc', 'seenPhone', 'ext', 'extAt', 'extInst', 'extNag'])
+        && (!('extInst' in request.resource.data) || (request.resource.data.extInst is string && request.resource.data.extInst.size() <= 20))
+        && (request.resource.data.get('extNag', 0) == 0 || request.resource.data.get('extNag', 0) == resource.data.get('extNag', 0))
         && (!('ext' in request.resource.data) || (request.resource.data.ext is string && request.resource.data.ext.size() <= 20))
         && (!('partyOrder' in request.resource.data) || (request.resource.data.partyOrder is list && request.resource.data.partyOrder.size() <= 200))
         && request.resource.data.get('name', '') is string && request.resource.data.get('name', '').size() <= 60);
@@ -237,7 +239,8 @@ service cloud.firestore {
           allow read: if admin() || (signedIn() && (me() in partyOf(p).people || partyMgr(partyOf(p))));
           allow write: if admin() || (signedIn() && partyMgr(partyOf(p)));
           allow update: if signedIn() && me() in partyOf(p).people && get(/databases/$(db)/documents/parties/$(p)/split/$(b)).data.open == true && resource.data.get('handed', false) == false
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['to', 'toName', 'setBy', 'at', 'handed'])
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['to', 'toName', 'shares', 'setBy', 'at', 'handed'])
+            && request.resource.data.get('shares', {}) is map && request.resource.data.get('shares', {}).size() <= 12 && request.resource.data.get('shares', {}).keys().hasOnly(partyOf(p).chars)
             && (request.resource.data.to == '' || request.resource.data.to in partyOf(p).chars)
             && request.resource.data.get('toName', '') is string && request.resource.data.get('toName', '').size() <= 80;
         }
