@@ -140,6 +140,12 @@ async function pgInviteImage(p) {
 window.pgInviteImage = pgInviteImage;
 // Scroll shadows on pick lists: a soft edge at the top / bottom while there's more to scroll to.
 // What someone did that brought them online, in plain words ("by opening Hiro's sheet").
+// How the Roll20 extension that answered was installed: 'development' (loaded by hand) or 'normal' (from the store).
+// 1.4.5+ says so itself. Copies from 1.4.2 on mark the page with their id and "|store" or "|local" (store copies carry an
+// update address the hand-loaded ones don't) — readable here in Chrome, Edge, Brave, Opera and Vivaldi. (Firefox copies
+// never carry that address, store or not, so there it only counts when the extension says so itself.) '' = can't tell.
+function pgExtInst(d) { if (d && d.install) return String(d.install).slice(0, 20); if (/Firefox\//.test(navigator.userAgent || '')) return '';
+  const a = document.documentElement.getAttribute('data-dnd20') || ''; return /\|store$/.test(a) ? 'normal' : /\|local$/.test(a) ? 'development' : ''; }
 function pgOnlineWhy(back, bg) { const p = location.pathname, q = location.search, t = String(document.title || '').replace(/\s*[—-]\s*Adventurer.s Tome\s*$/i, '').trim();
   const what = /^\/(c|character)\/|[?&]c=/.test(p + q) ? (t && !/adventurer/i.test(t) ? t + '’s sheet' : 'a character sheet')
     : /^\/party\/|[?&]party=/.test(p + q) ? (t && t !== 'Party' ? 'the ' + t + ' party page' : 'a party page')
@@ -1074,7 +1080,7 @@ function wireDie(root) {
     // The Roll20 companion extension says hello to sheet pages: note on their record that they have it (and which
     // version), at most once a day, so the admin Users list can show who's installed it. Nothing is sent to the extension.
     addEventListener('message', e => { if (e.source !== window || !ME) return; const d = e.data; if (!d || d.__dnd20 !== 'hi' || d.dir !== 'toSheet') return;
-      const v = String(d.version || 'yes').slice(0, 20), inst = String(d.install || '').slice(0, 20); if (v === 'mock') return;
+      const v = String(d.version || 'yes').slice(0, 20), inst = pgExtInst(d); if (v === 'mock') return;
       // an admin asked them to switch to the store copy, and they have: the prompt is done
       if (ME.extNag && inst === 'normal') { ME.extNag = 0; UREF.update({ extNag: 0 }).catch(() => {}); if (window.pgDevExtNag) window.pgDevExtNag(0); }
       if (ME.ext === v && (ME.extInst || '') === inst && Date.now() - (ME.extAt || 0) < 864e5) return;
@@ -1800,7 +1806,9 @@ function wireDie(root) {
   // Activity log for this sheet: that it was opened (as soon as its name is known), and what was changed — a burst of
   // changes is one entry, logged 2 seconds after the last of them (and never more than 10 seconds after the first).
   if (!NEW) { const t0 = Date.now(), logOpen = () => { let nm = ''; try { nm = window.sheetSummary().name; } catch (e) {} if (!nm && Date.now() - t0 < 3000) return setTimeout(logOpen, 150);
-    pgLog('open', { target: C, tName: nm, detail: role() === 'view' ? 'view only' : '' }); }; setTimeout(logOpen, 150); }
+    // (a page the browser loaded out of sight — a restored or background tab — says so: it doesn't count them as online until it's looked at)
+    const unseen = document.hidden || document.prerendering;
+    pgLog('open', { target: C, tName: nm, detail: [role() === 'view' ? 'view only' : '', unseen ? 'loaded in a background tab, not looked at yet' : ''].filter(Boolean).join(' · ') }); }; setTimeout(logOpen, 150); }
   { let EDITS = [], editT = null, first = 0; const flush = () => { clearTimeout(editT); editT = null; first = 0; if (!EDITS.length) return; const L = [...new Set(EDITS)]; EDITS = [];
       let nm = ''; try { nm = window.sheetSummary().name; } catch (e) {} pgLog('edit', { target: C, tName: nm, detail: L.slice(0, 20).join(' · ') + (L.length > 20 ? ' · …' : '') }); };
     window.onSheetChange = label => { if (role() === 'view') return; EDITS.push(String(label || 'Change').replace(/^Edit: /, '')); if (!first) first = Date.now();
@@ -4864,9 +4872,9 @@ function pgRevealPanels() { try { if (matchMedia('(prefers-reduced-motion: reduc
   }
   function close(snooze) { if (snooze) try { localStorage.setItem(SNOOZE, String(Date.now() + 864e5)); } catch (e) {} if (shown) { shown.remove(); shown = null; } }
   addEventListener('message', e => { if (e.source !== window) return; const d = e.data; if (!d || d.__dnd20 !== 'hi' || d.dir !== 'toSheet' || d.version === 'mock') return;
-    const dev = d.install ? d.install === 'development' : (OLD_COPIES_ARE_DEV && older(d.version));
+    const inst = pgExtInst(d), dev = inst ? inst === 'development' : (OLD_COPIES_ARE_DEV && older(d.version));
     if (dev) { const go = () => show(d.version); document.body ? setTimeout(go, 1200) : addEventListener('DOMContentLoaded', () => setTimeout(go, 1200)); }
-    else if (shown && (!NAG || d.install === 'normal')) close(false); });
+    else if (shown && (!NAG || inst === 'normal')) close(false); });
   // ask whichever copy is installed to say hi (it already does when the page opens, but this page may have missed it)
   const ask = () => window.postMessage({ __dnd20: 'hello', dir: 'toExt' }, '*'); if (document.readyState === 'loading') addEventListener('DOMContentLoaded', ask); else ask();
   // an admin sent it by hand (Admin → Users): shown whether or not the extension says how it was installed
