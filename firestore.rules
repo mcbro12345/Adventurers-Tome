@@ -44,13 +44,25 @@ service cloud.firestore {
       && partyMgr(get(/databases/$(db)/documents/parties/$(d.party)).data)
       && (id in get(/databases/$(db)/documents/parties/$(d.party)).data.chars || id.replace('_p[0-9]+$', '') in get(/databases/$(db)/documents/parties/$(d.party)).data.chars)
       && request.resource.data.diff(d).affectedKeys().hasOnly(['data', 'savedAt', 'tab', 'n']); }
+    // A character in a party is shared with the party's DM and co-DMs (can edit), as if its player had shared it; the party
+    // remembers what it granted (pshare: added as viewer and editor, pedit: made an editor) so only that is taken back when
+    // the character leaves. A DM or co-DM may add themselves; the party's shares may be taken back by the DM, a co-DM or
+    // anyone the party shared it with. Extra pieces of a big character (<id>_p1...) and its lobby card follow the main one.
+    function isPart(id) { return id.matches('.+_p[0-9]+'); }
+    function grows(k, who) { let o = resource.data.get(k, []); let n = request.resource.data.get(k, []); return o.removeAll(n).size() == 0 && n.removeAll(o).hasOnly(who); }
+    function shrinks(k, ok) { let o = resource.data.get(k, []); let n = request.resource.data.get(k, []); return n.removeAll(o).size() == 0 && o.removeAll(n).hasOnly(ok); }
+    function shareKeysOnly() { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewers', 'editors', 'pshare', 'pedit']); }
+    function partyGrant(id, d) { return shareKeysOnly() && partyView(id, d) && grows('viewers', [me()]) && grows('editors', [me()]) && grows('pshare', [me()]) && grows('pedit', [me()]); }
+    function partyRevoke(id, d) { let given = d.get('pshare', []).concat(d.get('pedit', []));
+      return shareKeysOnly() && (partyView(id, d) || me() in given)
+        && shrinks('viewers', d.get('pshare', [])) && shrinks('editors', given) && shrinks('pshare', d.get('pshare', [])) && shrinks('pedit', d.get('pedit', [])); }
     // Everyone in the party can read a party member's saved character (to apply what they send when it isn't open).
     function partyRead(id, d) { return d.get('party', '') is string && d.get('party', '') != '' && me() in get(/databases/$(db)/documents/parties/$(d.party)).data.people
       && (id in get(/databases/$(db)/documents/parties/$(d.party)).data.chars || id.replace('_p[0-9]+$', '') in get(/databases/$(db)/documents/parties/$(d.party)).data.chars); }
     match /sheets/{id} {
       allow get: if admin() || (signedIn() && (resource == null || canSee(resource.data) || partyView(id, resource.data) || partyRead(id, resource.data)));
       allow create: if admin() || (signedIn() && idOK(id) && createOK(id));
-      allow update: if admin() || (signedIn() && (ownerWrite() || editorWrite() || leaveWrite() || partyWrite(id)));
+      allow update: if admin() || (signedIn() && (ownerWrite() || editorWrite() || leaveWrite() || partyWrite(id) || (!isPart(id) && (partyGrant(id, resource.data) || partyRevoke(id, resource.data))) || (isPart(id) && (partyGrant(id, mainOf(id)) || partyRevoke(id, mainOf(id))))));
       // only the owner (or an admin) can delete a character - never someone it's merely shared with
       allow delete: if admin() || (signedIn() && resource.data.owner == me());
       allow list: if false;
@@ -388,7 +400,8 @@ service cloud.firestore {
       match /chars/{c} {
         allow read: if admin() || (signedIn() && (resource == null || canSee(resource.data)));
         allow create: if admin() || (signedIn() && idOK(c) && request.resource.data.owner == me());
-        allow update: if admin() || (signedIn() && (ownerWrite() || editorWrite() || leaveWrite()));
+        allow update: if admin() || (signedIn() && (ownerWrite() || editorWrite() || leaveWrite()
+          || (exists(/databases/$(db)/documents/sheets/$(c)) && (partyGrant(c, get(/databases/$(db)/documents/sheets/$(c)).data) || partyRevoke(c, get(/databases/$(db)/documents/sheets/$(c)).data)))));
         allow delete: if admin() || (signedIn() && resource.data.owner == me());
       }
     }

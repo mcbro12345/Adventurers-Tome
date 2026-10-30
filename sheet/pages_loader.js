@@ -1404,17 +1404,20 @@ function wireDie(root) {
     // then the full rules wording, which only tooltips and the Spells/Features text need: once it's in, redraw so they use it
     fullTxt.then(t => { if (!t) return; const s = document.createElement('script'); s.textContent = t; document.body.appendChild(s); try { if (typeof render === 'function') render(); } catch (e) {} }); };
   const col = fs.collection('sheets'), CACHE = 'dnd-pages-cache:' + C;
-  let PUB = '', PARTY = '', PCARD0 = '', txt = null, missing = false, denied = false, OWNER = NEW ? ((IS_ADMIN && O) || EMAIL) : '', VIEWERS = [], EDITORS = [];
+  let PUB = '', PARTY = '', PCARD0 = '', txt = null, missing = false, denied = false, OWNER = NEW ? ((IS_ADMIN && O) || EMAIL) : '', VIEWERS = [], EDITORS = [], PSH = {}, PTY_SHK = null;
   if (!NEW) try {
     const sn = await col.doc(C).get();
     if (!sn.exists || !sn.data().data) missing = true;
     else {
       const d = sn.data(); let str = d.data || ''; const n = Number(d.n) || 1;
-      if (d.g && !G) G = clean(d.g); OWNER = (d.owner || '').toLowerCase(); VIEWERS = d.viewers || []; EDITORS = d.editors || []; PUB = d.pub || ''; PARTY = clean(d.party || ''); PCARD0 = d.pcard || '';
+      if (d.g && !G) G = clean(d.g); OWNER = (d.owner || '').toLowerCase(); VIEWERS = d.viewers || []; EDITORS = d.editors || []; PUB = d.pub || ''; PARTY = clean(d.party || ''); PCARD0 = d.pcard || ''; PSH = { pshare: d.pshare || [], pedit: d.pedit || [] };
       for (let k = 1; k < n; k++) { const p = await col.doc(C + '_p' + k).get(); const pd = p.exists ? p.data() : null; if (!pd || Number(pd.savedAt) !== Number(d.savedAt)) { str = null; break; } str += pd.data || ''; }
       if (str) { JSON.parse(str); txt = str; lsSet(CACHE, str); }
     }
   } catch (e) { if (e && e.code === 'permission-denied') denied = true; else console.warn('Offline — using this browser\'s copy', e); }
+  // The DM (or a co-DM) of this character's party opening it before its player has: it's shared with them now (can edit).
+  if (!NEW && !denied && PARTY && !IS_ADMIN && OWNER && OWNER !== EMAIL && !EDITORS.includes(EMAIL)) try { const ps = await fs.collection('parties').doc(PARTY).get(), pd = ps.exists ? ps.data() : null;
+    if (pd && ptyMgrsOf(pd).includes(EMAIL) && (pd.chars || []).includes(C)) { const sn = await col.doc(C).get(); if (sn.exists && (await ptyGrant(fs, C, sn.data(), [EMAIL])).length) { const f = (await col.doc(C).get()).data(); VIEWERS = f.viewers || []; EDITORS = f.editors || []; PSH = { pshare: f.pshare || [], pedit: f.pedit || [] }; } } } catch (e) { console.warn('party share', e); }
   const who = `Signed in as <b>${escH(EMAIL)}</b> · <a href="#" onclick="pgSignOut();return false">Sign out</a>`;
   if (denied) { sayStatus({ icon: 'lock', title: 'This character is private', text: 'It belongs to another player, so it can’t be opened with your account. Ask them to share it with you, or sign in with the account it was shared with.', btns: pgStBtn('Go back to the lobby', '/', true), foot: who }); return; }
   if (!txt && !NEW) txt = lsGet(CACHE);
@@ -1489,10 +1492,13 @@ function wireDie(root) {
     unPty = PCOL.doc(pid).onSnapshot(d => { const pd = d.exists ? d.data() : null;
       if (!pd || !(pd.chars || []).includes(C)) { PTY = null; PTY_CARDS = {}; ptyChanged(); try { localStorage.removeItem(PTY_LS); } catch (e) {}
         // taken out of the party (or it was deleted): this character forgets it
-        if (role() === 'owner' && PARTY === pid && Date.now() - PTY_SET > 15000) { PARTY = ''; ptySetSheetParty(fs, C, '').catch(() => {}); ptyWatch(''); }
+        if (role() === 'owner' && PARTY === pid && Date.now() - PTY_SET > 15000) { PARTY = ''; PTY_SHK = null; ptyRevokeId(fs, C, null).then(() => col.doc(C).get()).then(sn => { if (sn && sn.exists) { VIEWERS = sn.data().viewers || []; EDITORS = sn.data().editors || []; } }, () => {}); ptySetSheetParty(fs, C, '').catch(() => {}); ptyWatch(''); }
         return; }
       PTY = Object.assign({ id: pid }, pd); ptyChanged(); ptyKeep(); inboxStart(); ptyCardSoon(); chatStart(pid, pd); chatSweep();
-      if (OWNER === EMAIL && pd.dm && pd.dm !== EMAIL && !EDITORS.includes(pd.dm)) col.doc(C).get().then(sd => sd.exists && ptyShareDM(fs, C, pd.dm, sd.data())).then(ok => { if (ok) { if (!VIEWERS.includes(pd.dm)) VIEWERS = VIEWERS.concat([pd.dm]); if (!EDITORS.includes(pd.dm)) EDITORS = EDITORS.concat([pd.dm]); } }, () => {});
+      if (OWNER === EMAIL) { const want = ptyMgrsOf(pd).filter(m => m !== EMAIL), key = want.join(','); if (key !== PTY_SHK) { PTY_SHK = key;
+        col.doc(C).get().then(async sn => { if (!sn.exists) return; const sd = sn.data(), gone = (sd.pshare || []).concat(sd.pedit || []).filter(m => !want.includes(m));
+          const rm = gone.length ? await ptyRevoke(fs, C, sd, gone) : []; const sd2 = rm.length ? (await col.doc(C).get()).data() : sd; const add = await ptyGrant(fs, C, sd2, want);
+          if (rm.length || add.length) { const f = (await col.doc(C).get()).data(); VIEWERS = f.viewers || []; EDITORS = f.editors || []; } }).catch(e => console.warn('party share', e)); } }
       // the party's own homebrew list (items the DM adds, e.g. from the DM's Desk): everyone can add them from Add an item → Homebrew
       // the DM's turn order, while they have it open: shown here in its own window (players fill in their own initiative)
       if (!unPtyT) unPtyT = PCOL.doc(pid).collection('turn').doc('now').onSnapshot(d => { PTY_TURN = d.exists ? d.data() : null; pgTurnPaint(); }, () => {});
@@ -1616,8 +1622,8 @@ function wireDie(root) {
   // With a view-only link on, every save is mirrored to the public copy (pub/<link>, same layout as the sheet's own documents).
   const pubMirror = (p, v, main) => { if (!PUB) return; const k = (/part(\d+)/.exec(p) || [])[1]; fs.collection('pub').doc(main ? PUB : PUB + '_p' + k).set(Object.assign({ c: C, savedAt: Number(v.savedAt) || Date.now(), data: v.data || '' }, main ? { n: Number(v.n) || 1, v: 2, tab: String(v.tab || 'x') } : {})).catch(() => {}); };
   const db = { doc: p => { const x = docFor(p); if (!x) return none; const [r, main] = x;
-    return { get: () => r.get(), set: v => { if (role() === 'view') return Promise.reject({ code: 'permission-denied' }); v = Object.assign({}, v, { owner: OWNER, viewers: VIEWERS, editors: EDITORS }, main && G ? { g: G } : {}, main && PUB ? { pub: PUB } : {}, PARTY ? { party: PARTY } : {}, main ? { pcard: pcardNow() } : {}); if (main) WROTE = Number(v.savedAt); const w = r.set(v); if (main) w.then(() => { hubSoon(); ptyCardSoon(); }, () => {}); w.then(() => pubMirror(p, v, main), () => {}); return w; }, delete: () => r.delete(),
-      onSnapshot: (cb, err) => r.onSnapshot(s => { const d = s.exists && s.data(); if (d && d.owner) OWNER = String(d.owner).toLowerCase(); if (d) { VIEWERS = d.viewers || []; EDITORS = d.editors || []; if (main) { PUB = d.pub || ''; if (Date.now() - PTY_SET > 15000 && clean(d.party || '') !== PARTY) { PARTY = clean(d.party || ''); ptyWatch(PARTY); } } } cb(s);
+    return { get: () => r.get(), set: v => { if (role() === 'view') return Promise.reject({ code: 'permission-denied' }); v = Object.assign({}, v, { owner: OWNER, viewers: VIEWERS, editors: EDITORS }, main && G ? { g: G } : {}, main && PUB ? { pub: PUB } : {}, PARTY ? { party: PARTY } : {}, main ? Object.assign({ pcard: pcardNow() }, PSH) : {}); if (main) WROTE = Number(v.savedAt); const w = r.set(v); if (main) w.then(() => { hubSoon(); ptyCardSoon(); }, () => {}); w.then(() => pubMirror(p, v, main), () => {}); return w; }, delete: () => r.delete(),
+      onSnapshot: (cb, err) => r.onSnapshot(s => { const d = s.exists && s.data(); if (d && d.owner) OWNER = String(d.owner).toLowerCase(); if (d) { VIEWERS = d.viewers || []; EDITORS = d.editors || []; if (main) { PUB = d.pub || ''; PSH = { pshare: d.pshare || [], pedit: d.pedit || [] }; if (Date.now() - PTY_SET > 15000 && clean(d.party || '') !== PARTY) { PARTY = clean(d.party || ''); ptyWatch(PARTY); } } } cb(s);
         // Someone else's change arriving here isn't this person's edit: take it as the new starting point.
         if (main && d && Number(d.savedAt) !== WROTE) setTimeout(() => { try { if (LASTD !== null) LASTD = digest(window.sheetState()); } catch (e) {} }, 800); }, err) }; } };
   // Rolling from a phone through this character open on a computer (Settings → Dice): requests and answers pass through
@@ -3544,6 +3550,7 @@ async function ptyLeave(fs, EMAIL, pid, c, opts = {}) {
   const ref = fs.collection('parties').doc(pid), FV = firebase.firestore.FieldValue;
   let pd = null; try { const s = await ref.get(); pd = s.exists ? s.data() : null; } catch (e) {}
   if (pd && (pd.chars || []).includes(c)) {
+    await ptyRevokeId(fs, c, null);
     let owner = opts.owner || '';
     try { const cd = await ref.collection('cards').doc(c).get(); if (cd.exists) { owner = owner || cd.data().owner || ''; await cd.ref.delete(); } } catch (e) {}
     const cards = await ref.collection('cards').get().catch(() => null), others = cards ? cards.docs.filter(d => d.id !== c && d.data().owner === owner).length : 1;
@@ -3557,15 +3564,32 @@ async function ptyLeave(fs, EMAIL, pid, c, opts = {}) {
 }
 // Bring a character into a party: with the party's link (token), an email invitation, or as its DM. A character is in
 // one party at a time, so joining another moves it.
-// A character in a party is shared with its DM (can edit), as if its owner had shared it. Done by the owner's own
-// browser: when the character joins, and whenever its sheet is opened (a new DM gets it then).
-async function ptyShareDM(fs, c, dm, d) {
-  if (!dm || !d || d.owner === dm || ((d.editors || []).includes(dm) && (d.viewers || []).includes(dm))) return false;
-  const FV = firebase.firestore.FieldValue, acc = { viewers: FV.arrayUnion(dm), editors: FV.arrayUnion(dm) }, sh = fs.collection('sheets'), n = Number(d.n) || 1;
-  await sh.doc(c).update(acc); for (let k = 1; k < n; k++) await sh.doc(c + '_p' + k).update(acc).catch(() => {});
-  if (d.g) await fs.collection('groups/' + d.g + '/chars').doc(c).set(acc, { merge: true }).catch(() => {});
-  return true;
+// A character in a party is shared with its DM and co-DMs (can edit), as if its owner had shared it, and the share is
+// taken back when it leaves the party. What the party granted is remembered on the sheet (pshare: added as viewer and
+// editor; pedit: was already a viewer, made an editor) so leaving never takes away a share the player made themselves.
+// Done by whoever is at hand: the owner's browser (joining, leaving, opening the sheet), or the DM's (opening the party
+// page or the sheet gives them their own share; removing a character takes the party's shares back).
+function ptyMgrsOf(pd) { return pd ? [...new Set([pd.dm].concat(pd.mgrs || []).filter(Boolean))] : []; }
+async function ptyAccess(fs, c, d, upd) {
+  const sh = fs.collection('sheets'), n = Number(d.n) || 1, acc = {}; if (upd.viewers) acc.viewers = upd.viewers; acc.editors = upd.editors;
+  for (let k = 1; k < n; k++) await sh.doc(c + '_p' + k).update(acc).catch(() => {});
+  if (d.g) await fs.collection("groups/" + d.g + "/chars").doc(c).update(acc).catch(() => {});
+  await sh.doc(c).update(upd);
 }
+async function ptyGrant(fs, c, d, who) {
+  if (!d) return []; const V = d.viewers || [], E = d.editors || [];
+  const add = (who || []).filter(m => m && m !== d.owner && !E.includes(m)); if (!add.length) return [];
+  const FV = firebase.firestore.FieldValue, full = add.filter(m => !V.includes(m)), up = add.filter(m => V.includes(m));
+  const upd = { viewers: FV.arrayUnion(...add), editors: FV.arrayUnion(...add) }; if (full.length) upd.pshare = FV.arrayUnion(...full); if (up.length) upd.pedit = FV.arrayUnion(...up);
+  await ptyAccess(fs, c, d, upd); return add;
+}
+// who: the people to take back (only shares the party made are ever taken); null = all of them
+async function ptyRevoke(fs, c, d, who) {
+  if (!d) return []; const ps = (d.pshare || []).filter(m => !who || who.includes(m)), pe = (d.pedit || []).filter(m => !who || who.includes(m)); if (!ps.length && !pe.length) return [];
+  const FV = firebase.firestore.FieldValue, upd = { editors: FV.arrayRemove(...ps, ...pe) }; if (ps.length) { upd.viewers = FV.arrayRemove(...ps); upd.pshare = FV.arrayRemove(...ps); } if (pe.length) upd.pedit = FV.arrayRemove(...pe);
+  await ptyAccess(fs, c, d, upd); return ps.concat(pe);
+}
+async function ptyRevokeId(fs, c, who) { try { const s = await fs.collection('sheets').doc(c).get(); if (s.exists) return await ptyRevoke(fs, c, s.data(), who); } catch (e) { console.warn('unshare', e); } return []; }
 async function ptyJoin(fs, EMAIL, pid, c, token, card) {
   const ref = fs.collection('parties').doc(pid), FV = firebase.firestore.FieldValue;
   const s0 = await fs.collection('sheets').doc(c).get(); const old = s0.exists ? s0.data().party || '' : '';
@@ -3579,7 +3603,7 @@ async function ptyJoin(fs, EMAIL, pid, c, token, card) {
   else await ref.update(jv);
   await ptySetSheetParty(fs, c, pid);
   if (card) await ref.collection('cards').doc(c).set(Object.assign({ owner: EMAIL, at: Date.now() }, card), { merge: true }).catch(() => {});
-  try { const pd = await ref.get(), sd = await fs.collection('sheets').doc(c).get(); if (pd.exists && sd.exists && sd.data().owner === EMAIL) await ptyShareDM(fs, c, pd.data().dm, sd.data()); } catch (e) {}
+  try { const pd = await ref.get(), sd = await fs.collection('sheets').doc(c).get(); if (pd.exists && sd.exists && sd.data().owner === EMAIL) await ptyGrant(fs, c, sd.data(), ptyMgrsOf(pd.data())); } catch (e) {}
 }
 // ----- What's sent between party members -----
 // Each thing sent has its own id (ref). The character's open sheet picks it up and applies it; when nobody has that sheet
@@ -3890,7 +3914,7 @@ function partyModule(H) {
     PID = id;
     unP = PC.doc(id).onSnapshot(d => { PLOADED = true; PLIVE = true; P = d.exists ? Object.assign({ id: d.id }, d.data()) : null;
         if (P) { document.title = (P.name || 'Party') + ' — Adventurer’s Tome'; if (PRETTY && location.pathname !== URLS.party(P.id, P.name)) history.replaceState(null, '', URLS.party(P.id, P.name)); }
-        paint(); partyKeep(); },
+        paint(); partyKeep(); grantMine(P); },
       () => { PLOADED = true; P = null; try { localStorage.removeItem(PKEY(id)); if (window.PG_DMPARTY_KEY) localStorage.removeItem(window.PG_DMPARTY_KEY); } catch (e) {} if (window.PG_DESKED && !LEAVING) { location.reload(); return; } if (LEAVING) return; shell({ title: '', bare: true, stat: true, body: note('party', 'You’re not in this party', 'Only its players and DM can open it. If you were invited, the invitation is on your Parties tab.', goHub) }); });
     unC = PC.doc(id).collection('cards').onSnapshot(qs => { CARDS = {}; qs.docs.forEach(d => CARDS[d.id] = d.data()); CLOADED = true; paint(); partyKeep(); cardAccFix(id); }, () => { CLOADED = true; paint(); });
   }
@@ -3983,8 +4007,13 @@ function partyModule(H) {
   // cards change the moment a player's sheet does, open or not. Whichever is newer wins: the sheet, or its party card
   // (which is also updated when something sent to a closed sheet is applied).
   const LIVE = {}, unS = {}; let liveT = null;
+  // The DM or a co-DM looking at their party: every character in it is shared with them (can edit) if it isn't yet.
+  const GRANTED = {};
+  function grantMine(p) { if (!p || !canRun(p)) return; (p.chars || []).forEach(id => { if (GRANTED[id]) return; GRANTED[id] = 1;
+    fs.collection('sheets').doc(id).get().then(sn => { const d = sn.exists ? sn.data() : null; if (d && d.party === p.id && d.owner !== EMAIL && !(d.editors || []).includes(EMAIL)) return ptyGrant(fs, id, d, [EMAIL]); }).catch(e => console.warn('party share', e)); }); }
   function watchSheets(ids) {
-    ids.forEach(id => { if (unS[id]) return; unS[id] = fs.collection('sheets').doc(id).onSnapshot(async sn => { const d = sn.exists ? sn.data() : null, l = d && await sheetLive(fs, id, d); if (!l) return;
+    ids.forEach(id => { if (unS[id]) return; unS[id] = fs.collection('sheets').doc(id).onSnapshot(async sn => { const d = sn.exists ? sn.data() : null;
+      const l = d && await sheetLive(fs, id, d); if (!l) return;
       const same = JSON.stringify(LIVE[id]) === JSON.stringify(l); LIVE[id] = l; if (!same) { clearTimeout(liveT); liveT = setTimeout(paint, 150); partyKeep(); } }, () => {}); });
     Object.keys(unS).forEach(id => { if (!ids.includes(id)) { unS[id](); delete unS[id]; delete LIVE[id]; } });
   }
@@ -4277,7 +4306,8 @@ function partyModule(H) {
     modal.querySelector('#dm-f').onsubmit = async e => { e.preventDefault(); const em = modal.querySelector('#dm-e').value.trim().toLowerCase();
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) { toast('Type an email address.'); return; }
       const nm = H.nameOf(em) === em ? '' : H.nameOf(em);
-      try { await PC.doc(p.id).update({ dm: em, dmName: nm, people: FV.arrayUnion(em), mgrs: [], updatedAt: Date.now() });
+      try { const oldM = ptyMgrsOf(p); await PC.doc(p.id).update({ dm: em, dmName: nm, people: FV.arrayUnion(em), mgrs: [], updatedAt: Date.now() });
+        for (const c of p.chars || []) { await ptyRevokeId(fs, c, oldM.filter(m => m !== em)); try { const sn = await fs.collection('sheets').doc(c).get(); if (sn.exists && sn.data().party === p.id) await ptyGrant(fs, c, sn.data(), [em]); } catch (x) {} }
         invSync(Object.assign({}, p, { dm: em, dmName: nm }));
         pgLog('party_dm', { target: p.id, tName: p.name, detail: 'DM is now ' + em }); close(); toast((nm || em) + ' is now the DM of ' + (p.name || 'the party') + '.'); } catch (x) { fail(x, 'change the DM'); } };
   }
@@ -4294,11 +4324,13 @@ function partyModule(H) {
         if (em === p.dm) { toast((H.nameOf(em) || em) + ' is already the DM.'); return; }
         if ((p.mgrs || []).includes(em)) { toast((H.nameOf(em) || em) + ' is already a co-DM.'); return; }
         try { await PC.doc(p.id).update({ mgrs: FV.arrayUnion(em), people: FV.arrayUnion(em), invited: FV.arrayRemove(em), updatedAt: Date.now() }); p.mgrs = (p.mgrs || []).concat(em);
+          for (const c of p.chars || []) { try { const sn = await fs.collection('sheets').doc(c).get(); if (sn.exists && sn.data().party === p.id) await ptyGrant(fs, c, sn.data(), [em]); } catch (x) {} }
           pgLog('party_codm', { target: p.id, tName: p.name, detail: 'made ' + em + ' a co-DM' }); pgDeskShare(fs, p.dm, true); toast((H.nameOf(em) === em ? em : H.nameOf(em)) + ' is now a co-DM of ' + (p.name || 'the party') + '.'); draw(); } catch (x) { fail(x, 'add the co-DM'); } };
       modal.querySelectorAll('.cdm-rm').forEach(b => b.onclick = async () => { const em = b.dataset.em; b.disabled = true;
         // (they stay in the party's list only if they also play a character in it)
         let plays = false; try { const cs = await PC.doc(p.id).collection('cards').get(); plays = cs.docs.some(d => d.data().owner === em); } catch (x) {}
         try { await PC.doc(p.id).update(Object.assign({ mgrs: FV.arrayRemove(em), updatedAt: Date.now() }, plays ? {} : { people: FV.arrayRemove(em) })); p.mgrs = (p.mgrs || []).filter(x => x !== em);
+          if (em !== p.dm) for (const c of p.chars || []) await ptyRevokeId(fs, c, [em]);
           pgLog('party_codm', { target: p.id, tName: p.name, detail: 'took ' + em + ' off as co-DM' }); pgDeskShare(fs, p.dm, true); toast((H.nameOf(em) === em ? em : H.nameOf(em)) + ' is no longer a co-DM.'); draw(); } catch (x) { b.disabled = false; fail(x, 'remove the co-DM'); } }); };
     draw();
   }
@@ -4309,6 +4341,7 @@ function partyModule(H) {
     confirmBox(`Delete ${esc(p.name || 'this party')}?`, 'The party is gone for everyone in it. The characters aren’t deleted — they just aren’t in a party anymore.', 'Delete party', async () => {
       const ref = PC.doc(p.id), cs = await ref.collection('cards').get().catch(() => null);
       if (cs) for (const d of cs.docs) await d.ref.delete().catch(() => {});
+      for (const c of p.chars || []) await ptyRevokeId(fs, c, null); // the party's shares go with it
       if (IS_ADMIN) for (const c of p.chars || []) await ptySetSheetParty(fs, c, '').catch(() => {});
       if (p.inv) await IC.doc(p.inv).delete().catch(() => {});
       await ref.delete(); pgLog('party_delete', { target: p.id, tName: p.name }); toast((p.name || 'The party') + ' was deleted.'); if (after) after(); });
@@ -4444,7 +4477,7 @@ function partyModule(H) {
             await PC.doc(p.id).update({ chars: FV.arrayUnion(c.id), people: FV.arrayUnion(c.owner), invited: FV.arrayRemove(c.owner), updatedAt: Date.now() });
             await PC.doc(p.id).collection('cards').doc(c.id).set(Object.assign({ owner: c.owner, name: c.name || '', race: c.race || '', cls: c.cls || '', level: c.level || 0, thumb: c.thumb || '', player: H.nameOf(c.owner || ''), path: c.path || '' }, pc || {}, { at: Date.now() }), { merge: true }).catch(() => {});
             await ptySetSheetParty(fs, c.id, p.id).catch(() => {});
-            await ptyShareDM(fs, c.id, p.dm, Object.assign({ g: G }, sd)).catch(() => {});
+            await ptyGrant(fs, c.id, Object.assign({ g: G }, sd), ptyMgrsOf(p)).catch(() => {});
             p.chars = (p.chars || []).concat([c.id]); g.textContent = 'Added'; pgLog('party_add', { target: p.id, tName: p.name, detail: c.name || c.id }); }
           catch (x) { b.disabled = false; g.textContent = 'Add'; fail(x, 'add it'); } }); } catch (x) { l.innerHTML = '<p class="hub-hint">Couldn’t search: ' + esc(x.message || x) + '</p>'; } };
     q.oninput = () => { clearTimeout(t); t = setTimeout(show, 200); }; show(); setTimeout(() => q.focus(), 30);
