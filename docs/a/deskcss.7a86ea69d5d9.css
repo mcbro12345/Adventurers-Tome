@@ -444,7 +444,7 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
 .dk-meter i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 99px; background: linear-gradient(90deg, #3fa66b, #2f6ca8, #c9962b, #c9503b); background-size: 400px 100%; opacity: .9; transition: width .3s; }
 .dk-meter em { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--ink); opacity: .35; border-radius: 2px; }
 .dk-elines { display: grid; gap: 6px; }
-.dk-eline { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 10px; align-items: center; border: 1px solid var(--line2); border-radius: 12px; padding: 8px 10px; background: var(--card2); }
+.dk-eline { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto auto; gap: 10px; align-items: center; border: 1px solid var(--line2); border-radius: 12px; padding: 8px 10px; background: var(--card2); }
 .dk-eline.locked { border-color: var(--gold); }
 .dk-eln { display: grid; min-width: 0; } .dk-eln .dk-link { font-size: 1rem; text-align: left; text-decoration: none; color: var(--ink); } @media (hover: hover) { .dk-eln .dk-link:hover { color: var(--gold-ink); text-decoration: underline; } }
 .dk-eln small { color: var(--soft); font-size: .76rem; }
@@ -506,7 +506,7 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
 .dk-aistat { flex-basis: 100%; }
 @media (max-width: 1100px) { .dk-gengrid, .dk-plan { grid-template-columns: minmax(0, 1fr); } .dk-genin, .dk-pnotes { position: static; max-height: none; overflow: visible; } }
 @media (max-width: 640px) {
-  .dk-eline { grid-template-columns: auto minmax(0, 1fr) auto; } .dk-eline > .dk-btn { grid-column: 2 / -1; justify-self: start; }
+  .dk-eline { grid-template-columns: auto auto minmax(0, 1fr) auto; row-gap: 6px; } .dk-eline > .dk-lockb, .dk-eline > .dk-tok { grid-row: span 2; } .dk-eline > .dk-eln { grid-column: 3 / -1; } .dk-eline > .dk-elc { grid-column: 3; } .dk-eline > .dk-btn { grid-column: 4; }
   .dk-slist, .dk-ncards { grid-template-columns: minmax(0, 1fr); }
   .dk-tabs button span { font-size: .84rem; } .dk-tabs button { padding: 7px 8px; gap: 5px; }
   .dk-svtabs .dk-seg2 { width: 100%; } .dk-svtabs .dk-seg2 button { flex: 1; }
@@ -1346,6 +1346,26 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
   .dk .dk-tools > button, .dk .dk-tools > a { min-width: 40px; width: 40px; height: 40px; min-height: 40px; padding: 0; display: grid; place-items: center; }
   .dk .dk-tools .dk-tl { display: none; }
 }
+/* Phones: the logo and title take the left side, top to bottom; your picture sits top right with the buttons,
+   a little smaller, underneath it */
+@media (max-width: 640px) {
+  .dk .dk-top { display: grid !important; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; align-items: center; column-gap: 10px; row-gap: 8px; }
+  .dk .dk-bcol { grid-row: 1 / span 2; grid-column: 1; align-self: center; min-width: 0; margin: 0; }
+  .dk .dk-brand { gap: 10px; margin: 0; }
+  .dk .dk-logo .hl-d20, .dk .dk-brand > svg { width: 64px !important; height: 64px !important; }
+  .dk .dk-brand { gap: 10px !important; }
+  .dk .dk-brand h1 { font-size: 1.6rem !important; white-space: normal; line-height: 1.02; }
+  .dk .dk-tools { grid-row: 2; grid-column: 2; justify-self: end; flex: none; gap: 3px; position: static; }
+  .dk:not(.dk-lite) .dk-bcol { grid-row: 1; }
+  .dk:not(.dk-lite) .dk-tools { grid-column: 1 / -1; }  /* (the full Desk has more buttons: they get the whole row) */
+  .dk .dk-tools > button, .dk .dk-tools > a, .dk .dk-tools .dk-histb > button { min-width: 31px; width: 31px; height: 31px; min-height: 31px; border-radius: 9px; }
+  .dk .dk-tools svg { width: 16px; height: 16px; }
+  .dk .dk-tools .dk-histb { gap: 3px; }
+  .dk .dk-tools > .dk-acct { position: absolute; top: calc(16px + env(safe-area-inset-top)); right: 22px; width: 44px; height: 44px; min-width: 44px; min-height: 44px; border-radius: 50%; }
+  .dk .dk-top::after { content: none; }
+  .dk .dk-top { grid-template-rows: 44px auto; }
+}
+@media (max-width: 360px) { .dk .dk-logo .hl-d20, .dk .dk-brand > svg { width: 50px !important; height: 50px !important; } .dk .dk-brand h1 { font-size: 1.3rem !important; } .dk .dk-tools > button, .dk .dk-tools .dk-histb > button { min-width: 28px; width: 28px; height: 28px; min-height: 28px; } }
 /* Phones, a party you run: just the party page, the roller and turn order, and a way into the full Desk */
 .dk.dk-lite .dk-tabs, .dk.dk-lite .dk-tools [data-act=log], .dk.dk-lite .dk-tools [data-act=settings], .dk.dk-lite .dk-tools [data-act=bugreport] { display: none !important; }
 .dk.dk-lite { padding-bottom: 24px !important; }
@@ -1627,3 +1647,53 @@ html[data-pgtheme="light"] .dk-acct.lit::before, html[data-pgtheme="light"] .dk-
 .dk-rcard .rc-dmg { grid-column: 3; align-self: stretch; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-width: 76px; padding-left: 18px; border-left: 1px solid var(--line); }
 .dk-rcard .rc-dmg b { font: 700 2.6rem/1 Georgia, "Times New Roman", serif; color: var(--ink); }
 @media (max-width: 640px) { .dk-rcard .rc-dmg { min-width: 60px; padding-left: 14px; } .dk-rcard .rc-dmg b { font-size: 2.1rem; } }
+
+/* Right-click (or long-press) menus: an icon before each item */
+.dk-ctx .dk-mlist button { display: flex; align-items: center; gap: 10px; }
+.dk-ctx .dk-mlist button .dk-ci { width: 16px; height: 16px; flex: none; opacity: .75; }
+.dk-ctx .dk-mlist button.red .dk-ci { opacity: 1; }
+.dk-ctx .dk-mlist button { line-height: 1.3; }
+.dk-ctx .dk-mlist button > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.3; padding-block: 2px; text-box: normal; }
+.dk-ctx .dk-ctxh > svg { width: 18px; height: 18px; flex: none; color: var(--gold); }
+.dk-rail .dk-tc, .dk-rail .dk-tsn, .dk-ntrow { -webkit-touch-callout: none; }
+
+/* Tokens tab: the token maker */
+.dk-tok-tool { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 14px; align-items: start; max-width: 1100px; margin: 0 auto; width: 100%; }
+.dk-tkstage, .dk-tkctl { display: grid; gap: 14px; min-width: 0; }
+.dk-tkstage h2 { margin: 0; }
+.dk-tkbox { position: relative; width: min(100%, 420px); aspect-ratio: 1; margin: 0 auto; border-radius: 50%;
+  background: repeating-conic-gradient(rgba(255,255,255,.05) 0 25%, transparent 0 50%) 0 0 / 22px 22px; transition: border-radius .2s ease; }
+.dk-tkbox.sq { border-radius: 9%; }
+.dk-tkbox canvas { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; border-radius: inherit; outline: none; }
+.dk-tkbox canvas.drag { cursor: grabbing; }
+.dk-tkbox canvas:focus-visible { box-shadow: 0 0 0 3px var(--gold); }
+.dk-tkdrop { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; width: 100%; border: 2px dashed var(--line); border-radius: inherit; background: none; color: var(--soft); font: inherit; cursor: pointer; transition: border-color .15s, color .15s, background .15s; }
+.dk .dk-tkdrop svg { width: 46px !important; height: 46px !important; color: var(--gold); margin-bottom: 4px; }
+.dk-tkdrop b { color: var(--ink, inherit); font-size: 1.05rem; }
+.dk-tkdrop span { font-size: .85rem; }
+@media (hover: hover) { .dk-tkdrop:hover { border-color: var(--gold); color: var(--gold); } }
+.dk-tkbox.over .dk-tkdrop, .dk-tkbox.over { border-color: var(--gold); background-color: rgba(201,150,43,.08); }
+.dk-tkzoom { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; }
+.dk-tkzoom .dk-lbl { margin: 0; }
+.dk-tkstage .dk-hint { margin: -6px 0 0; text-align: center; }
+.dk-tok-tool input[type=range] { width: 100%; accent-color: var(--gold); min-width: 0; }
+.dk-tkrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.dk-tkrow input[type=range] { flex: 1 1 140px; }
+.dk-tkrow output { min-width: 3.4em; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--soft); }
+.dk-tksws { display: flex; flex-wrap: wrap; gap: 8px; }
+.dk-tksw { position: relative; width: 34px; height: 34px; border-radius: 50%; border: 0; padding: 0; background: var(--c); cursor: pointer; flex: none;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.18), inset 0 -6px 10px rgba(0,0,0,.25); transition: transform .12s ease, box-shadow .12s ease; }
+.dk-tksw.on { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--gold), inset 0 -6px 10px rgba(0,0,0,.25); }
+@media (hover: hover) { .dk-tksw:hover { transform: scale(1.08); } }
+.dk-tkcus { background: conic-gradient(#e0533d, #e8c33a, #4bb35f, #3b8fd6, #8d5ad6, #e0533d); overflow: hidden; display: grid; place-items: center; }
+.dk-tkcus.on::after { content: ''; position: absolute; inset: 7px; border-radius: 50%; background: var(--c); box-shadow: 0 0 0 2px rgba(0,0,0,.25); }
+.dk-tkcus input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; border: 0; padding: 0; }
+.dk-tkseg { width: 100%; }
+.dk-tkseg button { flex: 1; }
+.dk-tkctl .dk-lbl { display: block; margin-bottom: 8px; }
+.dk-tkctl .dk-chk { display: inline-flex; align-items: center; gap: 8px; }
+.dk-tkctl .dk-btn.big svg { width: 18px; height: 18px; }
+@media (max-width: 900px) { .dk-tok-tool { grid-template-columns: minmax(0, 1fr); } .dk-tkbox { width: min(100%, 360px); } }
+/* six tabs: share the row evenly; on narrow windows the icon sits above the label */
+@media (min-width: 641px) and (max-width: 1260px) { .dk .dk-tabs button { flex: 1 1 0; min-width: 0; padding-left: 6px; padding-right: 6px; } }
+@media (min-width: 641px) and (max-width: 860px) { .dk .dk-tabs button { flex-direction: column; gap: 5px; padding-top: 8px !important; padding-bottom: 8px !important; } .dk .dk-tabs button span { font-size: .8rem; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.25; text-box: normal; padding-bottom: 1px; } }

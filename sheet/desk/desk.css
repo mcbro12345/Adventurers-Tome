@@ -1652,6 +1652,48 @@ html[data-pgtheme="light"] .dk-acct.lit::before, html[data-pgtheme="light"] .dk-
 .dk-ctx .dk-mlist button { display: flex; align-items: center; gap: 10px; }
 .dk-ctx .dk-mlist button .dk-ci { width: 16px; height: 16px; flex: none; opacity: .75; }
 .dk-ctx .dk-mlist button.red .dk-ci { opacity: 1; }
-.dk-ctx .dk-mlist button > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dk-ctx .dk-mlist button { line-height: 1.3; }
+.dk-ctx .dk-mlist button > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.3; padding-block: 2px; text-box: normal; }
 .dk-ctx .dk-ctxh > svg { width: 18px; height: 18px; flex: none; color: var(--gold); }
 .dk-rail .dk-tc, .dk-rail .dk-tsn, .dk-ntrow { -webkit-touch-callout: none; }
+
+/* Tokens tab: the token maker */
+.dk-tok-tool { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 14px; align-items: start; max-width: 1100px; margin: 0 auto; width: 100%; }
+.dk-tkstage, .dk-tkctl { display: grid; gap: 14px; min-width: 0; }
+.dk-tkstage h2 { margin: 0; }
+.dk-tkbox { position: relative; width: min(100%, 420px); aspect-ratio: 1; margin: 0 auto; border-radius: 50%;
+  background: repeating-conic-gradient(rgba(255,255,255,.05) 0 25%, transparent 0 50%) 0 0 / 22px 22px; transition: border-radius .2s ease; }
+.dk-tkbox.sq { border-radius: 9%; }
+.dk-tkbox canvas { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; border-radius: inherit; outline: none; }
+.dk-tkbox canvas.drag { cursor: grabbing; }
+.dk-tkbox canvas:focus-visible { box-shadow: 0 0 0 3px var(--gold); }
+.dk-tkdrop { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; width: 100%; border: 2px dashed var(--line); border-radius: inherit; background: none; color: var(--soft); font: inherit; cursor: pointer; transition: border-color .15s, color .15s, background .15s; }
+.dk .dk-tkdrop svg { width: 46px !important; height: 46px !important; color: var(--gold); margin-bottom: 4px; }
+.dk-tkdrop b { color: var(--ink, inherit); font-size: 1.05rem; }
+.dk-tkdrop span { font-size: .85rem; }
+@media (hover: hover) { .dk-tkdrop:hover { border-color: var(--gold); color: var(--gold); } }
+.dk-tkbox.over .dk-tkdrop, .dk-tkbox.over { border-color: var(--gold); background-color: rgba(201,150,43,.08); }
+.dk-tkzoom { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; }
+.dk-tkzoom .dk-lbl { margin: 0; }
+.dk-tkstage .dk-hint { margin: -6px 0 0; text-align: center; }
+.dk-tok-tool input[type=range] { width: 100%; accent-color: var(--gold); min-width: 0; }
+.dk-tkrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.dk-tkrow input[type=range] { flex: 1 1 140px; }
+.dk-tkrow output { min-width: 3.4em; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--soft); }
+.dk-tksws { display: flex; flex-wrap: wrap; gap: 8px; }
+.dk-tksw { position: relative; width: 34px; height: 34px; border-radius: 50%; border: 0; padding: 0; background: var(--c); cursor: pointer; flex: none;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.18), inset 0 -6px 10px rgba(0,0,0,.25); transition: transform .12s ease, box-shadow .12s ease; }
+.dk-tksw.on { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--gold), inset 0 -6px 10px rgba(0,0,0,.25); }
+@media (hover: hover) { .dk-tksw:hover { transform: scale(1.08); } }
+.dk-tkcus { background: conic-gradient(#e0533d, #e8c33a, #4bb35f, #3b8fd6, #8d5ad6, #e0533d); overflow: hidden; display: grid; place-items: center; }
+.dk-tkcus.on::after { content: ''; position: absolute; inset: 7px; border-radius: 50%; background: var(--c); box-shadow: 0 0 0 2px rgba(0,0,0,.25); }
+.dk-tkcus input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; border: 0; padding: 0; }
+.dk-tkseg { width: 100%; }
+.dk-tkseg button { flex: 1; }
+.dk-tkctl .dk-lbl { display: block; margin-bottom: 8px; }
+.dk-tkctl .dk-chk { display: inline-flex; align-items: center; gap: 8px; }
+.dk-tkctl .dk-btn.big svg { width: 18px; height: 18px; }
+@media (max-width: 900px) { .dk-tok-tool { grid-template-columns: minmax(0, 1fr); } .dk-tkbox { width: min(100%, 360px); } }
+/* six tabs: share the row evenly; on narrow windows the icon sits above the label */
+@media (min-width: 641px) and (max-width: 1260px) { .dk .dk-tabs button { flex: 1 1 0; min-width: 0; padding-left: 6px; padding-right: 6px; } }
+@media (min-width: 641px) and (max-width: 860px) { .dk .dk-tabs button { flex-direction: column; gap: 5px; padding-top: 8px !important; padding-bottom: 8px !important; } .dk .dk-tabs button span { font-size: .8rem; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.25; text-box: normal; padding-bottom: 1px; } }

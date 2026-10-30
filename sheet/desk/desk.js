@@ -33,6 +33,7 @@ const SPI = {}; DATA.spells.forEach(s => { SPI[s.n.toLowerCase()] = s; });
 const SRD = {}; DATA.monsters.forEach(m => { SRD[m.id] = m; });
 const ordinal = n => n + (n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th');
 const ICON = {
+  token: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><circle cx="12" cy="12" r="6"/><path d="M9.3 14.6a3.4 3.4 0 0 1 5.4 0"/><circle cx="12" cy="10.6" r="1.4"/></svg>',
   undo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>',
   redo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg>',
   hist: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>',
@@ -1321,7 +1322,7 @@ function topHTML() {
   const b = CTX.back, p = CTX.party;
   return `
     <div class="dk-bcol"><div class="dk-brand">${CTX.logo && typeof CTX.logo.html === 'function' ? `<span class="dk-logo">${CTX.logo.html()}</span>` : '<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M20 2 36 11v18L20 38 4 29V11z" fill="none" stroke="currentColor" stroke-width="2.6"/><path d="M20 2v36M4 11l32 18M36 11 4 29" stroke="currentColor" stroke-width="1.2" opacity=".55"/></svg>'}<div><small>${p ? esc(p.name || 'Your party') : 'Adventurer’s Tome'}</small><h1>DM’s Desk</h1></div></div></div>
-    <nav class="dk-tabs" role="tablist">${CTX.partyHost ? `<button role="tab" data-act="tab" data-tab="party" aria-selected="${UI.tab === 'party'}" class="${UI.tab === 'party' ? 'on' : ''}">${ICO_PARTY}<span>Party</span></button>` : ''}<button role="tab" data-act="tab" data-tab="sessions" aria-selected="${UI.tab === 'sessions'}" class="${UI.tab === 'sessions' ? 'on' : ''}">${ICON.folder}<span>Sessions</span></button><button role="tab" data-act="tab" data-tab="notes" aria-selected="${UI.tab === 'notes'}" class="${UI.tab === 'notes' ? 'on' : ''}">${ICON.notes}<span>Notes</span></button><button role="tab" data-act="tab" data-tab="bestiary" aria-selected="${UI.tab === 'bestiary'}" class="${UI.tab === 'bestiary' ? 'on' : ''}">${ICON.book}<span>Bestiary</span></button><button role="tab" data-act="tab" data-tab="gen" aria-selected="${UI.tab === 'gen'}" class="${UI.tab === 'gen' ? 'on' : ''}">${ICON.dice}<span>Generate</span></button></nav>
+    <nav class="dk-tabs" role="tablist">${CTX.partyHost ? `<button role="tab" data-act="tab" data-tab="party" aria-selected="${UI.tab === 'party'}" class="${UI.tab === 'party' ? 'on' : ''}">${ICO_PARTY}<span>Party</span></button>` : ''}<button role="tab" data-act="tab" data-tab="sessions" aria-selected="${UI.tab === 'sessions'}" class="${UI.tab === 'sessions' ? 'on' : ''}">${ICON.folder}<span>Sessions</span></button><button role="tab" data-act="tab" data-tab="notes" aria-selected="${UI.tab === 'notes'}" class="${UI.tab === 'notes' ? 'on' : ''}">${ICON.notes}<span>Notes</span></button><button role="tab" data-act="tab" data-tab="bestiary" aria-selected="${UI.tab === 'bestiary'}" class="${UI.tab === 'bestiary' ? 'on' : ''}">${ICON.book}<span>Bestiary</span></button><button role="tab" data-act="tab" data-tab="gen" aria-selected="${UI.tab === 'gen'}" class="${UI.tab === 'gen' ? 'on' : ''}">${ICON.dice}<span>Generate</span></button><button role="tab" data-act="tab" data-tab="tokens" aria-selected="${UI.tab === 'tokens'}" class="${UI.tab === 'tokens' ? 'on' : ''}">${ICON.token}<span>Tokens</span></button></nav>
     <div class="dk-tools"><span class="dk-sync${/couldn|offline|retry/i.test(syncMsg) ? ' bad' : ''}${/…/.test(syncMsg) ? ' busy' : ''}" title="${esc(syncMsg)}">${esc(syncMsg)}</span>
       <span class="dk-histb"><button class="dk-tb" data-act="dundo" aria-label="Undo">${ICON.undo}</button><button class="dk-tb" data-act="dredo" aria-label="Redo">${ICON.redo}</button><button class="dk-tb" data-act="dhistory" title="Change history" aria-label="Change history">${ICON.hist}</button></span>
       ${p && typeof CTX.turnOrder === 'function' ? `<button class="dk-tb dk-tobtn" data-act="turnorder" title="Turn order" aria-label="Turn order">${ICON.init}</button>` : ''}<button class="dk-tb" data-act="diceroller" title="Dice roller" aria-pressed="${!!$('.drwin:not(.closing)')}">${ICON.dice}<span class="dk-tl">Roll</span></button>
@@ -1352,13 +1353,14 @@ function paint0(pg) {
   const slot = ROOT.querySelector('.dk-partyslot'), inParty = UI.tab === 'party' && !!slot;
   if (slot) slot.hidden = !inParty; pg.hidden = inParty; ROOT.classList.toggle('dk-onparty', inParty);
   if (inParty) { pg.innerHTML = ''; try { animView(pg); } catch (e) {} return; }
-  pg.innerHTML = UI.tab === 'bestiary' ? bestiaryHTML() : UI.tab === 'gen' ? genHTML() : UI.tab === 'notes' ? notesHTML() : sessionsHTML();
+  pg.innerHTML = UI.tab === 'bestiary' ? bestiaryHTML() : UI.tab === 'gen' ? genHTML() : UI.tab === 'tokens' ? tokensHTML() : UI.tab === 'notes' ? notesHTML() : sessionsHTML();
   if (edA) { const ed = document.getElementById(edA.id); if (ed) { ed.focus({ preventScroll: true }); if (edA.off >= 0) setCaretOffset(ed, edA.off); } }
   try { notesAfterPaint(); } catch (e) { console.warn(e); }
+  if (UI.tab === 'tokens') try { tkMount(); } catch (e) { console.warn(e); }
   $$('[data-keep]').forEach(el => { if (keep[el.dataset.keep]) el.scrollTop = keep[el.dataset.keep]; });
   if (fid) { const el = document.getElementById(fid); if (el && el !== document.activeElement) { if (val != null && el.tagName === a.tagName && el.value !== val) el.value = val; el.focus({ preventScroll: true }); if (sel) try { el.setSelectionRange(sel[0], sel[1]); } catch (e) {} } }
   if (Math.abs(scrollY - y) > 2) scrollTo(scrollX, y);
-  ROOT.classList.toggle('dk-tree-open', !!UI.tree); if (ROOT.dataset.tab !== (UI.tab || '') && ['notes', 'sessions', 'bestiary', 'gen'].includes(UI.tab) && innerWidth > 900) scrollTo(0, 0); ROOT.dataset.tab = UI.tab || '';
+  ROOT.classList.toggle('dk-tree-open', !!UI.tree); if (ROOT.dataset.tab !== (UI.tab || '') && ['notes', 'sessions', 'bestiary', 'gen', 'tokens'].includes(UI.tab) && innerWidth > 900) scrollTo(0, 0); ROOT.dataset.tab = UI.tab || '';
   try { pills(); animView(pg); } catch (e) {}
   try { requestAnimationFrame(shadeAll); } catch (e) {}
 }
@@ -1567,13 +1569,13 @@ function paintLog() { logRefresh();
   box.innerHTML = LOG.length ? LOG.map(e => e.note ? `<div class="dk-lg note">${esc(e.note)}</div>` : `<div class="dk-lg ${e.cls || ''}"><div><b>${esc(e.who ? e.who + ' · ' : '')}</b>${esc(e.label)} ${e.src === 'roll20' ? '<span class="dk-tag20">Roll20</span>' : ''}</div><div class="dk-lt">${esc(e.total)}</div><div class="dk-ld">${esc(e.detail || '')} · ${new Date(e.t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</div></div>`).join('') : '<p class="dk-hint">Rolls show up here.</p>';
 }
 // ----- Motion: a sliding highlight under the selected tab, and the page gliding in from the side it's coming from -----
-const PILL = {}, TABORD = ['party', 'sessions', 'notes', 'bestiary', 'gen'];
+const PILL = {}, TABORD = ['party', 'sessions', 'notes', 'bestiary', 'gen', 'tokens'];
 let LASTV = null;
 const calm = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
 function pills() {
   try { deskPill(); } catch (e) {}
   $$('.dk-tabs, .dk-seg2').forEach(g => {
-    const key = g.classList.contains('dk-tabs') ? 'tabs' : g.closest('.dk-gen') ? 'gen' : 'sv', on = g.querySelector(':scope > button.on');
+    const key = g.dataset.pk || (g.classList.contains('dk-tabs') ? 'tabs' : g.closest('.dk-gen') ? 'gen' : 'sv'), on = g.querySelector(':scope > button.on');
     let p = g.querySelector(':scope > .dk-pill'); const fresh = !p;
     if (fresh) { p = document.createElement('span'); p.className = 'dk-pill'; p.setAttribute('aria-hidden', 'true'); g.prepend(p); }
     g.classList.add('dk-pilled');
@@ -1857,6 +1859,13 @@ async function onClick(e) {
     case 'rmcard': { const s = curSession(); s.cards = (s.cards || []).filter(c => c.id !== b.dataset.id); save(); return paint(); }
     case 'acct': try { CTX.acct.open(b); } catch (e) {} return;
     case 'bugreport': try { CTX.bugReport(); } catch (e) {} return;
+    case 'tkpick': { const f = document.getElementById('dk-tkfile'); if (f) f.click(); return; }
+    case 'tkcol': TK.color = b.dataset.v; tkSync(); return;
+    case 'tkshape': TK.shape = b.dataset.v; tkSync(); return;
+    case 'tksize': TK.size = +b.dataset.v; tkSync(); return;
+    case 'tkreset': TK.z = 1; TK.x = TK.y = 0; tkSync(); return;
+    case 'tkclear': TK.im = null; paint(); return;
+    case 'tkdl': tkDownload(); return;
     case 'tab': if (b.dataset.close) closeModal(true); UI.tab = b.dataset.tab; UI.tree = false; if (CTX.partyHost && CTX.party && CTX.party.id) UI.ptab[CTX.party.id] = UI.tab; saveUI(); paint(); try { pills(); } catch (e2) {} scrollTo(0, 0); return;
     case 'settings': return openSettings(b.dataset.k);
     case 'quickroll': case 'diceroller': return diceRoller();
@@ -2050,7 +2059,7 @@ function mount(root, ctx) {
   const u = lsGet('-ui'); if (u) UI = Object.assign(UI, u, { tree: false, log: false });
   UI.ptab = UI.ptab || {};
   if (CTX.partyHost && CTX.party && CTX.party.id) { UI.tab = UI.ptab[CTX.party.id] || CTX.initialTab || 'party'; }
-  if (!['sessions', 'notes', 'bestiary', 'gen'].concat(CTX.partyHost ? ['party'] : []).includes(UI.tab)) UI.tab = CTX.partyHost ? 'party' : 'sessions';
+  if (!['sessions', 'notes', 'bestiary', 'gen', 'tokens'].concat(CTX.partyHost ? ['party'] : []).includes(UI.tab)) UI.tab = CTX.partyHost ? 'party' : 'sessions';
   UI.nopen = UI.nopen || {}; UI.pinMode = false;
   UI.genP = Object.assign({ size: 4, level: 3, levels: '', diff: 'medium', env: 'forest', type: '', mine: false }, UI.genP || {});
   LOG = lsGet('-log') || [];
@@ -2381,6 +2390,92 @@ Return JSON with string fields: {"name","race","occupation","age","look","person
   } catch (e) { toast({ title: 'AI didn’t work — used the tables instead', det: esc(e.message), cls: 'bad' }); rollNpc(false); }
   NPCG.busy = false; paint();
 }
+// ----- Tokens: a stand-alone token maker. Nothing is saved: pick a picture, frame it, pick a border, download. -----
+const TKCOLS = [['Gold', '#c9962b'], ['Silver', '#aab3bd'], ['Bronze', '#a0612f'], ['Crimson', '#a8262a'], ['Royal blue', '#2c5fa8'], ['Forest', '#2f7a43'], ['Violet', '#6d45a8'], ['Obsidian', '#26262b'], ['Bone', '#e9e2d0']];
+const TK = { im: null, name: 'token', z: 1, x: 0, y: 0, color: '#c9962b', bw: 6, shade: true, shape: 'round', size: 512 };
+function tokensHTML() {
+  const has = !!TK.im, sw = TKCOLS.map(([n, c]) => `<button class="dk-tksw${TK.color === c ? ' on' : ''}" data-act="tkcol" data-v="${c}" style="--c:${c}" title="${n}" aria-label="${n}" aria-pressed="${TK.color === c}"></button>`).join('');
+  const custom = !TKCOLS.some(([, c]) => c === TK.color);
+  return `<div class="dk-tok-tool"><section class="dk-card dk-tkstage"><h2>Token maker</h2>
+      <div class="dk-tkbox${has ? '' : ' empty'}" id="dk-tkbox">${has ? `<canvas id="dk-tkc" aria-label="Token preview. Drag to move the picture, scroll or pinch to zoom."></canvas>` : `<button class="dk-tkdrop" data-act="tkpick">${ICON.token}<b>Choose a picture</b><span>or drop one here</span></button>`}</div>
+      ${has ? `<div class="dk-tkzoom"><span class="dk-lbl">Zoom</span><input type="range" id="dk-tkz" min="1" max="5" step="0.01" value="${TK.z}" aria-label="Zoom"><button class="dk-btn sm" data-act="tkreset">Reset</button></div><p class="dk-hint">Drag the picture to move it. Scroll or pinch to zoom.</p>` : '<p class="dk-hint">Make a round token from any picture for your map or virtual tabletop. Nothing is uploaded or saved — it all happens in your browser.</p>'}
+      <input type="file" id="dk-tkfile" accept="image/*" hidden></section>
+    <section class="dk-card dk-tkctl">
+      <div><span class="dk-lbl">Picture</span><div class="dk-tkrow"><button class="dk-btn" data-act="tkpick">${has ? 'Change picture' : 'Choose picture'}</button>${has ? '<button class="dk-btn" data-act="tkclear">Clear</button>' : ''}</div></div>
+      <div><span class="dk-lbl">Border colour</span><div class="dk-tksws">${sw}<label class="dk-tksw dk-tkcus${custom ? ' on' : ''}" title="Any colour" style="--c:${custom ? TK.color : 'transparent'}"><input type="color" id="dk-tkcol" value="${TK.color}" aria-label="Any colour"></label></div></div>
+      <div><span class="dk-lbl">Border width</span><div class="dk-tkrow"><input type="range" id="dk-tkbw" min="0" max="14" step="0.5" value="${TK.bw}" aria-label="Border width"><output id="dk-tkbwo">${TK.bw ? Math.round(TK.bw * 10) / 10 + '%' : 'None'}</output></div></div>
+      <label class="dk-chk"><input type="checkbox" id="dk-tkshade" ${TK.shade ? 'checked' : ''}> Metal shine on the border</label>
+      <div><span class="dk-lbl">Shape</span><div class="dk-seg2 dk-tkseg" data-pk="tkshape">${[['round', 'Round'], ['square', 'Square']].map(([k, n]) => `<button class="${TK.shape === k ? 'on' : ''}" data-act="tkshape" data-v="${k}">${n}</button>`).join('')}</div></div>
+      <div><span class="dk-lbl">Download size</span><div class="dk-seg2 dk-tkseg" data-pk="tksize">${[256, 512, 1024].map(n => `<button class="${TK.size === n ? 'on' : ''}" data-act="tksize" data-v="${n}">${n}px</button>`).join('')}</div></div>
+      <button class="dk-btn gold big wide" data-act="tkdl" ${has ? '' : 'disabled'}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg> Download PNG</button></section></div>`;
+}
+const tkHex = h => { h = String(h || '').replace('#', ''); if (h.length === 3) h = h.replace(/./g, '$&$&'); const n = parseInt(h, 16) || 0; return [n >> 16 & 255, n >> 8 & 255, n & 255]; };
+const tkMix = (h, t, a) => { const c = tkHex(h), m = t === 'w' ? 255 : 0; return `rgb(${c.map(v => Math.round(v + (m - v) * a)).join(',')})`; };
+function tkPath(g, N, inset, add) {
+  if (!add) g.beginPath(); if (TK.shape === 'round') { const rr = Math.max(0, N / 2 - inset); g.moveTo(N / 2 + rr, N / 2); g.arc(N / 2, N / 2, rr, 0, Math.PI * 2); g.closePath(); return; }
+  const s = N - 2 * inset, r = Math.max(0, N * .09 - inset * .6); if (g.roundRect) g.roundRect(inset, inset, s, s, r); else g.rect(inset, inset, s, s);
+}
+function tkClamp() { if (!TK.im) return; const W = TK.im.naturalWidth, H = TK.im.naturalHeight, D = 1, k = Math.max(D / W, D / H) * TK.z, mx = Math.max(0, (W * k - D) / 2), my = Math.max(0, (H * k - D) / 2); TK.x = Math.max(-mx, Math.min(mx, TK.x)); TK.y = Math.max(-my, Math.min(my, TK.y)); }
+// draws the token at N×N pixels; the picture fills the inside, offset by TK.x/TK.y (fractions of the inside)
+function tkDraw(g, N) {
+  g.clearRect(0, 0, N, N); if (!TK.im) return; tkClamp();
+  const b = TK.bw / 100 * N, D = N - 2 * b, W = TK.im.naturalWidth, H = TK.im.naturalHeight, k = Math.max(D / W, D / H) * TK.z, dw = W * k, dh = H * k;
+  g.save(); tkPath(g, N, b); g.clip(); g.imageSmoothingQuality = 'high'; g.drawImage(TK.im, N / 2 - dw / 2 + TK.x * D, N / 2 - dh / 2 + TK.y * D, dw, dh); g.restore();
+  if (b <= 0) return;
+  g.save(); tkPath(g, N, 0); tkPath(g, N, b, true); // the ring: outer shape minus inner shape
+  if (TK.shade) { const gr = g.createLinearGradient(0, 0, N * .35, N); gr.addColorStop(0, tkMix(TK.color, 'w', .45)); gr.addColorStop(.38, TK.color); gr.addColorStop(.62, tkMix(TK.color, 'b', .28)); gr.addColorStop(.82, tkMix(TK.color, 'w', .18)); gr.addColorStop(1, tkMix(TK.color, 'b', .4)); g.fillStyle = gr; } else g.fillStyle = TK.color;
+  g.fill('evenodd'); g.restore();
+  if (TK.shade) { const lw = Math.max(1, N * .006); g.save(); g.lineWidth = lw;
+    g.strokeStyle = 'rgba(0,0,0,.45)'; tkPath(g, N, b + lw / 2); g.stroke(); // a dark line where the picture meets the rim
+    g.strokeStyle = 'rgba(0,0,0,.35)'; tkPath(g, N, lw / 2); g.stroke(); // and around the outside so it reads on light maps
+    g.strokeStyle = 'rgba(255,255,255,.28)'; tkPath(g, N, lw * 1.6); g.stroke(); g.restore(); }
+}
+function tkRedraw() { const c = document.getElementById('dk-tkc'); if (!c) return; const px = Math.round(c.clientWidth * (devicePixelRatio || 1)); if (px && c.width !== px) c.width = c.height = px; tkDraw(c.getContext('2d'), c.width); }
+function tkSync() {
+  $$('.dk-tok-tool [data-act=tkcol]').forEach(x => { const on = x.dataset.v === TK.color; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on); });
+  const cus = $('.dk-tkcus'), custom = !TKCOLS.some(([, c]) => c === TK.color); if (cus) { cus.classList.toggle('on', custom); cus.style.setProperty('--c', custom ? TK.color : 'transparent'); }
+  $$('.dk-tok-tool [data-act=tkshape]').forEach(x => x.classList.toggle('on', x.dataset.v === TK.shape)); $$('.dk-tok-tool [data-act=tksize]').forEach(x => x.classList.toggle('on', +x.dataset.v === TK.size));
+  const z = document.getElementById('dk-tkz'); if (z) z.value = TK.z; const o = document.getElementById('dk-tkbwo'); if (o) o.textContent = TK.bw ? Math.round(TK.bw * 10) / 10 + '%' : 'None';
+  const box = document.getElementById('dk-tkbox'); if (box) box.classList.toggle('sq', TK.shape === 'square');
+  try { pills(); } catch (e) {} tkRedraw();
+}
+function tkLoad(file) {
+  if (!file) return; if (!/^image\//.test(file.type || 'image/')) return toast({ title: 'That isn’t an image file.', cls: 'bad' });
+  const url = URL.createObjectURL(file), im = new Image();
+  im.onload = () => { TK.im = im; TK.z = 1; TK.x = TK.y = 0; TK.name = (file.name || 'token').replace(/\.[^.]+$/, '').replace(/[^\w\- ]+/g, '').trim().slice(0, 60) || 'token'; paint(); };
+  im.onerror = () => { URL.revokeObjectURL(url); toast({ title: 'That file isn’t an image this browser can open.', cls: 'bad' }); };
+  im.src = url;
+}
+function tkDownload() {
+  if (!TK.im) return; const c = document.createElement('canvas'); c.width = c.height = TK.size; tkDraw(c.getContext('2d'), TK.size);
+  c.toBlob(bl => { if (!bl) return toast({ title: 'Couldn’t make the file.', cls: 'bad' }); const a = document.createElement('a'), u = URL.createObjectURL(bl); a.href = u; a.download = TK.name + '-token.png'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000); toast({ title: 'Token downloaded', det: esc(a.download) }); }, 'image/png');
+}
+function tkMount() {
+  const tool = $('.dk-tok-tool'); if (!tool || tool._tk) { tkRedraw(); return; } tool._tk = 1;
+  ['input', 'change'].forEach(t => tool.addEventListener(t, e => e.stopPropagation())); // nothing here is part of the desk's saved data
+  const f = document.getElementById('dk-tkfile'); if (f) f.onchange = () => { const x = f.files && f.files[0]; f.value = ''; tkLoad(x); };
+  const box = document.getElementById('dk-tkbox');
+  if (box) { ['dragenter', 'dragover'].forEach(t => box.addEventListener(t, e => { e.preventDefault(); box.classList.add('over'); })); ['dragleave', 'drop'].forEach(t => box.addEventListener(t, () => box.classList.remove('over')));
+    box.addEventListener('drop', e => { e.preventDefault(); tkLoad(e.dataTransfer && e.dataTransfer.files[0]); }); box.classList.toggle('sq', TK.shape === 'square'); }
+  const z = document.getElementById('dk-tkz'); if (z) z.oninput = () => { tkZoom(+z.value); };
+  const bw = document.getElementById('dk-tkbw'); if (bw) bw.oninput = () => { TK.bw = +bw.value; tkSync(); };
+  const col = document.getElementById('dk-tkcol'); if (col) col.oninput = () => { TK.color = col.value; tkSync(); };
+  const sh = document.getElementById('dk-tkshade'); if (sh) sh.onchange = () => { TK.shade = sh.checked; tkRedraw(); };
+  const c = document.getElementById('dk-tkc'); if (c) {
+    const inner = () => c.clientWidth * (1 - 2 * TK.bw / 100) || 1, pts = new Map(); let last = null, pinch = 0;
+    c.addEventListener('wheel', e => { e.preventDefault(); tkZoom(TK.z * Math.exp(-e.deltaY * .0015)); }, { passive: false });
+    c.addEventListener('pointerdown', e => { c.setPointerCapture(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]); last = [e.clientX, e.clientY]; if (pts.size === 2) { const [a, b2] = [...pts.values()]; pinch = Math.hypot(a[0] - b2[0], a[1] - b2[1]); } c.classList.add('drag'); });
+    c.addEventListener('pointermove', e => { if (!pts.has(e.pointerId)) return; pts.set(e.pointerId, [e.clientX, e.clientY]);
+      if (pts.size === 2) { const [a, b2] = [...pts.values()], d = Math.hypot(a[0] - b2[0], a[1] - b2[1]); if (pinch) tkZoom(TK.z * d / pinch); pinch = d; return; }
+      if (!last) return; TK.x += (e.clientX - last[0]) / inner(); TK.y += (e.clientY - last[1]) / inner(); last = [e.clientX, e.clientY]; tkRedraw(); });
+    const up = e => { pts.delete(e.pointerId); pinch = 0; last = [...pts.values()][0] || null; if (!pts.size) c.classList.remove('drag'); };
+    c.addEventListener('pointerup', up); c.addEventListener('pointercancel', up);
+    c.tabIndex = 0; c.addEventListener('keydown', e => { const st = .02, m = { ArrowLeft: [-st, 0], ArrowRight: [st, 0], ArrowUp: [0, -st], ArrowDown: [0, st] }[e.key]; if (m) { e.preventDefault(); TK.x += m[0]; TK.y += m[1]; tkRedraw(); } else if (e.key === '+' || e.key === '=') tkZoom(TK.z * 1.1); else if (e.key === '-') tkZoom(TK.z / 1.1); });
+    if (!TK.ro && window.ResizeObserver) { TK.ro = new ResizeObserver(() => tkRedraw()); } if (TK.ro) { TK.ro.disconnect(); TK.ro.observe(c); }
+  }
+  tkRedraw();
+}
+function tkZoom(nz) { nz = Math.max(1, Math.min(5, nz)); TK.x *= nz / TK.z; TK.y *= nz / TK.z; TK.z = nz; const z = document.getElementById('dk-tkz'); if (z && +z.value !== nz) z.value = nz; tkRedraw(); }
 // ----- drawing -----
 function genHTML() {
   const sub = UI.gen === 'npc' || UI.gen === 'hb' ? UI.gen : 'enc';
@@ -3681,9 +3776,9 @@ function sCtx(e) {
   const it = (act, icon, t, attrs, cls) => `<button data-act="${act}" ${attrs}${cls ? ` class="${cls}"` : ''} role="menuitem">${CTXI[icon]}<span>${t}</span></button>`;
   let h;
   if (row.dataset.iid) { const iid = row.dataset.iid, x = findInst(iid), g = groupOf(iid); if (!x || !g) return false; const c = instC(x), a = `data-iid="${esc(iid)}" data-sid="${esc(g.s.id)}"`;
-    h = `<div class="dk-ctxh">${tokenHTML(c, 20)}<b>${esc(x.name)}</b></div>${it('sel', 'open', 'Open', a)}${c ? it('dup', 'add', 'Add another ' + esc(c.name), a) : ''}${it('rest', 'reset', 'Reset (full HP, uses back)', a)}${g.s.groups.length > 1 ? g.s.groups.filter(z => z !== g.g).map(z => it('movegrp', 'move', 'Move to ' + esc(z.name), a + ` data-gid="${esc(z.id)}"`)).join('') : ''}${it('rm', 'remove', 'Remove from session', a, 'red')}`; }
+    h = `<div class="dk-ctxh">${tokenHTML(c, 20)}<b>${esc(x.name)}</b></div>${c ? it('dup', 'add', 'Add another ' + esc(c.name), a) : ''}${it('rest', 'reset', 'Reset (full HP, uses back)', a)}${g.s.groups.length > 1 ? g.s.groups.filter(z => z !== g.g).map(z => it('movegrp', 'move', 'Move to ' + esc(z.name), a + ` data-gid="${esc(z.id)}"`)).join('') : ''}${it('rm', 'remove', 'Remove from session', a, 'red')}`; }
   else { const sObj = S.sessions.find(z => z.id === row.dataset.sid); if (!sObj) return false; const a = `data-sid="${esc(sObj.id)}"`;
-    h = `<div class="dk-ctxh">${ICON.folder}<b>${esc(sObj.title)}</b></div>${it('opensess', 'open', 'Open', a)}${it('renamesess', 'rename', 'Rename', a)}${it('dupsess', 'copy', 'Duplicate session', a)}${it('delsess', 'trash', 'Delete session', a, 'red')}`; }
+    h = `<div class="dk-ctxh">${ICON.folder}<b>${esc(sObj.title)}</b></div>${it('renamesess', 'rename', 'Rename', a)}${it('dupsess', 'copy', 'Duplicate session', a)}${it('delsess', 'trash', 'Delete session', a, 'red')}`; }
   e.preventDefault(); ctxOpen(h, e.clientX, e.clientY); return true;
 }
 // A long press on a touch screen opens the same menu
