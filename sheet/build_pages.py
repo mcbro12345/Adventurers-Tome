@@ -45,8 +45,16 @@ DATA = asset('data', 'js', DTXT.replace(FT, '').replace(AN, '') + '\nDND.full = 
 FULL = asset('full', 'js', FT + '\n' + AN)
 # The DM's Desk: its own app (stat blocks, generators, planner), fetched only when /desk is opened.
 DK = os.path.join(D, 'desk')
-DESK = asset('desk', 'js', '\n;'.join(open(os.path.join(DK, f)).read() for f in ['desk_data.js', 'desk_tables.js', 'desk.js']))
-DESKCSS = asset('deskcss', 'css', open(os.path.join(DK, 'desk.css')).read())
+def _desk_js():
+    # the sheet's item builder (desk_hbb.js) goes inside the desk's own closure, just before it hands out window.pgDesk
+    rd = lambda f: open(os.path.join(DK, f)).read()
+    main = rd('desk.js'); hbd = os.path.join(DK, 'desk_hbb.js')
+    if os.path.exists(hbd):
+        k = main.index('\nwindow.pgDesk = ')
+        main = main[:k] + '\n;' + rd('desk_hbb.js') + '\n;' + main[k:]
+    return '\n;'.join([rd('desk_data.js'), rd('desk_tables.js'), main])
+DESK = asset('desk', 'js', _desk_js())
+DESKCSS = asset('deskcss', 'css', '\n'.join(open(os.path.join(DK, f)).read() for f in ['desk.css', 'desk_hbb.css'] if os.path.exists(os.path.join(DK, f))))
 
 loader = ('''
 <script>document.documentElement.classList.add('pg-loading');try{var n=+sessionStorage.getItem('pg-nav');if(n&&Date.now()-n<8000){document.documentElement.classList.add('pg-instant');window.PG_NAV_T=n}sessionStorage.removeItem('pg-nav')}catch(e){}</script>

@@ -1463,7 +1463,7 @@ function profWeapon(w) {
 function attackFromItem(it) {
   const w = it.weapon, props = w.props || [], ranged = w.kind === 'ranged';
   const monkOK = clsLv('monk') && ((w.cat === 'simple' && !ranged && !props.includes('heavy') && !props.includes('two-handed')) || /shortsword/i.test(it.name));
-  const ab = monkOK ? 'monk' : props.includes('finesse') ? 'fin' : ranged ? 'dex' : 'str';
+  const ab = it.atkAb && it.atkAb !== 'monk' ? it.atkAb : monkOK ? 'monk' : props.includes('finesse') ? 'fin' : ranged ? 'dex' : 'str';
   const vers = props.find(p => /versatile/.test(p));
   return { name: it.name, ab, prof: profWeapon([w.base || it.name, w.cat]), magic: N((it.mods || {}).atk), dice: w.dice, type: w.type, notes: props.filter(p => !/versatile/.test(p)).concat(vers ? [vers.replace('versatile ', 'two hands ')] : []).join(', ') + (w.range ? ` · ${w.range} ft` : '') + (it.silvered ? ' · silvered' : ''), kind: ranged ? 'ranged' : 'melee', oneHanded: !props.includes('two-handed') && !ranged, monk: monkOK, item: it.id };
 }

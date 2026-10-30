@@ -1697,3 +1697,64 @@ html[data-pgtheme="light"] .dk-acct.lit::before, html[data-pgtheme="light"] .dk-
 /* six tabs: share the row evenly; on narrow windows the icon sits above the label */
 @media (min-width: 641px) and (max-width: 1260px) { .dk .dk-tabs button { flex: 1 1 0; min-width: 0; padding-left: 6px; padding-right: 6px; } }
 @media (min-width: 641px) and (max-width: 860px) { .dk .dk-tabs button { flex-direction: column; gap: 5px; padding-top: 8px !important; padding-bottom: 8px !important; } .dk .dk-tabs button span { font-size: .8rem; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.25; text-box: normal; padding-bottom: 1px; } }
+
+/* ---------- Loot tab ---------- */
+.dk-loot { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 340px); gap: 14px; align-items: start; }
+.dk-loot.solo { grid-template-columns: minmax(0, 1fr); }
+.dk-lmain { display: grid; gap: 12px; }
+.dk-lhd { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.dk-lhd h2 { margin: 0; }
+.dk-lhd .dk-hint { margin: 2px 0 0; }
+.dk-lbtns { display: flex; flex-wrap: wrap; gap: 8px; }
+.dk-lbtns .dk-btn svg { width: 16px; height: 16px; }
+.dk-lfil { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.dk-lfil .dk-seg2 { flex-wrap: wrap; max-width: 100%; }
+.dk-lfil .dk-seg2 small { color: inherit; opacity: .65; font-weight: 700; margin-left: 2px; }
+.dk-lq { flex: 1 1 180px; max-width: 280px; margin-left: auto; }
+.dk-llist { display: grid; gap: 6px; }
+.dk-lrow { display: grid; grid-template-columns: 30px minmax(0, 1fr) minmax(120px, 170px) auto auto auto; align-items: center; gap: 10px; padding: 9px 10px 9px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--card2); min-width: 0; }
+.dk-lic { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; background: rgba(201,150,43,.13); color: var(--gold); flex: none; }
+.dk-lic svg { width: 17px; height: 17px; }
+.dk-lot { min-width: 0; display: grid; gap: 2px; }
+.dk-ln { display: flex; align-items: center; gap: 6px; min-width: 0; flex-wrap: wrap; }
+.dk-ln b { overflow-wrap: anywhere; }
+.dk-lot small { color: var(--soft); font-size: .8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dk-lot small i { font-style: normal; color: var(--ink); opacity: .8; }
+.dk-rar { font-size: .66rem; font-weight: 800; letter-spacing: .03em; text-transform: capitalize; padding: 1px 7px; border-radius: 999px; border: 1px solid currentColor; color: var(--soft); line-height: 1.5; white-space: nowrap; }
+.dk-rar.r-common { color: #a7a29a; } .dk-rar.r-uncommon { color: #4fb36b; } .dk-rar.r-rare { color: #4f8fe0; } .dk-rar.r-veryrare { color: #a173e6; } .dk-rar.r-legendary { color: #e39a2d; } .dk-rar.r-artifact { color: #d4574a; }
+.dk-rar.hb { color: var(--gold); text-transform: none; }
+.dk-lsess { min-width: 0; }
+.dk-lsess select { width: 100%; padding-top: 5px; padding-bottom: 5px; font-size: .84rem; }
+.dk-lsess .sr, .dk-lw .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.dk-lgp { font-weight: 800; font-variant-numeric: tabular-nums; color: var(--gold); white-space: nowrap; min-width: 84px; text-align: center; }
+.dk-qty { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--card); }
+.dk-qty button { border: 0; background: none; width: 28px; height: 30px; font-weight: 800; color: var(--soft); font-size: 1rem; }
+@media (hover: hover) { .dk-qty button:hover { color: var(--ink); background: var(--card2); } }
+.dk-qty b { min-width: 2.2ch; text-align: center; font-variant-numeric: tabular-nums; }
+.dk-lnote { margin: 0; }
+.dk-lside { display: grid; gap: 8px; align-content: start; }
+.dk-lside h2 { margin: 6px 0 0; font-size: 1rem; }
+.dk-lside h2:first-child { margin-top: 0; }
+.dk-lside .dk-hint { margin: 0 0 4px; }
+.dk-lside .dk-hbrow { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.dk-lside .dk-hbrow b { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: .9rem; }
+.dk-lside .dk-hbrow .dk-btn svg { width: 15px; height: 15px; }
+.dk-lcat { display: grid; gap: 4px; max-height: min(56vh, 520px); overflow-y: auto; margin: 10px 0; }
+.dk-lci { display: flex; align-items: center; gap: 10px; text-align: left; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--card2); color: inherit; font: inherit; cursor: pointer; }
+.dk-lci > span:first-child { flex: 1; min-width: 0; }
+.dk-lci small { display: block; color: var(--soft); font-size: .78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dk-lci-add { font-weight: 800; font-size: .8rem; color: var(--gold); flex: none; }
+@media (hover: hover) { .dk-lci:hover { border-color: var(--gold); } }
+.dk-lcoins { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px; }
+.dk-lcoins .dk-lbl { text-transform: uppercase; }
+.dk-lwho { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 12px; }
+.dk-lw { display: flex; align-items: center; gap: 8px; padding: 5px 12px 5px 5px; border: 1px solid var(--line); border-radius: 999px; background: var(--card2); color: inherit; font: inherit; cursor: pointer; text-align: left; }
+.dk-lw img, .dk-lwi { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; flex: none; }
+.dk-lwi { display: grid; place-items: center; background: var(--card); font-weight: 800; color: var(--gold); }
+.dk-lw b { display: block; font-size: .88rem; } .dk-lw small { display: block; color: var(--soft); font-size: .74rem; }
+.dk-lw.on { border-color: var(--gold); background: rgba(201,150,43,.14); box-shadow: inset 0 0 0 1px var(--gold); }
+.dk-lgn { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.dk-lgn .dk-lbl { margin: 0; }
+@media (max-width: 1100px) { .dk-loot { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 860px) { .dk-lrow { grid-template-columns: 30px minmax(0, 1fr) auto auto auto; grid-template-areas: 'ic t q g m' '. s s s s'; } .dk-lrow > .dk-lic { grid-area: ic; } .dk-lrow > .dk-lot { grid-area: t; } .dk-lrow > .dk-qty, .dk-lrow > .dk-lgp { grid-area: q; } .dk-lrow > .dk-btn.gold { grid-area: g; } .dk-lrow > .dk-menu { grid-area: m; } .dk-lrow > .dk-lsess { grid-area: s; max-width: 240px; } .dk-lcoins { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 641px) and (max-width: 740px) { .dk .dk-tabs button { padding-left: 2px; padding-right: 2px; } .dk .dk-tabs button span { font-size: .74rem; letter-spacing: -.01em; } }
