@@ -148,6 +148,11 @@ window.pgInviteImage = pgInviteImage;
 // 1.4.5+ says so itself. Copies from 1.4.2 on mark the page with their id and "|store" or "|local" (store copies carry an
 // update address the hand-loaded ones don't) — readable here in Chrome, Edge, Brave, Opera and Vivaldi. (Firefox copies
 // never carry that address, store or not, so there it only counts when the extension says so itself.) '' = can't tell.
+// The browser and system, in plain words, for the activity log (e.g. "Safari on an iPad", "Chrome on Windows").
+function pgDevName() { const ua = navigator.userAgent || '', t = (navigator.maxTouchPoints || 0) > 1;
+  const os = /iPhone/.test(ua) ? 'an iPhone' : /iPad/.test(ua) || (/Macintosh/.test(ua) && t) ? 'an iPad' : /Android/.test(ua) ? (/Mobile/.test(ua) ? 'an Android phone' : 'an Android tablet') : /Windows/.test(ua) ? 'Windows' + (t ? ' (touch screen)' : '') : /Macintosh/.test(ua) ? 'a Mac' : /CrOS/.test(ua) ? 'a Chromebook' : /Linux/.test(ua) ? 'Linux' : 'an unknown system';
+  const br = /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera' : /Firefox\/|FxiOS/.test(ua) ? 'Firefox' : /CriOS/.test(ua) ? 'Chrome' : /EdgiOS/.test(ua) ? 'Edge' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : 'a browser';
+  return br + ' on ' + os; }
 function pgExtInst(d) { if (d && d.install) return String(d.install).slice(0, 20); if (/Firefox\//.test(navigator.userAgent || '')) return '';
   // (only copies from 1.4.2 on mark the page — an older copy answering alongside a newer one isn't what the mark describes)
   const v = String((d && d.version) || '0').split('.').map(Number); if ((v[0] || 0) * 1e4 + (v[1] || 0) * 100 + (v[2] || 0) < 10402) return '';
@@ -1113,7 +1118,7 @@ function wireDie(root) {
         const k = touch ? 'pwaPhone' : 'pwaPc', was = Number(ME[k]) || 0;
         if (Date.now() - was > 864e5) { ME[k] = Date.now(); UREF.update({ [k]: ME[k] }).catch(() => {}); }
         // (the activity log is set up a little further down this page's start-up, so it's written once that's ready)
-        if (!was) setTimeout(() => { if (window.pgLog) window.pgLog('pwa_add', { detail: k === 'pwaPhone' ? 'on a phone or tablet' : 'installed as an app on a computer' }); }, 800); } } catch (e) { console.warn('home screen', e); }
+        if (!was) setTimeout(() => { if (window.pgLog) window.pgLog('pwa_add', { detail: (k === 'pwaPhone' ? 'on a phone or tablet' : 'installed as an app on a computer') + ' · ' + pgDevName() + ' · seen by: ' + [ses && 'the home-screen icon’s address', matchMedia('(display-mode: standalone)').matches && 'running in its own app window', navigator.standalone === true && 'iPhone/iPad home-screen app'].filter(Boolean).join(', ') }); }, 800); } } catch (e) { console.warn('home screen', e); }
     // (the extension may already have answered before this account was loaded — as on the lobby and admin pages — so catch up, or ask again)
     if (pgExtCopies().length) extT = setTimeout(extSeen, 1500); else window.postMessage({ __dnd20: 'hello', dir: 'toExt' }, '*');
     // Only a page someone has actually looked at keeps them online. A page the browser loads out of sight (Chrome
