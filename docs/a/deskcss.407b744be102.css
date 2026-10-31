@@ -1662,7 +1662,7 @@ html[data-pgtheme="light"] .dk-acct.lit::before, html[data-pgtheme="light"] .dk-
 .dk-tkstage, .dk-tkctl { display: grid; gap: 14px; min-width: 0; }
 .dk-tkstage h2 { margin: 0; }
 .dk-tkbox { position: relative; width: min(100%, 420px); aspect-ratio: 1; margin: 0 auto; border-radius: 50%;
-  background: repeating-conic-gradient(rgba(255,255,255,.05) 0 25%, transparent 0 50%) 0 0 / 22px 22px; transition: border-radius .2s ease; }
+  background: repeating-conic-gradient(rgba(255,255,255,.05) 0 25%, transparent 0 50%) 0 0 / 22px 22px; }
 .dk-tkbox.sq { border-radius: 9%; }
 .dk-tkbox canvas { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; border-radius: inherit; outline: none; }
 .dk-tkbox canvas.drag { cursor: grabbing; }
@@ -1786,6 +1786,124 @@ html[data-pgtheme="light"] .dk-acct.lit::before, html[data-pgtheme="light"] .dk-
 @media (max-width: 860px) { .dk-lbs { width: 140px; } }
 .dk-lbacts { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap; justify-content: flex-end; }
 @media (max-width: 900px) { .dk-lbh { flex-wrap: wrap; } .dk-lbt { flex: 1 1 100%; } .dk-lbacts { flex: 1 1 100%; justify-content: flex-start; padding-left: 20px; } .dk-lbacts .dk-menu { margin-left: auto; } }
+/* ---------- Loot, laid out like the sheet's Inventory ---------- */
+.dk-loot2 { max-width: 1400px; margin: 0 auto; width: 100%; }
+.dk-lpanel { display: grid; gap: 12px; }
+.dk-lph { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0; }
+.dk-lpht { flex: 1; font: 800 .82rem/1 var(--sans, inherit); letter-spacing: .14em; text-transform: uppercase; color: var(--gold); display: flex; align-items: center; gap: 8px; }
+.dk-lpht::before { content: ''; width: 7px; height: 7px; background: var(--gold); transform: rotate(45deg); border-radius: 1px; }
+.dk-lph .dk-lbtns { display: flex; flex-wrap: wrap; gap: 8px; }
+.dk-lph .dk-menu { position: relative; }
+.dk-lpurse { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.dk-lpurse:not(.top) { padding: 8px 10px; border-bottom: 1px solid var(--line); }
+.dk-lcn { display: inline-flex; align-items: center; gap: 4px; padding: 3px 4px 3px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--card2); }
+.dk-lcn.gp { border-color: rgba(201,150,43,.6); }
+.dk-lcd { width: 11px; height: 11px; border-radius: 50%; background: var(--c); box-shadow: inset 0 -2px 3px rgba(0,0,0,.3); }
+.dk-lcn b { font-size: .7rem; letter-spacing: .04em; color: var(--soft); margin-right: 2px; }
+.dk-lcn button { border: 0; background: none; color: var(--soft); width: 22px; height: 26px; font-weight: 800; border-radius: 6px; }
+@media (hover: hover) { .dk-lcn button:hover { color: var(--ink); background: var(--card); } }
+.dk-lcn input { width: 64px; border: 0 !important; background: none !important; text-align: center; font-weight: 800; padding: 2px 0 !important; box-shadow: none !important; -moz-appearance: textfield; }
+.dk-lcn input::-webkit-outer-spin-button, .dk-lcn input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.dk-lpurse:not(.top) .dk-lcn input { width: 48px; }
+.dk-lworth { font-weight: 800; color: var(--gold); margin-left: 4px; }
+.dk-lsearch .dk-f { width: 100%; }
+.dk-lstats { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; font-size: .86rem; color: var(--soft); }
+.dk-lstats b { color: var(--ink); }
+.dk-lsess2 { margin-left: auto; flex-wrap: wrap; }
+.dk-lboxes { display: grid; gap: 14px; align-items: start; }
+.dk-lboxes.two { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.dk-lcol { display: grid; gap: 14px; align-content: start; min-width: 0; }
+.dk-loot2 .dk-lbox { padding: 0; gap: 0; overflow: hidden; border-style: solid; background: var(--card); }
+.dk-loot2 .dk-lbox.over { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(201,150,43,.35); }
+.dk-lsh { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 6px 8px 6px 4px; background: var(--card2); border-bottom: 1px solid var(--line); min-width: 0; }
+.dk-lbox.shut .dk-lsh { border-bottom: 0; }
+.dk-lst { flex: 1 1 160px; min-width: 0; display: flex; align-items: center; gap: 8px; background: none; border: 0; color: inherit; font: inherit; text-align: left; padding: 4px 6px; cursor: pointer; border-radius: 8px; flex-wrap: wrap; }
+.dk-lst > b { font-size: .95rem; overflow-wrap: anywhere; }
+.dk-ldot { width: 8px; height: 8px; border-radius: 50%; background: var(--soft); flex: none; }
+.dk-lcount { font-size: .74rem; font-weight: 800; min-width: 22px; text-align: center; padding: 1px 7px; border-radius: 999px; background: var(--card); border: 1px solid var(--line); color: var(--soft); }
+.dk-lbnote { flex-basis: 100%; padding-left: 52px; color: var(--soft); font-size: .78rem; }
+.dk-loot2 .dk-lbi { width: 24px; height: 24px; border-radius: 7px; }
+.dk-loot2 .dk-lbi svg { width: 14px; height: 14px; }
+.dk-loot2 .dk-llist { display: block; }
+.dk-lr { padding: 9px 10px 9px 6px; border-bottom: 1px solid var(--line); display: grid; gap: 4px; min-width: 0; }
+.dk-lr:last-child { border-bottom: 0; }
+.dk-lr.dragging { opacity: .45; }
+.dk-lr1 { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.dk-lgrip { color: var(--soft); opacity: .45; cursor: grab; font-size: .9rem; padding: 0 2px; flex: none; }
+@media (hover: hover) { .dk-lr:hover .dk-lgrip { opacity: 1; } }
+.dk-lrn { font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
+.dk-lrn.mag { color: var(--gold); }
+.dk-ltip { color: var(--soft); font-size: .85rem; cursor: help; flex: none; }
+.dk-lgrow { flex: 1; }
+.dk-lr .dk-qty { flex: none; }
+.dk-lr .dk-qty button { width: 26px; height: 28px; }
+.dk-lib { width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 50%; background: var(--card); color: var(--soft); font-size: .86rem; flex: none; padding: 0; }
+.dk-lib.x { border-color: transparent; background: none; }
+@media (hover: hover) { .dk-lib:hover { color: var(--ink); border-color: var(--gold); } .dk-lib.x:hover { color: var(--red, #e0715c); border-color: transparent; } }
+.dk-lmv { position: relative; flex: none; }
+.dk-lmv .dk-mlist { min-width: 220px; max-height: 360px; overflow-y: auto; }
+.dk-mlab { font-size: .66rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--soft); padding: 8px 12px 3px; }
+.dk-mnone { padding: 6px 12px; color: var(--soft); font-size: .84rem; }
+.dk-lr2 { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; padding-left: 24px; }
+.dk-rar.att { color: var(--soft); text-transform: none; }
+.dk-ltag { font-size: .7rem; font-weight: 700; color: var(--soft); padding: 1px 7px; border-radius: 999px; background: var(--card2); border: 1px solid var(--line); }
+.dk-lnote2 { font-size: .78rem; color: var(--soft); font-style: italic; }
+.dk-lr2 .dk-lpick { margin: 0; }
+.dk-loot2 .dk-lempty { margin: 10px; }
+.dk-lhb { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
+.dk-lhbcol h3 { margin: 0 0 2px; font-size: .95rem; }
+.dk-lhbcol .dk-hint { margin: 0 0 6px; }
+.dk-lhbcol .dk-hbrow { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.dk-lhbcol .dk-hbrow b { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: .9rem; }
+.dk-lhbcol .dk-hbrow .dk-btn svg { width: 15px; height: 15px; }
+@media (max-width: 1100px) { .dk-lboxes.two { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 760px) { .dk-lsess2 { margin-left: 0; } .dk-lbnote { padding-left: 30px; } }
+/* one inventory: Unsorted first, then each container as a dropdown inside the same list */
+.dk-linv { display: block; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--card); }
+.dk-linv > .dk-lbox { border: 0; border-radius: 0; box-shadow: none; border-top: 1px solid var(--line); }
+.dk-linv > .dk-lbox:first-child { border-top: 0; }
+.dk-linv > .dk-lbox.over { box-shadow: inset 0 0 0 2px var(--gold); background: rgba(201,150,43,.06); }
+.dk-linv > .dk-lbox:not(.loose) > .dk-llist, .dk-linv > .dk-lbox:not(.loose) > .dk-lpurse { margin-left: 22px; border-left: 2px solid rgba(201,150,43,.35); }
+.dk-linv > .dk-lbox:not(.loose) > .dk-lpurse { border-bottom: 1px dashed var(--line); }
+.dk-linv > .dk-lbox:not(.loose) .dk-lsh { background: var(--card2); }
+.dk-linv > .dk-lbox.loose .dk-lsh { background: var(--card2); }
+.dk-linv .dk-lempty { margin: 10px; }
+/* Unsorted is a category like any container */
+.dk-linv > .dk-lbox.loose > .dk-llist { margin-left: 22px; border-left: 2px solid rgba(127,127,127,.35); }
+.dk-loot2 .dk-lbi.loose { background: rgba(127,127,127,.16); color: var(--soft); }
+.dk-linv > .dk-lbox.loose > .dk-lpurse { margin-left: 22px; border-left: 2px solid rgba(127,127,127,.35); border-bottom: 1px dashed var(--line); }
+.dk-lci2 { width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; background: rgba(201,150,43,.14); color: var(--gold); flex: none; }
+.dk-lci2 svg { width: 14px; height: 14px; }
+.dk-lr .dk-lgp { min-width: 0; font-size: .92rem; padding: 0 6px; }
+.dk-ltag.coin { color: var(--gold); border-color: rgba(201,150,43,.4); }
+.dk-lpl { font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--soft); margin-right: 2px; }
+.dk-lph .dk-btn { font: 700 .88rem/1.2 inherit; font-family: inherit; letter-spacing: 0; text-transform: none; }
+.dk-lph .dk-mlist button { font-size: .9rem; font-weight: 600; letter-spacing: 0; text-transform: none; }
+.dk-lsearch .dk-lq { max-width: none; margin: 0; }
+.dk-lph .dk-btn { font-size: .88rem !important; font-weight: 700 !important; letter-spacing: 0 !important; text-transform: none !important; }
+.dk-ctx .dk-mlab { padding: 8px 12px 2px; }
+
+/* dragging a loot row: it stays in the one column */
+.dk-lgrip { cursor: grab; touch-action: none; user-select: none; padding: 4px 4px; }
+.dk-lghost { background: var(--card2); color: var(--ink); border: 1px solid var(--gold); border-radius: 10px; box-shadow: 0 10px 28px rgba(0,0,0,.45); opacity: 1; cursor: grabbing; }
+body.dk-ldragging, body.dk-ldragging * { cursor: grabbing !important; user-select: none; }
+.dk-lr.dragging { opacity: .25; }
+
+/* token maker sliders: a slim track that fills in gold, and a round gold handle */
+.dk-tok-tool input[type=range] { -webkit-appearance: none; appearance: none; height: 22px; background: transparent; cursor: pointer; --p: 50%; outline: none; }
+.dk-tok-tool input[type=range]::-webkit-slider-runnable-track { height: 6px; border-radius: 999px; background: linear-gradient(to right, var(--gold) 0 var(--p), var(--line) var(--p) 100%); }
+.dk-tok-tool input[type=range]::-moz-range-track { height: 6px; border-radius: 999px; background: var(--line); }
+.dk-tok-tool input[type=range]::-moz-range-progress { height: 6px; border-radius: 999px; background: var(--gold); }
+.dk-tok-tool input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; margin-top: -6px; border-radius: 50%; background: var(--gold2); border: 2px solid var(--gold); box-shadow: 0 1px 4px rgba(0,0,0,.45); transition: transform .12s; }
+.dk-tok-tool input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--gold2); border: 2px solid var(--gold); box-shadow: 0 1px 4px rgba(0,0,0,.45); }
+.dk-tok-tool input[type=range]:hover::-webkit-slider-thumb, .dk-tok-tool input[type=range]:active::-webkit-slider-thumb { transform: scale(1.12); }
+.dk-tok-tool input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px rgba(201,150,43,.4); }
+.dk-tok-tool input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px rgba(201,150,43,.4); }
+
+/* the token maker's drop spot uses the same upload icon as the profile picture window */
+.dk-tkdz-i { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; background: rgba(201,150,43,.18); color: var(--gold); margin-bottom: 4px; }
+.dk .dk-tkdrop .dk-tkdz-i svg { width: 24px !important; height: 24px !important; margin: 0; }
+
 
 /* DM's Desk: the homebrew item builder — the same look as the character sheet's (extra.css .hbb-*), scoped to #hbd */
 #hbd .hbb-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
@@ -1865,3 +1983,5 @@ html[data-pgtheme="light"] .dk-acct.lit::before, html[data-pgtheme="light"] .dk-
 #hbd .hint { color: var(--soft); }
 #hbd .hbb-f .dk-f { padding: 6px 9px; }
 #hbd .hbb-grow { flex: 1; }
+
+#hbd .hbb-head .hbb-paste { font-size: .82rem; padding: 6px 12px; min-height: 32px; }
