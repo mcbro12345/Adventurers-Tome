@@ -2102,7 +2102,7 @@ function hub(fs, auth, G, ctx) {
   // Download token: a round picture of the character for a virtual tabletop, ringed in the sheet's accent colour.
   async function tokenChar(c) { toast('Making ' + (c.name || 'the') + ' token…');
     try { const { str } = await sheetText(c.id), st = JSON.parse(str), acc = /^#[0-9a-f]{6}$/i.test((st.theme || {}).accent || '') ? st.theme.accent : '#c9962b';
-      const src = st.portrait || c.thumb || '', N0 = 512, cv = document.createElement('canvas'); cv.width = cv.height = N0; const x = cv.getContext('2d'), R = N0 / 2, ring = 30;
+      const src = st.portrait || c.thumb || '', N0 = 512, cv = document.createElement('canvas'); cv.width = cv.height = N0; const x = cv.getContext('2d'), R = N0 / 2, ring = Math.round(N0 * .025); /* (2.5% border, the same as the DM's Desk token maker starts with) */
       const img = src ? await new Promise((res, rej) => { const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => res(im); im.onerror = rej; im.src = src; }) : null;
       x.save(); x.beginPath(); x.arc(R, R, R - ring + 2, 0, Math.PI * 2); x.clip();
       if (img) { const sz = Math.min(img.width, img.height), sx = (img.width - sz) / 2, sy = (img.height - sz) / 2 * 0.6; x.drawImage(img, sx, sy, sz, sz, ring - 2, ring - 2, N0 - 2 * (ring - 2), N0 - 2 * (ring - 2)); }
@@ -2112,8 +2112,8 @@ function hub(fs, auth, G, ctx) {
       const g = x.createLinearGradient(0, 0, 0, N0), lt = (h, k) => { const n = parseInt(h.slice(1), 16), f = v => Math.max(0, Math.min(255, Math.round(v + (k > 0 ? (255 - v) * k : v * k)))); return `rgb(${f(n >> 16 & 255)},${f(n >> 8 & 255)},${f(n & 255)})`; };
       g.addColorStop(0, lt(acc, .35)); g.addColorStop(.5, acc); g.addColorStop(1, lt(acc, -.35));
       x.beginPath(); x.arc(R, R, R - ring / 2 - 2, 0, Math.PI * 2); x.lineWidth = ring; x.strokeStyle = g; x.stroke();
-      x.beginPath(); x.arc(R, R, R - 2, 0, Math.PI * 2); x.lineWidth = 4; x.strokeStyle = 'rgba(10,12,20,.85)'; x.stroke();
-      x.beginPath(); x.arc(R, R, R - ring - 1, 0, Math.PI * 2); x.lineWidth = 3; x.strokeStyle = 'rgba(10,12,20,.6)'; x.stroke();
+      x.beginPath(); x.arc(R, R, R - 1, 0, Math.PI * 2); x.lineWidth = 2; x.strokeStyle = 'rgba(10,12,20,.85)'; x.stroke();
+      x.beginPath(); x.arc(R, R, R - ring - 1, 0, Math.PI * 2); x.lineWidth = 2; x.strokeStyle = 'rgba(10,12,20,.6)'; x.stroke();
       const blob = await new Promise(res => cv.toBlob(res, 'image/png')), fname = (st.name || c.name || 'character').replace(/[^\w-]+/g, '_') + '_token.png';
       const el = document.createElement('a'); el.href = URL.createObjectURL(blob); el.download = fname; document.body.appendChild(el); el.click(); setTimeout(() => { URL.revokeObjectURL(el.href); el.remove(); }, 1500); toast('Downloaded ' + fname + '.'); }
     catch (e) { toast('Couldn’t make the token: ' + (e.message || e)); } }

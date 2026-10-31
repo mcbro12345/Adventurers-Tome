@@ -2400,7 +2400,7 @@ Return JSON with string fields: {"name","race","occupation","age","look","person
 }
 // ----- Tokens: a stand-alone token maker. Nothing is saved: pick a picture, frame it, pick a border, download. -----
 const TKCOLS = [['Gold', '#c9962b'], ['Silver', '#aab3bd'], ['Bronze', '#a0612f'], ['Crimson', '#a8262a'], ['Royal blue', '#2c5fa8'], ['Forest', '#2f7a43'], ['Violet', '#6d45a8'], ['Obsidian', '#26262b'], ['Bone', '#e9e2d0']];
-const TK = { im: null, name: 'token', z: 1, x: 0, y: 0, color: '#c9962b', bw: 6, shade: true, shape: 'round', size: 512 };
+const TK = { im: null, name: 'token', z: 1, x: 0, y: 0, color: '#c9962b', bw: 2.5, shade: true, shape: 'round', size: 512 };
 function tokensHTML() {
   const has = !!TK.im, sw = TKCOLS.map(([n, c]) => `<button class="dk-tksw${TK.color === c ? ' on' : ''}" data-act="tkcol" data-v="${c}" style="--c:${c}" title="${n}" aria-label="${n}" aria-pressed="${TK.color === c}"></button>`).join('');
   const custom = !TKCOLS.some(([, c]) => c === TK.color);

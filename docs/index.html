@@ -4830,7 +4830,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261030190355', ASSETS = {"data": "a/data.e8173a24cd9b.js", "app": "a/app.66441a507363.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.c9b23b769732.html", "desk": "a/desk.f827ea262879.js", "deskcss": "a/deskcss.c86d09e0e952.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261030191010', ASSETS = {"data": "a/data.e8173a24cd9b.js", "app": "a/app.66441a507363.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.c9b23b769732.html", "desk": "a/desk.a944d77909dc.js", "deskcss": "a/deskcss.c86d09e0e952.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   // The test site says so on every page (and in the tab's title), so it's never mistaken for the real one.
   if (CFG.test) { window.PG_TEST = true; const mark = () => { if (!document.body || document.getElementById('pg-testmark')) return; const t = document.createElement('div'); t.id = 'pg-testmark'; t.textContent = 'Test site'; t.title = 'This is the test copy of Adventurer’s Tome. Changes here don’t touch the real site.'; document.body.appendChild(t);
       if (!/^\[Test\] /.test(document.title)) document.title = '[Test] ' + document.title; };
@@ -6105,7 +6105,7 @@ function hub(fs, auth, G, ctx) {
   // Download token: a round picture of the character for a virtual tabletop, ringed in the sheet's accent colour.
   async function tokenChar(c) { toast('Making ' + (c.name || 'the') + ' token…');
     try { const { str } = await sheetText(c.id), st = JSON.parse(str), acc = /^#[0-9a-f]{6}$/i.test((st.theme || {}).accent || '') ? st.theme.accent : '#c9962b';
-      const src = st.portrait || c.thumb || '', N0 = 512, cv = document.createElement('canvas'); cv.width = cv.height = N0; const x = cv.getContext('2d'), R = N0 / 2, ring = 30;
+      const src = st.portrait || c.thumb || '', N0 = 512, cv = document.createElement('canvas'); cv.width = cv.height = N0; const x = cv.getContext('2d'), R = N0 / 2, ring = Math.round(N0 * .025); /* (2.5% border, the same as the DM's Desk token maker starts with) */
       const img = src ? await new Promise((res, rej) => { const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => res(im); im.onerror = rej; im.src = src; }) : null;
       x.save(); x.beginPath(); x.arc(R, R, R - ring + 2, 0, Math.PI * 2); x.clip();
       if (img) { const sz = Math.min(img.width, img.height), sx = (img.width - sz) / 2, sy = (img.height - sz) / 2 * 0.6; x.drawImage(img, sx, sy, sz, sz, ring - 2, ring - 2, N0 - 2 * (ring - 2), N0 - 2 * (ring - 2)); }
@@ -6115,8 +6115,8 @@ function hub(fs, auth, G, ctx) {
       const g = x.createLinearGradient(0, 0, 0, N0), lt = (h, k) => { const n = parseInt(h.slice(1), 16), f = v => Math.max(0, Math.min(255, Math.round(v + (k > 0 ? (255 - v) * k : v * k)))); return `rgb(${f(n >> 16 & 255)},${f(n >> 8 & 255)},${f(n & 255)})`; };
       g.addColorStop(0, lt(acc, .35)); g.addColorStop(.5, acc); g.addColorStop(1, lt(acc, -.35));
       x.beginPath(); x.arc(R, R, R - ring / 2 - 2, 0, Math.PI * 2); x.lineWidth = ring; x.strokeStyle = g; x.stroke();
-      x.beginPath(); x.arc(R, R, R - 2, 0, Math.PI * 2); x.lineWidth = 4; x.strokeStyle = 'rgba(10,12,20,.85)'; x.stroke();
-      x.beginPath(); x.arc(R, R, R - ring - 1, 0, Math.PI * 2); x.lineWidth = 3; x.strokeStyle = 'rgba(10,12,20,.6)'; x.stroke();
+      x.beginPath(); x.arc(R, R, R - 1, 0, Math.PI * 2); x.lineWidth = 2; x.strokeStyle = 'rgba(10,12,20,.85)'; x.stroke();
+      x.beginPath(); x.arc(R, R, R - ring - 1, 0, Math.PI * 2); x.lineWidth = 2; x.strokeStyle = 'rgba(10,12,20,.6)'; x.stroke();
       const blob = await new Promise(res => cv.toBlob(res, 'image/png')), fname = (st.name || c.name || 'character').replace(/[^\w-]+/g, '_') + '_token.png';
       const el = document.createElement('a'); el.href = URL.createObjectURL(blob); el.download = fname; document.body.appendChild(el); el.click(); setTimeout(() => { URL.revokeObjectURL(el.href); el.remove(); }, 1500); toast('Downloaded ' + fname + '.'); }
     catch (e) { toast('Couldn’t make the token: ' + (e.message || e)); } }
