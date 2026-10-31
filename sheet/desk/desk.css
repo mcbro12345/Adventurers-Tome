@@ -1899,3 +1899,7 @@ body.dk-ldragging, body.dk-ldragging * { cursor: grabbing !important; user-selec
 .dk-tok-tool input[type=range]:hover::-webkit-slider-thumb, .dk-tok-tool input[type=range]:active::-webkit-slider-thumb { transform: scale(1.12); }
 .dk-tok-tool input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px rgba(201,150,43,.4); }
 .dk-tok-tool input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px rgba(201,150,43,.4); }
+
+/* the token maker's drop spot uses the same upload icon as the profile picture window */
+.dk-tkdz-i { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; background: rgba(201,150,43,.18); color: var(--gold); margin-bottom: 4px; }
+.dk .dk-tkdrop .dk-tkdz-i svg { width: 24px !important; height: 24px !important; margin: 0; }

@@ -2679,18 +2679,18 @@ Return JSON with string fields: {"name","race","occupation","age","look","person
 }
 // ----- Tokens: a stand-alone token maker. Nothing is saved: pick a picture, frame it, pick a border, download. -----
 const TKCOLS = [['Gold', '#c9962b'], ['Silver', '#aab3bd'], ['Bronze', '#a0612f'], ['Crimson', '#a8262a'], ['Royal blue', '#2c5fa8'], ['Forest', '#2f7a43'], ['Violet', '#6d45a8'], ['Obsidian', '#26262b'], ['Bone', '#e9e2d0']];
-const TK = { im: null, name: 'token', z: 1, x: 0, y: 0, color: '#c9962b', bw: 6, shade: true, shape: 'round', size: 512 };
+const TK = { im: null, name: 'token', z: 1, x: 0, y: 0, color: '#c9962b', bw: 2.5, shade: true, shape: 'round', size: 512 };
 function tokensHTML() {
   const has = !!TK.im, sw = TKCOLS.map(([n, c]) => `<button class="dk-tksw${TK.color === c ? ' on' : ''}" data-act="tkcol" data-v="${c}" style="--c:${c}" title="${n}" aria-label="${n}" aria-pressed="${TK.color === c}"></button>`).join('');
   const custom = !TKCOLS.some(([, c]) => c === TK.color);
   return `<div class="dk-tok-tool"><section class="dk-card dk-tkstage"><h2>Token maker</h2>
-      <div class="dk-tkbox${has ? '' : ' empty'}" id="dk-tkbox">${has ? `<canvas id="dk-tkc" aria-label="Token preview. Drag to move the picture, scroll or pinch to zoom."></canvas>` : `<button class="dk-tkdrop" data-act="tkpick">${ICON.token}<b>Choose a picture</b><span>or drop one here</span></button>`}</div>
-      ${has ? `<div class="dk-tkzoom"><span class="dk-lbl">Zoom</span><input type="range" id="dk-tkz" min="1" max="5" step="0.01" value="${TK.z}" aria-label="Zoom"><button class="dk-btn sm" data-act="tkreset">Reset</button></div><p class="dk-hint">Drag the picture to move it. Scroll or pinch to zoom.</p>` : '<p class="dk-hint">Make a round token from any picture for your map or virtual tabletop. Nothing is uploaded or saved — it all happens in your browser.</p>'}
+      <div class="dk-tkbox${has ? '' : ' empty'}" id="dk-tkbox">${has ? `<canvas id="dk-tkc" aria-label="Token preview. Drag to move the picture, scroll or pinch to zoom."></canvas>` : `<button class="dk-tkdrop" data-act="tkpick"><span class="dk-tkdz-i" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg></span><b>Choose a picture</b><span>or drop one here</span></button>`}</div>
+      ${has ? `<div class="dk-tkzoom"><span class="dk-lbl">Zoom</span><input type="range" id="dk-tkz" min="1" max="5" step="0.01" value="${TK.z}" style="--p:${(TK.z - 1) / 4 * 100}%" aria-label="Zoom"><button class="dk-btn sm" data-act="tkreset">Reset</button></div><p class="dk-hint">Drag the picture to move it. Scroll or pinch to zoom.</p>` : '<p class="dk-hint">Make a round token from any picture for your map or virtual tabletop. Nothing is uploaded or saved — it all happens in your browser.</p>'}
       <input type="file" id="dk-tkfile" accept="image/*" hidden></section>
     <section class="dk-card dk-tkctl">
       <div><span class="dk-lbl">Picture</span><div class="dk-tkrow"><button class="dk-btn" data-act="tkpick">${has ? 'Change picture' : 'Choose picture'}</button>${has ? '<button class="dk-btn" data-act="tkclear">Clear</button>' : ''}</div></div>
       <div><span class="dk-lbl">Border colour</span><div class="dk-tksws">${sw}<label class="dk-tksw dk-tkcus${custom ? ' on' : ''}" title="Any colour" style="--c:${custom ? TK.color : 'transparent'}"><input type="color" id="dk-tkcol" value="${TK.color}" aria-label="Any colour"></label></div></div>
-      <div><span class="dk-lbl">Border width</span><div class="dk-tkrow"><input type="range" id="dk-tkbw" min="0" max="14" step="0.5" value="${TK.bw}" aria-label="Border width"><output id="dk-tkbwo">${TK.bw ? Math.round(TK.bw * 10) / 10 + '%' : 'None'}</output></div></div>
+      <div><span class="dk-lbl">Border width</span><div class="dk-tkrow"><input type="range" id="dk-tkbw" min="0" max="14" step="0.5" value="${TK.bw}" style="--p:${TK.bw / 14 * 100}%" aria-label="Border width"><output id="dk-tkbwo">${TK.bw ? Math.round(TK.bw * 10) / 10 + '%' : 'None'}</output></div></div>
       <label class="dk-chk"><input type="checkbox" id="dk-tkshade" ${TK.shade ? 'checked' : ''}> Metal shine on the border</label>
       <div><span class="dk-lbl">Shape</span><div class="dk-seg2 dk-tkseg" data-pk="tkshape">${[['round', 'Round'], ['square', 'Square']].map(([k, n]) => `<button class="${TK.shape === k ? 'on' : ''}" data-act="tkshape" data-v="${k}">${n}</button>`).join('')}</div></div>
       <div><span class="dk-lbl">Download size</span><div class="dk-seg2 dk-tkseg" data-pk="tksize">${[256, 512, 1024].map(n => `<button class="${TK.size === n ? 'on' : ''}" data-act="tksize" data-v="${n}">${n}px</button>`).join('')}</div></div>
@@ -2723,6 +2723,8 @@ function tkSync() {
   const cus = $('.dk-tkcus'), custom = !TKCOLS.some(([, c]) => c === TK.color); if (cus) { cus.classList.toggle('on', custom); cus.style.setProperty('--c', custom ? TK.color : 'transparent'); }
   $$('.dk-tok-tool [data-act=tkshape]').forEach(x => x.classList.toggle('on', x.dataset.v === TK.shape)); $$('.dk-tok-tool [data-act=tksize]').forEach(x => x.classList.toggle('on', +x.dataset.v === TK.size));
   const z = document.getElementById('dk-tkz'); if (z) z.value = TK.z; const o = document.getElementById('dk-tkbwo'); if (o) o.textContent = TK.bw ? Math.round(TK.bw * 10) / 10 + '%' : 'None';
+  // (the sliders fill in gold up to where they're set)
+  $$('.dk-tok-tool input[type=range]').forEach(r => { const a = +r.min || 0, b = +r.max || 100; r.style.setProperty('--p', ((+r.value - a) / (b - a || 1) * 100) + '%'); });
   const box = document.getElementById('dk-tkbox'); if (box) box.classList.toggle('sq', TK.shape === 'square');
   try { pills(); } catch (e) {} tkRedraw();
 }
@@ -2762,7 +2764,7 @@ function tkMount() {
   }
   tkRedraw();
 }
-function tkZoom(nz) { nz = Math.max(1, Math.min(5, nz)); TK.x *= nz / TK.z; TK.y *= nz / TK.z; TK.z = nz; const z = document.getElementById('dk-tkz'); if (z && +z.value !== nz) z.value = nz; tkRedraw(); }
+function tkZoom(nz) { nz = Math.max(1, Math.min(5, nz)); TK.x *= nz / TK.z; TK.y *= nz / TK.z; TK.z = nz; const z = document.getElementById('dk-tkz'); if (z && +z.value !== nz) z.value = nz; if (z) z.style.setProperty('--p', ((nz - 1) / 4 * 100) + '%'); tkRedraw(); }
 // ----- drawing -----
 function genHTML() {
   const sub = UI.gen === 'npc' ? 'npc' : 'enc';
@@ -4780,7 +4782,7 @@ function lootHTML() {
   const left = LOOT.list == null ? '<p class="dk-hint">Loading…</p>' : lootSection(null), right = boxes.map(lootSection).join('');
   return `<div class="dk-loot2"><section class="dk-card dk-lpanel">
     <h2 class="dk-lph"><span class="dk-lpht">Loot</span><span class="dk-lbtns"><button class="dk-btn gold" data-act="lootcat" data-to="">+ Add item</button><button class="dk-btn" data-act="loothb" data-to="">+ Homebrew item</button><button class="dk-btn" data-act="lootcoins" data-to="">+ Coins</button><button class="dk-btn" data-act="lootbox">+ Container</button>
-      <span class="dk-menu"><button class="dk-btn" data-act="menu" aria-haspopup="menu">More</button><span class="dk-mlist" role="menu"><button data-act="lootpaste" data-to="">Paste an item’s text</button>${aiReady() ? '<button data-act="lootai" data-to="">Design an item with AI</button>' : ''}</span></span></span></h2>
+      ${aiReady() ? '<button class="dk-btn" data-act="lootai" data-to="">+ AI item</button>' : ''}</span></h2>
     <div class="dk-lsearch"><input class="dk-f dk-lq" id="dk-lq" type="search" placeholder="Search the loot…" aria-label="Search the loot" value="${esc(LOOT.q)}"></div>
     <div class="dk-lstats"><span>Items <b>${things.reduce((t, e) => t + (N(e.qty) || 1), 0)}</b></span><span>Coins <b>≈ ${Math.round(worth).toLocaleString()} gp</b></span><span>Containers <b>${boxes.length}</b></span>${sessions.length ? `<div class="dk-seg2 dk-lsess2" data-pk="lootf">${chip('all', 'Everything')}${chip('none', 'Not planned')}${sessions.map(s => chip(s.id, s.title)).join('')}</div>` : ''}</div>
     <div class="dk-lboxes dk-linv">${left}${right}</div>
@@ -4838,7 +4840,8 @@ function lootWire() {
   const flip = (els, fn) => { const b = new Map(els.map(x => [x, x.getBoundingClientRect().top])); fn(); els.forEach(x => { const dy = b.get(x) - x.getBoundingClientRect().top; if (!dy) return; x.style.transition = 'none'; x.style.transform = `translateY(${dy}px)`; requestAnimationFrame(() => { x.style.transition = 'transform .16s ease'; x.style.transform = ''; }); }); };
   root.addEventListener('pointerdown', e => { const g = e.target.closest && e.target.closest('.dk-lgrip'); if (!g || e.button > 0) return; const r = g.closest('.dk-lr'); if (!r) return; e.preventDefault();
     const b = r.getBoundingClientRect(), gh = r.cloneNode(true); gh.classList.add('dk-lghost');
-    Object.assign(gh.style, { position: 'fixed', left: b.left + 'px', top: b.top + 'px', width: b.width + 'px', margin: 0, zIndex: 80, pointerEvents: 'none' }); document.body.appendChild(gh);
+    const cs = getComputedStyle(root); /* (the desk's colours live on the desk, not the page, so the carried copy takes them with it) */
+    Object.assign(gh.style, { position: 'fixed', left: b.left + 'px', top: b.top + 'px', width: b.width + 'px', margin: 0, zIndex: 80, pointerEvents: 'none', background: cs.getPropertyValue('--card2').trim() || '#20283a', borderColor: cs.getPropertyValue('--gold').trim() || '#c9962b', color: cs.getPropertyValue('--ink').trim() || cs.color, opacity: 1 }); document.body.appendChild(gh);
     r.classList.add('dragging'); document.body.classList.add('dk-ldragging'); D = { r, gh, dy: e.clientY - b.top, y: e.clientY, from: r.closest('.dk-lbox').dataset.lbox || '', over: null, raf: 0 };
     try { g.setPointerCapture(e.pointerId); } catch (x) {}
     const step = () => { if (!D) return; D.raf = 0; const inv = root.getBoundingClientRect(), h = D.gh.offsetHeight, top = Math.max(inv.top, Math.min(inv.bottom - h, D.y - D.dy)); D.gh.style.top = top + 'px';
@@ -4853,7 +4856,14 @@ function lootWire() {
       const sc = root.closest('.dk-main') || document.scrollingElement, edge = 60; if (D.y < edge) sc.scrollBy(0, -12); else if (D.y > innerHeight - edge) sc.scrollBy(0, 12); if (D.y < edge || D.y > innerHeight - edge) D.raf = requestAnimationFrame(step); };
     D.step = step; step(); });
   root.addEventListener('pointermove', e => { if (!D) return; D.y = e.clientY; if (!D.raf) D.raf = requestAnimationFrame(D.step); });
-  const end = e => { if (!D) return; const d = D; D = null; cancelAnimationFrame(d.raf); d.gh.remove(); document.body.classList.remove('dk-ldragging'); d.r.classList.remove('dragging'); root.querySelectorAll('.dk-lbox.over').forEach(x => x.classList.remove('over'));
+  // let go: the carried copy glides into its new spot (or onto the closed container it's going into), then the row is back
+  const end = e => { if (!D) return; const d = D; D = null; cancelAnimationFrame(d.raf); document.body.classList.remove('dk-ldragging');
+    const land = () => { d.gh.remove(); d.r.classList.remove('dragging'); root.querySelectorAll('.dk-lbox.over').forEach(x => x.classList.remove('over')); drop(e, d); };
+    if (e.type === 'pointercancel' || !document.contains(d.r) || matchMedia('(prefers-reduced-motion: reduce)').matches) return land();
+    const to = (d.over ? d.over.querySelector('.dk-lsh') || d.over : d.r).getBoundingClientRect(), gs = d.gh.style;
+    gs.transition = 'top .2s cubic-bezier(.2,.8,.3,1), box-shadow .2s, opacity .2s, transform .2s'; requestAnimationFrame(() => { gs.top = to.top + 'px'; gs.boxShadow = '0 0 0 rgba(0,0,0,0)'; if (d.over) { gs.opacity = '0'; gs.transform = 'scale(.97)'; } });
+    let done = false; const fin = () => { if (done) return; done = true; land(); }; d.gh.addEventListener('transitionend', ev => { if (ev.propertyName === 'top') fin(); }); setTimeout(fin, 320); };
+  const drop = (e, d) => {
     if (e.type === 'pointercancel' || !document.contains(d.r)) return paint();
     const it = lootById(d.r.dataset.lid); if (!it) return paint();
     const sec = d.over || d.r.closest('.dk-lbox'), to = sec ? sec.dataset.lbox || '' : d.from, moved = (lootBoxOf(it) ? it.box : '') !== to; const ch = [];
@@ -4916,10 +4926,11 @@ function lootCatalog() {
         runOk(() => lootAdd({ kind: 'named', name: r.n, qty: 1, rarity: r.rar || '', cat: r.cat }).then(() => setTimeout(() => { if (b.isConnected) { b.disabled = false; b.querySelector('.dk-lci-add').textContent = 'Add another'; } }, 900))); }); };
     q.oninput = show; show(); });
 }
-function lootPaste() {
+function lootPaste(back) {
   openModal(`<h2>Paste an item</h2><p class="dk-hint">Paste a magic item from a book, PDF or D&amp;D Beyond — name, the type line, then its text. You can check and change it before it goes into your loot.</p>
     <textarea class="dk-f" id="dk-lpaste" rows="10" placeholder="Flame Tongue&#10;Weapon (any sword), rare (requires attunement)&#10;You can use a bonus action to speak this magic sword’s command word…"></textarea>
-    <div class="dk-acts"><button class="dk-btn" data-act="close">Cancel</button><button class="dk-btn gold" id="dk-lpgo">Read item</button></div>`, { wide: true });
+    <div class="dk-acts">${back ? '<button class="dk-btn" id="dk-lpback">Back</button>' : '<button class="dk-btn" data-act="close">Cancel</button>'}<button class="dk-btn gold" id="dk-lpgo">Read item</button></div>`, { wide: true });
+  if (back) $('#dk-lpback').onclick = () => lootBuild(null); setTimeout(() => { const t = $('#dk-lpaste'); if (t) t.focus(); }, 50);
   $('#dk-lpgo').onclick = () => { const r = ItemParse.parse($('#dk-lpaste').value, { weapons: T.WEAPONS || [], armor: T.ARMOR || [], spells: SPELLN() }); const v = r && shapeHB(r.spec); if (!v) return toastInfo('That didn’t look like an item — the first line should be its name.');
     closeModal(true); lootBuild(itemFromSpec(v), 'Check the pasted item'); };
 }
@@ -4935,7 +4946,7 @@ function lootAIModal() {
 // the sheet's item builder (desk_hbb.js), then into the loot
 function lootBuild(item, title) {
   if (typeof hbdOpen !== 'function') return toastInfo('The item builder didn’t load — reload the page.');
-  hbdOpen(item, { title: title || (item ? 'Edit homebrew item' : 'New homebrew item'), saveLabel: 'Add to loot', onSave: it => runOk(() => lootAddItem(it)) });
+  hbdOpen(item, { title: title || (item ? 'Edit homebrew item' : 'New homebrew item'), saveLabel: 'Add to loot', onSave: it => runOk(() => lootAddItem(it)), onPaste: () => lootPaste(true) });
 }
 async function lootGiveModal(e, who) {
   if (!CTX.lootGive) return; const coins = e.kind === 'coins';
@@ -5097,7 +5108,7 @@ function hbdPaint() {
   const box = document.getElementById('hbd'); if (!box || !HBD) return;
   const card = box.closest('.dk-mcard'), sc = card ? card.scrollTop : 0, o = HBD.opts;
   const adv = HBD.adv ? `<div class="hbb-adv">${hbdItemAdv()}<p class="dk-hint hbb-fhint">Numbers can be formulas: <code>prof</code>, <code>wis</code>, <code>level</code>, <code>1d6+prof</code>. Separate several entries with commas.</p></div>` : '';
-  box.innerHTML = `<div class="hbb-head"><span class="hbb-grow"></span><label class="hbb-switch" title="Show every option the sheet can automate"><input type="checkbox" data-hbdadv${HBD.adv ? ' checked' : ''}><span class="tr" aria-hidden="true"><i></i></span><span>Advanced</span></label></div>
+  box.innerHTML = `<div class="hbb-head">${HBD.opts.onPaste ? '<button type="button" class="dk-btn hbb-paste" data-hbdpaste title="Paste an item from a book, PDF or D&amp;D Beyond and it fills this in">Paste an item…</button>' : ''}<span class="hbb-grow"></span><label class="hbb-switch" title="Show every option the sheet can automate"><input type="checkbox" data-hbdadv${HBD.adv ? ' checked' : ''}><span class="tr" aria-hidden="true"><i></i></span><span>Advanced</span></label></div>
     <div class="hbb-body">${hbdItemBasic()}${adv}</div>
     <datalist id="hbd-spl">${hbdSpellNames().map(n => `<option value="${hbdEsc(n)}"></option>`).join('')}</datalist>
     <div class="dk-acts hbb-acts"><button class="dk-btn" data-act="close">Cancel</button><button class="dk-btn gold" data-hbdsave>${hbdEsc(o.saveLabel || (HBD.isNew ? 'Create item' : 'Save'))}</button></div>`;
@@ -5226,7 +5237,7 @@ document.addEventListener('change', e => { const t = e.target; if (!HBD || !t.cl
   if (t.dataset.hbd == null) return;
   hbdSet(HBD.d, t.dataset.hbd, t.type === 'checkbox' ? t.checked : t.value);
   if (t.tagName === 'SELECT' || t.type === 'checkbox' || /^_uses$/.test(t.dataset.hbd)) hbdPaint(); }, true);
-document.addEventListener('click', e => { if (!HBD) return; const b = e.target.closest && e.target.closest('#hbd [data-hbdseg], #hbd [data-hbdchip], #hbd [data-hbdsec], #hbd [data-hbdspdel], #hbd [data-hbdsave]'); if (!b) return;
+document.addEventListener('click', e => { if (!HBD) return; if (e.target.closest && e.target.closest('#hbd [data-hbdpaste]')) { const f = HBD.opts.onPaste; if (f) f(); return; } const b = e.target.closest && e.target.closest('#hbd [data-hbdseg], #hbd [data-hbdchip], #hbd [data-hbdsec], #hbd [data-hbdspdel], #hbd [data-hbdsave]'); if (!b) return;
   e.preventDefault(); e.stopPropagation();
   if (b.dataset.hbdseg) { hbdSet(HBD.d, b.dataset.hbdseg, b.dataset.v); return hbdPaint(); }
   if (b.dataset.hbdchip) { const p = b.dataset.hbdchip, v = b.dataset.v, have = hbdCSV(hbdV(p) || ''), on = have.some(x => x.toLowerCase() === v.toLowerCase()); hbdSet(HBD.d, p, (on ? have.filter(x => x.toLowerCase() !== v.toLowerCase()) : have.concat([v.toLowerCase()])).join(', ')); return hbdPaint(); }
