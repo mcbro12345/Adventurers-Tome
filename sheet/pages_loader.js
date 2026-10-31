@@ -502,7 +502,7 @@ function a2hsSteps() {
   const steps = pgIOS() ? [`Tap the <b>Share</b> button ${share} in your browser's toolbar.`, 'Scroll down and tap <b>Add to Home Screen</b>.', 'Tap <b>Add</b>.']
     : [`Open your browser's menu ${dots}.`, 'Tap <b>Add to Home screen</b> or <b>Install app</b>.', 'Tap <b>Add</b> or <b>Install</b>.'];
   const m = document.createElement('div'); m.className = 'pg-out'; pgOutFade(m);
-  m.innerHTML = `<div class="pg-out-card pg-a2hs-card" role="dialog" aria-modal="true" aria-labelledby="pg-a2-h"><h2 id="pg-a2-h">Add to home screen</h2><p>Adventurer’s Tome is made to be used as an app, full screen, from your home screen. It isn’t designed for a regular mobile browser: the browser’s bars take up room, and some things won’t fit or work as well there.</p><ol>${steps.map(s => `<li>${s}</li>`).join('')}</ol><div class="pg-out-row"><button class="pg-out-no">Got it</button></div></div>`;
+  m.innerHTML = `<div class="pg-out-card pg-a2hs-card" role="dialog" aria-modal="true" aria-labelledby="pg-a2-h"><h2 id="pg-a2-h">Add to home screen</h2><p>Open Adventurer’s Tome like an app, full screen, from your home screen.</p><ol>${steps.map(s => `<li>${s}</li>`).join('')}</ol><div class="pg-out-row"><button class="pg-out-no">Got it</button></div></div>`;
   const close = () => { m.remove(); document.removeEventListener('keydown', key); }, key = e => { if (e.key === 'Escape') close(); };
   m.onclick = e => { if (e.target === m) close(); }; m.querySelector('.pg-out-no').onclick = close; document.addEventListener('keydown', key); document.body.appendChild(m); }
   // On a computer the sheet's own scrollbar is swapped for a slim one in the sheet's accent colour: drag it, click the
