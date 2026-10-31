@@ -1865,7 +1865,7 @@ async function onClick(e) {
     case 'bugreport': try { CTX.bugReport(); } catch (e) {} return;
     case 'tkpick': { const f = document.getElementById('dk-tkfile'); if (f) f.click(); return; }
     case 'tkcol': TK.color = b.dataset.v; tkSync(); return;
-    case 'tkshape': TK.shape = b.dataset.v; tkSync(); return;
+    case 'tkshape': if (b.dataset.v !== TK.shape) tkMorph(b.dataset.v); return;
     case 'tksize': TK.size = +b.dataset.v; tkSync(); return;
     case 'tkreset': TK.z = 1; TK.x = TK.y = 0; tkSync(); return;
     case 'tkclear': TK.im = null; paint(); return;
@@ -2420,9 +2420,21 @@ function tokensHTML() {
 const tkHex = h => { h = String(h || '').replace('#', ''); if (h.length === 3) h = h.replace(/./g, '$&$&'); const n = parseInt(h, 16) || 0; return [n >> 16 & 255, n >> 8 & 255, n & 255]; };
 const tkMix = (h, t, a) => { const c = tkHex(h), m = t === 'w' ? 255 : 0; return `rgb(${c.map(v => Math.round(v + (m - v) * a)).join(',')})`; };
 function tkPath(g, N, inset, add) {
-  if (!add) g.beginPath(); if (TK.shape === 'round') { const rr = Math.max(0, N / 2 - inset); g.moveTo(N / 2 + rr, N / 2); g.arc(N / 2, N / 2, rr, 0, Math.PI * 2); g.closePath(); return; }
-  const s = N - 2 * inset, r = Math.max(0, N * .09 - inset * .6); if (g.roundRect) g.roundRect(inset, inset, s, s, r); else g.rect(inset, inset, s, s);
+  // one rounded square whose corners go from the square's to fully round (a circle): TK.m is how round it is, so the
+  // shape can melt from one to the other when it's switched
+  if (!add) g.beginPath(); const m = TK.m == null ? (TK.shape === 'round' ? 1 : 0) : TK.m, s = Math.max(0, N - 2 * inset), half = s / 2;
+  if (m >= 1) { const rr = Math.max(0, N / 2 - inset); g.moveTo(N / 2 + rr, N / 2); g.arc(N / 2, N / 2, rr, 0, Math.PI * 2); g.closePath(); return; }
+  const r0 = Math.max(0, Math.min(half, N * .09 - inset * .6)), r = r0 + (half - r0) * m, x0 = inset, y0 = inset, x1 = inset + s, y1 = inset + s;
+  g.moveTo(x0 + r, y0); g.lineTo(x1 - r, y0); g.arcTo(x1, y0, x1, y0 + r, r); g.lineTo(x1, y1 - r); g.arcTo(x1, y1, x1 - r, y1, r); g.lineTo(x0 + r, y1); g.arcTo(x0, y1, x0, y1 - r, r); g.lineTo(x0, y0 + r); g.arcTo(x0, y0, x0 + r, y0, r); g.closePath();
 }
+// switching round ↔ square: the corners ease from one to the other
+function tkMorph(to) { const from = TK.m == null ? (TK.shape === 'round' ? 1 : 0) : TK.m, goal = to === 'round' ? 1 : 0; TK.shape = to;
+  if (TK.mraf) cancelAnimationFrame(TK.mraf); if (matchMedia('(prefers-reduced-motion: reduce)').matches) { TK.m = null; return tkSync(); }
+  const t0 = performance.now(), D = 380, ease = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  // (the box around it rounds along with it; it's looked up each frame since the page may redraw it)
+  const box = () => document.getElementById('dk-tkbox');
+  const step = now => { const t = Math.min(1, (now - t0) / D); TK.m = from + (goal - from) * ease(t); const b = box(); if (b) b.style.borderRadius = (9 + 41 * TK.m) + '%'; tkRedraw(); if (t < 1) TK.mraf = requestAnimationFrame(step); else { TK.m = null; TK.mraf = 0; const b2 = box(); if (b2) b2.style.borderRadius = ''; tkRedraw(); } };
+  TK.m = from; tkSync(); TK.mraf = requestAnimationFrame(step); }
 function tkClamp() { if (!TK.im) return; const W = TK.im.naturalWidth, H = TK.im.naturalHeight, D = 1, k = Math.max(D / W, D / H) * TK.z, mx = Math.max(0, (W * k - D) / 2), my = Math.max(0, (H * k - D) / 2); TK.x = Math.max(-mx, Math.min(mx, TK.x)); TK.y = Math.max(-my, Math.min(my, TK.y)); }
 // draws the token at N×N pixels; the picture fills the inside, offset by TK.x/TK.y (fractions of the inside)
 function tkDraw(g, N) {
@@ -2457,7 +2469,7 @@ function tkLoad(file) {
   im.src = url;
 }
 function tkDownload() {
-  if (!TK.im) return; const c = document.createElement('canvas'); c.width = c.height = TK.size; tkDraw(c.getContext('2d'), TK.size);
+  if (!TK.im) return; const c = document.createElement('canvas'); c.width = c.height = TK.size; const m0 = TK.m; TK.m = null; tkDraw(c.getContext('2d'), TK.size); TK.m = m0; /* (the finished shape, even mid-switch) */
   c.toBlob(bl => { if (!bl) return toast({ title: 'Couldn’t make the file.', cls: 'bad' }); const a = document.createElement('a'), u = URL.createObjectURL(bl); a.href = u; a.download = TK.name + '-token.png'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000); toast({ title: 'Token downloaded', det: esc(a.download) }); }, 'image/png');
 }
 function tkMount() {
