@@ -1,0 +1,38 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Haptic test</title>
+<style>
+:root { color-scheme: dark; } body { margin: 0; padding: 20px 16px 60px; background: #121826; color: #eee6d4; font: 16px/1.45 system-ui, -apple-system, sans-serif; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+h1 { font-size: 1.3rem; margin: 0 0 6px; } p { margin: 0 0 14px; color: #b9b2a2; font-size: .92rem; }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+button, .pad { border: 1px solid #3a4560; background: #1d2536; color: inherit; border-radius: 12px; padding: 14px 10px; font: 600 .95rem system-ui, sans-serif; }
+.pad { touch-action: none; height: 120px; display: grid; place-items: center; text-align: center; margin-bottom: 10px; }
+h2 { font-size: 1rem; margin: 22px 0 8px; color: #e0b456; }
+#log { font: 12px ui-monospace, monospace; white-space: pre-wrap; color: #9fb0c8; max-height: 200px; overflow: auto; border-top: 1px solid #3a4560; padding-top: 8px; }
+</style></head><body>
+<h1>Haptic test</h1>
+<p>Try each button and pad, and note which ones you <b>feel</b>. Method A reuses one hidden switch; method B makes a fresh one each time.</p>
+<h2>1. Plain tap</h2><div class="row"><button data-m="A" data-t="tap">Tap (A)</button><button data-m="B" data-t="tap">Tap (B)</button></div>
+<h2>2. Half a second after a tap</h2><div class="row"><button data-m="A" data-t="late">Delayed (A)</button><button data-m="B" data-t="late">Delayed (B)</button></div>
+<h2>3. Hold still (fires at 0.3 s while still holding)</h2><div class="row"><button data-m="A" data-t="hold">Hold (A)</button><button data-m="B" data-t="hold">Hold (B)</button></div>
+<h2>4. Touch down, slide sideways, lift</h2>
+<div class="pad" data-m="A">Method A pad<br><small>tick on touch down, every 30 px of sliding, and on lift</small></div>
+<div class="pad" data-m="B">Method B pad<br><small>same, with method B</small></div>
+<h2>5. Phone's own picker</h2><p>Tap it and scroll through the list. Does the phone tick for each one?</p>
+<select style="width:100%;padding:14px;border-radius:12px;background:#1d2536;color:inherit;border:1px solid #3a4560;font:600 1rem system-ui"><option>Core</option><option>Combat</option><option>Spells</option><option>Features</option><option>Inventory</option><option>Creatures</option><option>Story</option><option>Notes</option><option>Party</option></select>
+<div id="log"></div>
+<script>
+const log = t => { const l = document.getElementById('log'); l.textContent = new Date().toLocaleTimeString() + '  ' + t + '\n' + l.textContent; };
+let labA = null;
+const A = () => { if (!labA) { labA = document.createElement('label'); labA.setAttribute('aria-hidden', 'true'); labA.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none;z-index:-1'; const i = document.createElement('input'); i.type = 'checkbox'; i.setAttribute('switch', ''); i.tabIndex = -1; labA.appendChild(i); document.body.appendChild(labA); } labA.click(); };
+const B = () => { const l = document.createElement('label'); l.ariaHidden = 'true'; l.style.display = 'none'; const i = document.createElement('input'); i.type = 'checkbox'; i.setAttribute('switch', ''); l.appendChild(i); document.head.appendChild(l); l.click(); document.head.removeChild(l); };
+const H = (m, why) => { (m === 'A' ? A : B)(); log(m + ': ' + why); };
+document.querySelectorAll('button').forEach(b => {
+  const m = b.dataset.m, t = b.dataset.t;
+  if (t === 'tap') b.addEventListener('click', () => H(m, 'tap'));
+  if (t === 'late') b.addEventListener('click', () => setTimeout(() => H(m, '0.5 s after tap'), 500));
+  if (t === 'hold') { let tm = 0; b.addEventListener('touchstart', () => { tm = setTimeout(() => H(m, 'while holding (timer)'), 300); }, { passive: true }); b.addEventListener('touchend', () => clearTimeout(tm)); }
+});
+document.querySelectorAll('.pad').forEach(p => { const m = p.dataset.m; let x0 = 0, last = 0;
+  p.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; last = 0; H(m, 'touchstart'); }, { passive: true });
+  p.addEventListener('touchmove', e => { e.preventDefault(); const s = Math.round((e.touches[0].clientX - x0) / 30); if (s !== last) { last = s; H(m, 'touchmove step ' + s); } }, { passive: false });
+  p.addEventListener('touchend', () => H(m, 'touchend')); });
+</script></body></html>

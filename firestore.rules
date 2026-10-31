@@ -379,7 +379,7 @@ service cloud.firestore {
       allow get: if signedIn();
       allow create, update, delete: if admin();
     }
-    // The front page's tour video and its thumbnail (Admin → Landing video): anyone can read it, even signed out;
+    // The front page's tour video and its thumbnail (Admin -> Landing video): anyone can read it, even signed out;
     // only admins set it. The thumbnail is a small picture kept in the document itself.
     match /config/landing {
       allow get: if true;

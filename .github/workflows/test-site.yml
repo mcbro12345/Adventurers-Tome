@@ -1,0 +1,63 @@
+# The test site: every push to the "test" branch publishes its build to the test project, and (only when asked) first
+# copies the live site's accounts and data into it. The live site isn't touched (its key is only used to read).
+# "Run workflow" on this workflow's page does the same by hand (for a fresh copy without a new build).
+# The repository is public, so nothing here prints any of the copied data, only counts.
+name: Publish to the test site
+on:
+  push:
+    branches: [test]
+  workflow_dispatch:
+    inputs:
+      copy:
+        description: Copy the live site's accounts and data into the test site first
+        type: boolean
+        default: true
+permissions:
+  contents: read
+concurrency:
+  group: test-site
+  cancel-in-progress: false
+jobs:
+  test-site:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # (the test project's key is kept for the run; the live one only exists inside the one step that reads indexes)
+      - name: Keys
+        env:
+          PROD_SA: ${{ secrets.PROD_FIREBASE_READ }}
+          TEST_SA: ${{ secrets.TEST_FIREBASE_SA }}
+        run: |
+          if [ -z "$PROD_SA" ] || [ -z "$TEST_SA" ]; then echo "Add the PROD_FIREBASE_READ and TEST_FIREBASE_SA secrets first."; exit 1; fi
+          printf '%s' "$TEST_SA" > "$RUNNER_TEMP/test.json"
+          TEST_ID=$(node -e "console.log(require('$RUNNER_TEMP/test.json').project_id)")
+          if [ "$TEST_ID" = "dnd-character-sheets-b30c7" ]; then echo "TEST_FIREBASE_SA is the live project's key. Stopping."; exit 1; fi
+          echo "TEST_ID=$TEST_ID" >> "$GITHUB_ENV"
+      - name: Same database rules and indexes as live
+        env:
+          PROD_SA: ${{ secrets.PROD_FIREBASE_READ }}
+        run: |
+          printf '%s' "$PROD_SA" > "$RUNNER_TEMP/prod.json"
+          r=0; GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/prod.json" npx --yes firebase-tools@15.34.0 firestore:indexes --project dnd-character-sheets-b30c7 > firestore.indexes.json || r=$?
+          rm -f "$RUNNER_TEMP/prod.json"; [ $r -eq 0 ] || exit $r
+          GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/test.json" npx --yes firebase-tools@15.34.0 deploy --only firestore --config firebase.test.json --project "$TEST_ID" --non-interactive --force
+      # Copying reads every document on the live site, which counts against the live site's free daily reads, so it
+      # only runs when asked for: "Run workflow" here, or a push whose commit message contains [copy].
+      - name: Copy the live accounts and data
+        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.copy) || contains(github.event.head_commit.message, '[copy]') }}
+        env:
+          PROD_SA: ${{ secrets.PROD_FIREBASE_READ }}
+          TEST_SA: ${{ secrets.TEST_FIREBASE_SA }}
+        run: |
+          cd tools && npm install --no-save --silent --ignore-scripts firebase-admin@12.7.0 && node sync-test.js
+      - name: Publish the test build
+        run: |
+          GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/test.json" npx --yes firebase-tools@15.34.0 deploy --only hosting --config firebase.test.json --project "$TEST_ID" --non-interactive
+      - name: Tidy up
+        if: always()
+        run: rm -f "$RUNNER_TEMP/prod.json" "$RUNNER_TEMP/test.json"
