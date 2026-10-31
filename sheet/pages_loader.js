@@ -1111,14 +1111,18 @@ function wireDie(root) {
       ME.ext = v; ME.extInst = inst; ME.extAt = Date.now(); UREF.update({ ext: v, extAt: ME.extAt }).catch(() => {}); if (inst) UREF.update({ extInst: inst }).catch(() => {}); /* (separately, so the version is kept even where the database doesn't take the other yet) */ };
     // Opened from an icon on their home screen (the site added as an app): noted per device, once a day; the first time on
     // each kind of device goes in the audit log.
-    try { let ses = false; try { ses = sessionStorage.getItem('pg-app') === '1'; } catch (e) {} const app = ses || matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; /* (not 'fullscreen': that's also true for a browser window someone made full screen with F11) */
+    const appCheck = () => {
+    try { let ses = false; try { ses = sessionStorage.getItem('pg-app') === '1'; } catch (e) {} const appWin = ['standalone', 'minimal-ui', 'window-controls-overlay'].some(m => matchMedia('(display-mode: ' + m + ')').matches), app = ses || appWin || navigator.standalone === true; /* (an installed app's window reports one of these — Chrome and Edge 'standalone', others 'minimal-ui', apps that draw their own title bar 'window-controls-overlay'; a normal tab is 'browser') */ /* (not 'fullscreen': that's also true for a browser window someone made full screen with F11) */
       if (app) { // phone or tablet: iPhone, Android, or an iPad — which asks for desktop sites and so says it's a Mac, but
         // Macs have no touch screen, so "Mac" + touch = iPad. Windows and real Macs count as computers even with a touch screen.
         const ua = navigator.userAgent || '', touch = /iPhone|iPad|iPod|Android/i.test(ua) || (/Macintosh/.test(ua) && (navigator.maxTouchPoints || 0) > 1) || (!/Windows|Macintosh|CrOS|Linux x86/.test(ua) && pgIsPhone());
         const k = touch ? 'pwaPhone' : 'pwaPc', was = Number(ME[k]) || 0;
         if (Date.now() - was > 864e5) { ME[k] = Date.now(); UREF.update({ [k]: ME[k] }).catch(() => {}); }
         // (the activity log is set up a little further down this page's start-up, so it's written once that's ready)
-        if (!was) setTimeout(() => { if (window.pgLog) window.pgLog('pwa_add', { detail: (k === 'pwaPhone' ? 'on a phone or tablet' : 'installed as an app on a computer') + ' · ' + pgDevName() + ' · seen by: ' + [ses && 'the home-screen icon’s address', matchMedia('(display-mode: standalone)').matches && 'running in its own app window', navigator.standalone === true && 'iPhone/iPad home-screen app'].filter(Boolean).join(', ') }); }, 800); } } catch (e) { console.warn('home screen', e); }
+        if (!was) setTimeout(() => { if (window.pgLog) window.pgLog('pwa_add', { detail: (k === 'pwaPhone' ? 'on a phone or tablet' : 'installed as an app on a computer') + ' · ' + pgDevName() + ' · seen by: ' + [ses && 'the home-screen icon’s address', appWin && 'running in its own app window (' + ['standalone', 'minimal-ui', 'window-controls-overlay'].filter(m => matchMedia('(display-mode: ' + m + ')').matches).join(', ') + ')', navigator.standalone === true && 'iPhone/iPad home-screen app'].filter(Boolean).join(', ') }); }, 800); } } catch (e) { console.warn('home screen', e); } };
+    appCheck();
+    // (installing in Chrome or Edge moves the open page into its own window without reloading it: notice that too)
+    try { ['standalone', 'minimal-ui', 'window-controls-overlay'].forEach(m => matchMedia('(display-mode: ' + m + ')').addEventListener('change', e => { if (e.matches) appCheck(); })); } catch (e) {}
     // (the extension may already have answered before this account was loaded — as on the lobby and admin pages — so catch up, or ask again)
     if (pgExtCopies().length) extT = setTimeout(extSeen, 1500); else window.postMessage({ __dnd20: 'hello', dir: 'toExt' }, '*');
     // Only a page someone has actually looked at keeps them online. A page the browser loads out of sight (Chrome
