@@ -3911,12 +3911,14 @@ html.mobile .rc-x svg { display: none; } html.mobile .rc-x::before { content: '�
 @container (max-width: 760px) { .us-t th:nth-child(7), .us-t td.us-app { display: none; } }
 /* phones (the lobby without tiles): the divider under the pinned top, and its soft shadow, only fade in once the list has
    scrolled up under it */
-body.hubbody:not(.adminbody) #hub:not(.hd2) .hub-head { border-bottom: 1px solid transparent; transition: border-color .25s ease; }
+body.hubbody:not(.adminbody) #hub:not(.hd2) .hub-head { border-bottom: 1px solid transparent; background-color: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; transition: border-color .25s ease, background-color .25s ease; }
+/* (its dark backing only comes in once the list scrolls up under it, so the list doesn't show through the top) */
+body.hubbody:not(.adminbody) #hub:not(.hd2) .hub-head.hd-stuck { background-color: rgba(15,20,32,.9); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
 body.hubbody:not(.adminbody) #hub:not(.hd2) .hub-head::after { opacity: 0; transition: opacity .25s ease; }
 body.hubbody:not(.adminbody) #hub:not(.hd2) .hub-head.hd-stuck { border-bottom-color: rgba(201,150,43,.28); }
 body.hubbody:not(.adminbody) #hub:not(.hd2) .hub-head.hd-stuck::after { opacity: 1; }
-@media (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) body.hubbody:not(.adminbody) #hub:not(.hd2) .hub-head.hd-stuck { border-bottom-color: rgba(138,100,32,.3); } }
- :where(html[data-pgtheme="light"]) body.hubbody:not(.adminbody) #hub:not(.hd2) .hub-head.hd-stuck { border-bottom-color: rgba(138,100,32,.3); } 
+@media (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) body.hubbody:not(.adminbody) #hub:not(.hd2) .hub-head.hd-stuck { border-bottom-color: rgba(138,100,32,.3); background-color: rgba(241,233,216,.9); } }
+ :where(html[data-pgtheme="light"]) body.hubbody:not(.adminbody) #hub:not(.hd2) .hub-head.hd-stuck { border-bottom-color: rgba(138,100,32,.3); background-color: rgba(241,233,216,.9); } 
 @media (prefers-reduced-motion: reduce) { body.hubbody:not(.adminbody) #hub:not(.hd2) .hub-head, body.hubbody:not(.adminbody) #hub:not(.hd2) .hub-head::after { transition: none; } }
 
 /* Add to home screen: a quiet line at the top of the button saying why, then the button's own words */
@@ -4883,7 +4885,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261031121856', ASSETS = {"data": "a/data.e8173a24cd9b.js", "app": "a/app.5357e015575b.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.770d474243cf.html", "desk": "a/desk.ab6b05dfed51.js", "deskcss": "a/deskcss.407b744be102.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261031122112', ASSETS = {"data": "a/data.e8173a24cd9b.js", "app": "a/app.5357e015575b.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.770d474243cf.html", "desk": "a/desk.ab6b05dfed51.js", "deskcss": "a/deskcss.407b744be102.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   // The test site says so on every page (and in the tab's title), so it's never mistaken for the real one.
   if (CFG.test) { window.PG_TEST = true; const mark = () => { if (!document.body || document.getElementById('pg-testmark')) return; const t = document.createElement('div'); t.id = 'pg-testmark'; t.textContent = 'Test site'; t.title = 'This is the test copy of Adventurer’s Tome. Changes here don’t touch the real site.'; document.body.appendChild(t);
       if (!/^\[Test\] /.test(document.title)) document.title = '[Test] ' + document.title; };
