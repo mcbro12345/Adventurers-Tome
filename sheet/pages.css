@@ -3701,3 +3701,5 @@ html.mobile .rc-x svg { display: none; } html.mobile .rc-x::before { content: 'â
 .adm-tag.app-on { color: #4f8fe0; background: rgba(79,143,224,.12); border-color: rgba(79,143,224,.35); white-space: nowrap; }
 .us-t td.us-app { white-space: nowrap; }
 @container (max-width: 760px) { .us-t th:nth-child(7), .us-t td.us-app { display: none; } }
+/* phones (the lobby without tiles): no divider line under the pinned top */
+body.hubbody:not(.adminbody) #hub:not(.hd2) .hub-head { border-bottom: 0; }
