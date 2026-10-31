@@ -1108,8 +1108,9 @@ function wireDie(root) {
     // each kind of device goes in the audit log.
     try { let ses = false; try { ses = sessionStorage.getItem('pg-app') === '1'; } catch (e) {} const app = ses || matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches || navigator.standalone === true;
       if (app) { const k = pgIsPhone() ? 'pwaPhone' : 'pwaPc', was = Number(ME[k]) || 0;
-        if (!was) pgLog('pwa_add', { detail: k === 'pwaPhone' ? 'on a phone or tablet' : 'on a computer' });
-        if (Date.now() - was > 864e5) { ME[k] = Date.now(); UREF.update({ [k]: ME[k] }).catch(() => {}); } } } catch (e) {}
+        if (Date.now() - was > 864e5) { ME[k] = Date.now(); UREF.update({ [k]: ME[k] }).catch(() => {}); }
+        // (the activity log is set up a little further down this page's start-up, so it's written once that's ready)
+        if (!was) setTimeout(() => { if (window.pgLog) window.pgLog('pwa_add', { detail: k === 'pwaPhone' ? 'on a phone or tablet' : 'on a computer' }); }, 800); } } catch (e) { console.warn('home screen', e); }
     // (the extension may already have answered before this account was loaded — as on the lobby and admin pages — so catch up, or ask again)
     if (pgExtCopies().length) extT = setTimeout(extSeen, 1500); else window.postMessage({ __dnd20: 'hello', dir: 'toExt' }, '*');
     // Only a page someone has actually looked at keeps them online. A page the browser loads out of sight (Chrome
