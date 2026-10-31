@@ -3721,4 +3721,4 @@ body.hubbody:not(.adminbody) #hub:not(.hd2) .hub-head.hd-stuck { border-bottom-c
 .pg-si2 > .pg-a2hs { margin-bottom: -10px; }
 .pg-si2 > .pg-a2hs a { background: transparent !important; border: 1px dashed rgba(201,150,43,.4) !important; color: #c9b07a !important; box-shadow: none !important; }
 /* …on a see-through dark backing like the lobby top (blurred, so the page’s pattern only shows softly) */
-.pg-si2 > .pg-a2hs a { background: rgba(0,0,0,.32) !important; -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+.pg-si2 > .pg-a2hs a { background: rgba(0,0,0,.14) !important; -webkit-backdrop-filter: blur(1.5px); backdrop-filter: blur(1.5px); }
