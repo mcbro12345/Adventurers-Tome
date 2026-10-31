@@ -3929,6 +3929,10 @@ body.hubbody:not(.adminbody) #hub:not(.hd2) .hub-head.hd-stuck { border-bottom-c
 /* …with the lobby's dashed outline, and closer to the sign-in panel */
 .pg-si2 > .pg-a2hs { margin-bottom: -10px; }
 .pg-si2 > .pg-a2hs a { background: transparent !important; border: 1px dashed rgba(201,150,43,.4) !important; color: #c9b07a !important; box-shadow: none !important; }
+/* …on the same dark backing the lobby's sits on, so the page's pattern doesn't show through it */
+.pg-si2 > .pg-a2hs a { background: rgba(15,20,32,.9) !important; -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+@media (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) .pg-si2 > .pg-a2hs a { background: rgba(241,233,216,.9) !important; } }
+ :where(html[data-pgtheme="light"]) .pg-si2 > .pg-a2hs a { background: rgba(241,233,216,.9) !important; } 
 </style>
 </head>
 <body>
@@ -4879,7 +4883,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261031120758', ASSETS = {"data": "a/data.e8173a24cd9b.js", "app": "a/app.5357e015575b.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.770d474243cf.html", "desk": "a/desk.ab6b05dfed51.js", "deskcss": "a/deskcss.407b744be102.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261031121005', ASSETS = {"data": "a/data.e8173a24cd9b.js", "app": "a/app.5357e015575b.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.770d474243cf.html", "desk": "a/desk.ab6b05dfed51.js", "deskcss": "a/deskcss.407b744be102.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   // The test site says so on every page (and in the tab's title), so it's never mistaken for the real one.
   if (CFG.test) { window.PG_TEST = true; const mark = () => { if (!document.body || document.getElementById('pg-testmark')) return; const t = document.createElement('div'); t.id = 'pg-testmark'; t.textContent = 'Test site'; t.title = 'This is the test copy of Adventurer’s Tome. Changes here don’t touch the real site.'; document.body.appendChild(t);
       if (!/^\[Test\] /.test(document.title)) document.title = '[Test] ' + document.title; };
