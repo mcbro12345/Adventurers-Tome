@@ -4148,7 +4148,16 @@ window.pgInviteImage = pgInviteImage;
 // update address the hand-loaded ones don't) — readable here in Chrome, Edge, Brave, Opera and Vivaldi. (Firefox copies
 // never carry that address, store or not, so there it only counts when the extension says so itself.) '' = can't tell.
 function pgExtInst(d) { if (d && d.install) return String(d.install).slice(0, 20); if (/Firefox\//.test(navigator.userAgent || '')) return '';
+  // (only copies from 1.4.2 on mark the page — an older copy answering alongside a newer one isn't what the mark describes)
+  const v = String((d && d.version) || '0').split('.').map(Number); if ((v[0] || 0) * 1e4 + (v[1] || 0) * 100 + (v[2] || 0) < 10402) return '';
   const a = document.documentElement.getAttribute('data-dnd20') || ''; return /\|store$/.test(a) ? 'normal' : /\|local$/.test(a) ? 'development' : ''; }
+// Every copy of the extension that answers this page. Copies before 1.4.2 answer even when another copy is installed, so
+// someone who added the store version without removing an old hand-loaded one shows up here as two copies.
+const PG_EXT = { seen: {} };
+const pgExtNum = v => { const a = String(v || '0').split('.').map(Number); return (a[0] || 0) * 1e4 + (a[1] || 0) * 100 + (a[2] || 0); };
+function pgExtCopies() { return Object.values(PG_EXT.seen).sort((a, b) => (b.inst === 'normal') - (a.inst === 'normal') || pgExtNum(b.v) - pgExtNum(a.v)); }
+addEventListener('message', e => { if (e.source !== window) return; const d = e.data; if (!d || d.__dnd20 !== 'hi' || d.dir !== 'toSheet' || d.version === 'mock') return;
+  const v = String(d.version || 'yes').slice(0, 20); PG_EXT.seen[v] = { v, inst: pgExtInst(d) }; });
 function pgOnlineWhy(back, bg) { const p = location.pathname, q = location.search, t = String(document.title || '').replace(/\s*[—-]\s*Adventurer.s Tome\s*$/i, '').trim();
   const what = /^\/(c|character)\/|[?&]c=/.test(p + q) ? (t && !/adventurer/i.test(t) ? t + '’s sheet' : 'a character sheet')
     : /^\/party\/|[?&]party=/.test(p + q) ? (t && t !== 'Party' ? 'the ' + t + ' party page' : 'a party page')
@@ -4830,7 +4839,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261030195856', ASSETS = {"data": "a/data.e8173a24cd9b.js", "app": "a/app.66441a507363.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.c9b23b769732.html", "desk": "a/desk.ab6b05dfed51.js", "deskcss": "a/deskcss.407b744be102.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261030205632', ASSETS = {"data": "a/data.e8173a24cd9b.js", "app": "a/app.66441a507363.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.c9b23b769732.html", "desk": "a/desk.ab6b05dfed51.js", "deskcss": "a/deskcss.407b744be102.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   // The test site says so on every page (and in the tab's title), so it's never mistaken for the real one.
   if (CFG.test) { window.PG_TEST = true; const mark = () => { if (!document.body || document.getElementById('pg-testmark')) return; const t = document.createElement('div'); t.id = 'pg-testmark'; t.textContent = 'Test site'; t.title = 'This is the test copy of Adventurer’s Tome. Changes here don’t touch the real site.'; document.body.appendChild(t);
       if (!/^\[Test\] /.test(document.title)) document.title = '[Test] ' + document.title; };
@@ -5082,16 +5091,18 @@ function wireDie(root) {
     window.pgFgAt = (ME && ME.seenFg) || 0;
     // The Roll20 companion extension says hello to sheet pages: note on their record that they have it (and which
     // version), at most once a day, so the admin Users list can show who's installed it. Nothing is sent to the extension.
-    addEventListener('message', e => { if (e.source !== window || !ME) return; const d = e.data; if (!d || d.__dnd20 !== 'hi' || d.dir !== 'toSheet') return;
-      const v = String(d.version || 'yes').slice(0, 20), inst = pgExtInst(d); if (v === 'mock') return;
+    let extT = 0; addEventListener('message', e => { if (e.source !== window || !ME) return; const d = e.data; if (!d || d.__dnd20 !== 'hi' || d.dir !== 'toSheet' || d.version === 'mock') return;
+      clearTimeout(extT); extT = setTimeout(extSeen, 1500); });
+    // (the store copy if there is one, else the newest; "two copies" when an old hand-loaded copy answers as well)
+    const extSeen = () => { const cs = pgExtCopies(); if (!cs.length || !ME) return; const v = cs[0].v, inst = cs.length > 1 ? 'two copies' : cs[0].inst;
       // an admin asked them to switch to the store copy, and they have: the prompt is done
       if (ME.extNag && inst === 'normal') { ME.extNag = 0; UREF.update({ extNag: 0 }).catch(() => {}); if (window.pgDevExtNag) window.pgDevExtNag(0); }
       if (ME.ext === v && (ME.extInst || '') === inst && Date.now() - (ME.extAt || 0) < 864e5) return;
       // the audit log: a first install, a new version, or a switch between a developer copy and the store one
-      const kind = i => i === 'development' ? 'developer copy' : i === 'normal' ? 'store version' : '', ver = x => /^[\d.]+$/.test(x) ? 'v' + x : '';
+      const kind = i => i === 'development' ? 'developer copy' : i === 'normal' ? 'store version' : i === 'two copies' ? 'with an old developer copy still installed' : '', ver = x => /^[\d.]+$/.test(x) ? 'v' + x : '';
       if (!ME.ext) pgLog('ext_install', { detail: [ver(v), kind(inst)].filter(Boolean).join(', ') });
       else if (ME.ext !== v || (inst && ME.extInst && ME.extInst !== inst)) pgLog('ext_update', { detail: `${ver(ME.ext) || 'an older version'}${ME.extInst && kind(ME.extInst) ? ' (' + kind(ME.extInst) + ')' : ''} → ${ver(v) || 'a new version'}${kind(inst) ? ' (' + kind(inst) + ')' : ''}` });
-      ME.ext = v; ME.extInst = inst; ME.extAt = Date.now(); UREF.update(Object.assign({ ext: v, extAt: ME.extAt }, inst ? { extInst: inst } : {})).catch(() => {}); });
+      ME.ext = v; ME.extInst = inst; ME.extAt = Date.now(); UREF.update(Object.assign({ ext: v, extAt: ME.extAt }, inst ? { extInst: inst } : {})).catch(() => {}); };
     // Only a page someone has actually looked at keeps them online. A page the browser loads out of sight (Chrome
     // preparing a page you might open from the address bar, Opera's Speed Dial refreshing its preview, a link opened in
     // a background tab) never counts, and a tab left in the background stops counting 15 minutes after it was last on
@@ -7101,7 +7112,7 @@ function hub(fs, auth, G, ctx) {
       const devs = u => { const now = Date.now(), pc = u.seenPc && now - u.seenPc < ONLINE, ph = u.seenPhone && now - u.seenPhone < ONLINE; return pc || ph ? [pc && [IC_PC, 'a computer'], ph && [IC_PH, 'a phone or tablet']].filter(Boolean) : null; };
       const devHTML = u => { const d = devs(u); return d ? `<span class="adm-devs">${d.map(x => x[0]).join('')}</span>` : ''; }, devTxt = u => { const d = devs(u); return d ? ' On ' + d.map(x => x[1]).join(' and ') + '.' : ''; };
       const seen = u => isOn(u) ? (u.seenFg && Date.now() - u.seenFg > ONLINE ? `<span class="adm-online bg" title="Idle: has Adventurer’s Tome open in a tab, but hasn’t had it on screen for a few minutes (another tab or app is in front, or the window is minimised). After 15 minutes like this they show as offline.${devTxt(u)}"><i></i><b>Idle</b>${devHTML(u)}</span>` : `<span class="adm-online" title="Has Adventurer’s Tome open and on screen right now.${devTxt(u)}"><i></i><b>Online</b>${devHTML(u)}</span>`) : u.seenAt ? esc(ago(u.seenAt)) : '<span class="adm-dim">—</span>';
-      const extCell = u => (u.ext ? `<span class="adm-tag ext-on${u.extInst === 'development' ? ' ext-dev' : ''}" title="Roll20 companion extension seen ${esc(ago(u.extAt || 0))}${u.extInst === 'development' ? ' — a developer copy (loaded by hand)' : u.extInst === 'normal' ? ' — from the store' : ''}">Installed${/^[\d.]+$/.test(u.ext) ? ' · v' + esc(u.ext) : ''}${u.extInst === 'development' ? ' · dev' : ''}</span>` : '<span class="adm-dim">—</span>') + (u.extNag ? ' <span class="adm-tag ext-nag" title="Asked to switch to the store version">Prompt on</span>' : '');
+      const extCell = u => (u.ext ? `<span class="adm-tag ext-on${u.extInst === 'development' || u.extInst === 'two copies' ? ' ext-dev' : ''}" title="Roll20 companion extension seen ${esc(ago(u.extAt || 0))}${u.extInst === 'development' ? ' — a developer copy (loaded by hand)' : u.extInst === 'normal' ? ' — from the store' : u.extInst === 'two copies' ? ' — the store version, plus an old hand-loaded copy that still answers (rolls can post twice)' : ''}">Installed${/^[\d.]+$/.test(u.ext) ? ' · v' + esc(u.ext) : ''}${u.extInst === 'development' ? ' · dev' : u.extInst === 'two copies' ? ' · + old copy' : ''}</span>` : '<span class="adm-dim">—</span>') + (u.extNag ? ' <span class="adm-tag ext-nag" title="Asked to switch to the store version">Prompt on</span>' : '');
       l.innerHTML = rows.length ? `<div class="adm-tw"><table class="adm-t us-t"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Joined</th><th>Last active</th><th>Extension</th><th></th><th></th></tr></thead><tbody>${capR('us', rows).map(u => { const [rl, rc] = u.banned ? ['Blocked', 'r-blk'] : roleOf(u.id), open = UOPEN.has(u.id);
           return `<tr data-u="${esc(u.id)}"><td><span class="adm-who">${ava(u.name, u.id)}<span class="us-nm"><b>${esc(u.name || '—')}</b><small class="us-em">${esc(u.id)}</small></span></span></td><td class="adm-mail" title="${esc(u.id)}">${esc(u.id)}</td><td><span class="adm-tag ${rc}">${rl}</span></td><td>${when(u.createdAt)}</td><td>${seen(u)}</td><td>${extCell(u)}</td>
             <td><button class="adm-btn sm" data-uc="${esc(u.id)}">Characters ${open ? '▾' : '▸'}</button></td><td class="adm-act">${kebab([['msg', 'Send a message…', u.id], ['welcome', 'Show welcome message again', u.id], ['renotice', 'Show the notice again', u.id], ['hidewel', 'Mark the welcome message seen', u.id], ['hidenotice', 'Mark the current notice seen', u.id], ['quiet', QUIET.has(u.id) ? 'Count in notice numbers' : 'Leave out of notice numbers', u.id], ['reload', 'Refresh their page', u.id], u.extNag ? ['extnagoff', 'Stop the extension switch prompt', u.id] : ['extnag', 'Ask them to switch to the store extension', u.id], ['rename', 'Rename…', u.id], ['pic', 'Change picture…', u.id], ['newfor', 'New character for them', u.id]].concat(IS_OWNER && !ownerEm(u.id) ? [ADMINS.includes(u.id) ? ['unadmin', 'Remove admin', u.id] : ['mkadmin', 'Make admin', u.id]] : [], ownerEm(u.id) || u.id === EMAIL ? [] : [['signout', 'Sign out everywhere', u.id]].concat(u.banned ? [['unblock', 'Unblock', u.id]] : [], [['delacct', 'Delete account…', u.id, 'danger']])))}</td></tr>
@@ -8853,7 +8864,7 @@ function pgRevealPanels() { try { if (matchMedia('(prefers-reduced-motion: reduc
     if (/Vivaldi/.test(ua)) return { name: 'Vivaldi', url: 'vivaldi://extensions', add: 'Add to Chrome' };
     return { name: 'Chrome', url: 'chrome://extensions', add: 'Add to Chrome' }; };
   let shown = null;
-  function show(ver) {
+  function show(ver, two) {
     let snz = 0; try { snz = Number(localStorage.getItem(SNOOZE)) || 0; } catch (e) {} if (Date.now() < snz || shown || document.querySelector('.pg-devext')) return;
     const b = browser(), copy = (u) => `<button type="button" class="pgx-url" data-copy="${esc(u)}" title="Copy — browsers only open this page when you paste it into the address bar"><code>${esc(u)}</code><span aria-hidden="true">⧉</span></button>`;
     const steps = b.ff ? [
@@ -8864,10 +8875,11 @@ function pgRevealPanels() { try { if (matchMedia('(prefers-reduced-motion: reduc
       `<b>Remove the developer copy.</b> Open ${copy(b.url)} (click to copy it, then paste it into the address bar). Find <b>Adventurer’s Tome ↔ Roll20</b> and click <b>Remove</b>. You can turn <b>Developer mode</b> off afterwards.`,
       `<b>Add the official one</b> from the Chrome Web Store: click <b>${esc(b.add)}</b>. It updates itself from then on.${b.extra ? ` <span class="pgx-hint">${b.extra}</span>` : ''}<div class="pgx-go"><a class="pg-out-yes pgx-btn" href="${STORE}" target="_blank" rel="noopener">Open the Chrome Web Store</a></div>`,
       'Come back and <b>reload this page</b>. If you use Roll20, reload your Roll20 tab too.'];
+    const steps2 = two ? steps.filter((x, k) => k !== 1) : steps; /* (already has the official one) */
     const m = document.createElement('div'); m.className = 'pg-out pg-devext'; if (typeof pgOutFade === 'function') pgOutFade(m); shown = m;
-    m.innerHTML = `<div class="pg-out-card pgx-card" role="dialog" aria-modal="true" aria-labelledby="pgx-h"><h2 id="pgx-h">Switch to the official Roll20 extension</h2>
-      <p class="pgx-warn"><span aria-hidden="true">⚠</span><span>You’re using a <b>developer copy</b> of the Roll20 extension${ver ? ` (v${esc(ver)})` : ''}. Developer copies don’t update themselves and can have bugs — please switch to the official store version. It’s the same extension and keeps itself up to date.</span></p>
-      <p class="pgx-sub">In ${esc(b.name)}, it takes about a minute:</p><ol class="pgx-steps">${steps.map(x => `<li>${x}</li>`).join('')}</ol>
+    m.innerHTML = `<div class="pg-out-card pgx-card" role="dialog" aria-modal="true" aria-labelledby="pgx-h"><h2 id="pgx-h">${two ? 'Remove the old Roll20 extension' : 'Switch to the official Roll20 extension'}</h2>
+      <p class="pgx-warn"><span aria-hidden="true">⚠</span><span>${two ? `You have <b>two copies</b> of the Roll20 extension installed: the official one, and an old <b>developer copy</b>${ver ? ` (v${esc(ver)})` : ''} that still answers — so rolls can post twice. Remove the developer copy (step 1). ` : `You’re using a <b>developer copy</b> of the Roll20 extension${ver ? ` (v${esc(ver)})` : ''}.`}${two ? '' : ' Developer copies don’t update themselves and can have bugs — please switch to the official store version. It’s the same extension and keeps itself up to date.'}</span></p>
+      <p class="pgx-sub">In ${esc(b.name)}, it takes ${two ? 'a few seconds' : 'about a minute'}:</p><ol class="pgx-steps">${steps2.map(x => `<li>${x}</li>`).join('')}</ol>
       <div class="pg-out-row"><button type="button" class="pg-out-no" data-k="later">Remind me tomorrow</button><button type="button" class="pg-out-yes" data-k="reload">I’ve switched — reload</button></div></div>`;
     m.addEventListener('click', e => { const t = e.target.closest('button'); if (!t) { if (e.target === m) close(true); return; }
       if (t.dataset.copy) { const u = t.dataset.copy; (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject()).then(() => { t.classList.add('ok'); const c = t.querySelector('span'); if (c) c.textContent = '✓ Copied'; setTimeout(() => { t.classList.remove('ok'); if (c) c.textContent = '⧉'; }, 1800); }, () => { const r = document.createRange(); r.selectNodeContents(t.querySelector('code')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }); return; }
@@ -8876,9 +8888,10 @@ function pgRevealPanels() { try { if (matchMedia('(prefers-reduced-motion: reduc
   }
   function close(snooze) { if (snooze) try { localStorage.setItem(SNOOZE, String(Date.now() + 864e5)); } catch (e) {} if (shown) { shown.remove(); shown = null; } }
   addEventListener('message', e => { if (e.source !== window) return; const d = e.data; if (!d || d.__dnd20 !== 'hi' || d.dir !== 'toSheet' || d.version === 'mock') return;
-    const inst = pgExtInst(d), dev = inst ? inst === 'development' : (OLD_COPIES_ARE_DEV && older(d.version));
-    if (dev) { const go = () => show(d.version); document.body ? setTimeout(go, 1200) : addEventListener('DOMContentLoaded', () => setTimeout(go, 1200)); }
-    else if (shown && (!NAG || inst === 'normal')) close(false); });
+    const inst = pgExtInst(d), cs = pgExtCopies(), two = cs.length > 1, old0 = two ? cs[cs.length - 1] : null;
+    const dev = two || (inst ? inst === 'development' : (OLD_COPIES_ARE_DEV && older(d.version)));
+    if (dev) { const go = () => show(two ? old0.v : d.version, two); document.body ? setTimeout(go, 1200) : addEventListener('DOMContentLoaded', () => setTimeout(go, 1200)); }
+    else if (shown && !two && (!NAG || inst === 'normal')) close(false); });
   // ask whichever copy is installed to say hi (it already does when the page opens, but this page may have missed it)
   const ask = () => window.postMessage({ __dnd20: 'hello', dir: 'toExt' }, '*'); if (document.readyState === 'loading') addEventListener('DOMContentLoaded', ask); else ask();
   // an admin sent it by hand (Admin → Users): shown whether or not the extension says how it was installed
