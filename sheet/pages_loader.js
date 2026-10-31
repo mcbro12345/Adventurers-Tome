@@ -1107,10 +1107,13 @@ function wireDie(root) {
     // Opened from an icon on their home screen (the site added as an app): noted per device, once a day; the first time on
     // each kind of device goes in the audit log.
     try { let ses = false; try { ses = sessionStorage.getItem('pg-app') === '1'; } catch (e) {} const app = ses || matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; /* (not 'fullscreen': that's also true for a browser window someone made full screen with F11) */
-      if (app) { const k = pgIsPhone() ? 'pwaPhone' : 'pwaPc', was = Number(ME[k]) || 0;
+      if (app) { // phone or tablet: iPhone, Android, or an iPad — which asks for desktop sites and so says it's a Mac, but
+        // Macs have no touch screen, so "Mac" + touch = iPad. Windows and real Macs count as computers even with a touch screen.
+        const ua = navigator.userAgent || '', touch = /iPhone|iPad|iPod|Android/i.test(ua) || (/Macintosh/.test(ua) && (navigator.maxTouchPoints || 0) > 1) || (!/Windows|Macintosh|CrOS|Linux x86/.test(ua) && pgIsPhone());
+        const k = touch ? 'pwaPhone' : 'pwaPc', was = Number(ME[k]) || 0;
         if (Date.now() - was > 864e5) { ME[k] = Date.now(); UREF.update({ [k]: ME[k] }).catch(() => {}); }
         // (the activity log is set up a little further down this page's start-up, so it's written once that's ready)
-        if (!was) setTimeout(() => { if (window.pgLog) window.pgLog('pwa_add', { detail: k === 'pwaPhone' ? 'on a phone or tablet' : 'on a computer' }); }, 800); } } catch (e) { console.warn('home screen', e); }
+        if (!was) setTimeout(() => { if (window.pgLog) window.pgLog('pwa_add', { detail: k === 'pwaPhone' ? 'on a phone or tablet' : 'installed as an app on a computer' }); }, 800); } } catch (e) { console.warn('home screen', e); }
     // (the extension may already have answered before this account was loaded — as on the lobby and admin pages — so catch up, or ask again)
     if (pgExtCopies().length) extT = setTimeout(extSeen, 1500); else window.postMessage({ __dnd20: 'hello', dir: 'toExt' }, '*');
     // Only a page someone has actually looked at keeps them online. A page the browser loads out of sight (Chrome
@@ -3126,8 +3129,8 @@ function hub(fs, auth, G, ctx) {
       const seen = u => isOn(u) ? (u.seenFg && Date.now() - u.seenFg > ONLINE ? `<span class="adm-online bg" title="Idle: has Adventurer’s Tome open in a tab, but hasn’t had it on screen for a few minutes (another tab or app is in front, or the window is minimised). After 15 minutes like this they show as offline.${devTxt(u)}"><i></i><b>Idle</b>${devHTML(u)}</span>` : `<span class="adm-online" title="Has Adventurer’s Tome open and on screen right now.${devTxt(u)}"><i></i><b>Online</b>${devHTML(u)}</span>`) : u.seenAt ? esc(ago(u.seenAt)) : '<span class="adm-dim">—</span>';
       // Home screen: they've opened the site from an icon on their home screen (it can't be told until they open it that way)
       const appCell = u => { const ph = Number(u.pwaPhone) || 0, pc = Number(u.pwaPc) || 0; if (!ph && !pc) return '<span class="adm-dim">—</span>';
-        const where = ph && pc ? 'phone + computer' : ph ? 'phone' : 'computer', last = Math.max(ph, pc);
-        return `<span class="adm-tag app-on" title="Opened from their home screen (${esc(where)}), last ${esc(ago(last))}">Added · ${esc(where)}</span>`; };
+        const where = ph && pc ? 'phone/tablet + computer' : ph ? 'phone/tablet' : 'computer', last = Math.max(ph, pc);
+        return `<span class="adm-tag app-on" title="${ph ? 'Opened from the icon on their phone or tablet’s home screen' : ''}${ph && pc ? '; ' : ''}${pc ? 'Installed as an app on a computer (Chrome or Edge “Install app”) and opened from it' : ''} — last ${esc(ago(last))}">Added · ${esc(where)}</span>`; };
       const extCell = u => (u.ext ? `<span class="adm-tag ext-on${u.extInst === 'development' || u.extInst === 'two copies' ? ' ext-dev' : ''}" title="Roll20 companion extension seen ${esc(ago(u.extAt || 0))}${u.extInst === 'development' ? ' — a developer copy (loaded by hand)' : u.extInst === 'normal' ? ' — from the store' : u.extInst === 'two copies' ? ' — the store version, plus an old hand-loaded copy that still answers (rolls can post twice)' : ''}">Installed${/^[\d.]+$/.test(u.ext) ? ' · v' + esc(u.ext) : ''}${u.extInst === 'development' ? ' · dev' : u.extInst === 'two copies' ? ' · + old copy' : ''}</span>` : '<span class="adm-dim">—</span>') + (u.extNag ? ' <span class="adm-tag ext-nag" title="Asked to switch to the store version">Prompt on</span>' : '');
       l.innerHTML = rows.length ? `<div class="adm-tw"><table class="adm-t us-t"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Joined</th><th>Last active</th><th>Extension</th><th>Home screen</th><th></th><th></th></tr></thead><tbody>${capR('us', rows).map(u => { const [rl, rc] = u.banned ? ['Blocked', 'r-blk'] : roleOf(u.id), open = UOPEN.has(u.id);
           return `<tr data-u="${esc(u.id)}"><td><span class="adm-who">${ava(u.name, u.id)}<span class="us-nm"><b>${esc(u.name || '—')}</b><small class="us-em">${esc(u.id)}</small></span></span></td><td class="adm-mail" title="${esc(u.id)}">${esc(u.id)}</td><td><span class="adm-tag ${rc}">${rl}</span></td><td>${when(u.createdAt)}</td><td>${seen(u)}</td><td>${extCell(u)}</td><td class="us-app">${appCell(u)}</td>
