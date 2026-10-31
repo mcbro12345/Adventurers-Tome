@@ -4835,9 +4835,10 @@ function pgRevealPanels() { try { if (matchMedia('(prefers-reduced-motion: reduc
 // The extension says hi with how it was installed ('development' = loaded by hand from the download). Hand-loaded copies
 // never update themselves and may carry unfinished changes, so this explains how to swap it for the store one.
 (() => { if (window.__pgDevExt) return; window.__pgDevExt = 1;
-  // Copies older than 1.4.5 don't say how they were installed. Once 1.4.5 is out on both stores, any copy that still
-  // doesn't say must be a hand-loaded one (store copies update themselves): then flip this on.
-  const OLD_COPIES_ARE_DEV = false, NEW = [1, 4, 5];
+  // Copies older than 1.4.5 don't say how they were installed (in Chrome-type browsers 1.4.2+ still show it on the page).
+  // 1.4.5 was approved on the Chrome Web Store and Firefox Add-ons on Oct 30 2026; store copies update themselves (Chrome
+  // within hours, Firefox within a day), so from Nov 1 a copy older than that which still can't say how it was installed is a hand-loaded one.
+  const OLD_COPIES_ARE_DEV = Date.now() >= Date.parse('2026-11-01T20:00:00-05:00'), NEW = [1, 4, 5];
   const STORE = 'https://chromewebstore.google.com/detail/mgpepimfnfhagocgdbmmngiennbijgcd', AMO = 'https://addons.mozilla.org/en-US/firefox/addon/adventurers-tome-roll20/';
   const SNOOZE = 'pg-devext-later', esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   const older = v => { const a = String(v || '0').split('.').map(Number); for (let i = 0; i < 3; i++) { if ((a[i] || 0) !== NEW[i]) return (a[i] || 0) < NEW[i]; } return false; };
