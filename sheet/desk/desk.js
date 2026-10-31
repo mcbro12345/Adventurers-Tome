@@ -2430,10 +2430,12 @@ function tkPath(g, N, inset, add) {
 // switching round ↔ square: the corners ease from one to the other
 function tkMorph(to) { const from = TK.m == null ? (TK.shape === 'round' ? 1 : 0) : TK.m, goal = to === 'round' ? 1 : 0; TK.shape = to;
   if (TK.mraf) cancelAnimationFrame(TK.mraf); if (matchMedia('(prefers-reduced-motion: reduce)').matches) { TK.m = null; return tkSync(); }
-  const t0 = performance.now(), D = 380, ease = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  // (same timing and curve as the Round/Square switch's sliding background, so the two move together)
+  const bez = (x1, y1, x2, y2) => t => { let u = t; for (let i = 0; i < 8; i++) { const x = 3 * (1 - u) * (1 - u) * u * x1 + 3 * (1 - u) * u * u * x2 + u * u * u - t, dx = 3 * (1 - u) * (1 - u) * x1 + 6 * (1 - u) * u * (x2 - x1) + 3 * u * u * (1 - x2); if (Math.abs(x) < 1e-5 || !dx) break; u = Math.max(0, Math.min(1, u - x / dx)); } return 3 * (1 - u) * (1 - u) * u * y1 + 3 * (1 - u) * u * u * y2 + u * u * u; };
+  const t0 = performance.now(), D = 380, ease = bez(.3, 1.25, .45, 1);
   // (the box around it rounds along with it; it's looked up each frame since the page may redraw it)
   const box = () => document.getElementById('dk-tkbox');
-  const step = now => { const t = Math.min(1, (now - t0) / D); TK.m = from + (goal - from) * ease(t); const b = box(); if (b) b.style.borderRadius = (9 + 41 * TK.m) + '%'; tkRedraw(); if (t < 1) TK.mraf = requestAnimationFrame(step); else { TK.m = null; TK.mraf = 0; const b2 = box(); if (b2) b2.style.borderRadius = ''; tkRedraw(); } };
+  const step = now => { const t = Math.min(1, (now - t0) / D); TK.m = Math.max(0, Math.min(1, from + (goal - from) * ease(t))); const b = box(); if (b) b.style.borderRadius = (9 + 41 * TK.m) + '%'; tkRedraw(); if (t < 1) TK.mraf = requestAnimationFrame(step); else { TK.m = null; TK.mraf = 0; const b2 = box(); if (b2) b2.style.borderRadius = ''; tkRedraw(); } };
   TK.m = from; tkSync(); TK.mraf = requestAnimationFrame(step); }
 function tkClamp() { if (!TK.im) return; const W = TK.im.naturalWidth, H = TK.im.naturalHeight, D = 1, k = Math.max(D / W, D / H) * TK.z, mx = Math.max(0, (W * k - D) / 2), my = Math.max(0, (H * k - D) / 2); TK.x = Math.max(-mx, Math.min(mx, TK.x)); TK.y = Math.max(-my, Math.min(my, TK.y)); }
 // draws the token at N×N pixels; the picture fills the inside, offset by TK.x/TK.y (fractions of the inside)
