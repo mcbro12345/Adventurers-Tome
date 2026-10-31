@@ -156,11 +156,50 @@ const hkey = () => keyFor(S.id || 'blank') + ':history';
 const TRACK = k => !['savedAt', 'spellFilter', 'macroSeen', 'ptyLog', 'ptyNews'].includes(k);
 let HIST = [], REDO = [], LAST = null, pendingLabel = null;
 function snapAll() { const o = {}; for (const k in S) if (TRACK(k)) o[k] = JSON.stringify(S[k]); return o; }
+// What a change was, in words, read from what's different (for changes made without a name of their own — the undo
+// history and the site's activity log show it instead of just "Change").
+const CH_NAMES = { hp: 'HP', currency: 'coins', inventory: 'inventory', spells: 'spells', slotsUsed: 'spell slots', pactUsed: 'pact slots', hdUsed: 'hit dice', death: 'death saves', conditions: 'conditions', exhaustion: 'exhaustion', effects: 'effects', concentration: 'concentration', abilities: 'ability scores', saves: 'saving throws', skills: 'skills', features: 'features', feats: 'feats', classes: 'classes', notes: 'notes', backstory: 'backstory', allies: 'allies', lore: 'lore', traits: 'personality', appearance: 'appearance', attacks: 'attacks', combat: 'actions', turn: 'turn', companions: 'companions', settings: 'settings', layout: 'layout', theme: 'colours', portrait: 'picture', name: 'name', player: 'player name', alignment: 'alignment', xp: 'XP', faith: 'faith', tools: 'tools', langs: 'languages', profs: 'proficiencies', bags: 'containers', quotes: 'quotes', rumors: 'rumours', people: 'people', goals: 'goals', goal: 'goal', customItems: 'custom items', acOverride: 'AC', speedOverride: 'speed', race: 'race', background: 'background', rollAdv: 'advantage', condTurns: 'condition timers', riders: 'riders', form: 'form', picks: 'choices', featChoices: 'feat choices', slotsOverride: 'spell slot totals' };
+function changeWords(changed, cur) {
+  const out = [], P = j => { try { return j == null ? undefined : JSON.parse(j); } catch (e) { return undefined; } }, nm = x => x == null ? '' : typeof x === 'string' ? x : String(x.name || x.dname || x.title || x.label || x.text || x.key || '').slice(0, 60);
+  const num = v => (v === '' || v == null) ? 0 : Number(v) || 0, arrow = (a, b) => `${a} → ${b}`;
+  const list = (a, b, what) => { a = Array.isArray(a) ? a : []; b = Array.isArray(b) ? b : []; const an = a.map(nm), bn = b.map(nm), r = [];
+    bn.forEach((n, i) => { if (n && !an.includes(n)) r.push('added ' + n); });
+    an.forEach(n => { if (n && !bn.includes(n)) r.push('removed ' + n); });
+    if (!r.length) b.forEach(x => { const n = nm(x), o = a.find(y => nm(y) === n); if (!n || !o || JSON.stringify(o) === JSON.stringify(x)) return;
+      const d = [];
+      if (x && o && typeof x === 'object') { if (num(o.qty) !== num(x.qty) && (o.qty != null || x.qty != null)) d.push('×' + arrow(num(o.qty) || 1, num(x.qty) || 1));
+        if (!!o.equipped !== !!x.equipped) d.push(x.equipped ? 'equipped' : 'unequipped'); if (!!o.attuned !== !!x.attuned) d.push(x.attuned ? 'attuned' : 'unattuned');
+        if (!!o.prepared !== !!x.prepared) d.push(x.prepared ? 'prepared' : 'unprepared');
+        if (o.charges && x.charges && num(o.charges.used) !== num(x.charges.used)) d.push('charges used ' + arrow(num(o.charges.used), num(x.charges.used)));
+        if (o.used != null && num(o.used) !== num(x.used)) d.push('used ' + arrow(num(o.used), num(x.used))); }
+      r.push(n + (d.length ? ' ' + d.join(', ') : ' changed')); });
+    return r.length ? r.slice(0, 3).join(', ') + (r.length > 3 ? ` (+${r.length - 3} more)` : '') : what + ' changed'; };
+  for (const k of Object.keys(changed)) { const a = P(changed[k]), b = P(cur[k]); let w = '';
+    if (k === 'hp' && a && b) { const r = []; if (num(a.cur) !== num(b.cur)) r.push('HP ' + arrow(num(a.cur), num(b.cur))); if (num(a.temp) !== num(b.temp)) r.push('temp HP ' + arrow(num(a.temp), num(b.temp))); if (num(a.base) !== num(b.base) || num(a.adj) !== num(b.adj)) r.push('max HP changed'); w = r.join(', '); }
+    else if (k === 'currency' && a && b) { const CN = { pp: 'platinum', gp: 'gold', ep: 'electrum', sp: 'silver', cp: 'copper' }; w = ['pp', 'gp', 'ep', 'sp', 'cp'].filter(c => num(a[c]) !== num(b[c])).map(c => CN[c] + ' ' + arrow(num(a[c]), num(b[c]))).join(', '); }
+    else if (k === 'slotsUsed' && Array.isArray(a) && Array.isArray(b)) w = b.map((v, i) => num(v) !== num(a[i]) ? (num(v) > num(a[i]) ? `used a level ${i + 1} slot` : `got back a level ${i + 1} slot`) : '').filter(Boolean).join(', ');
+    else if (k === 'pactUsed') w = num(b) > num(a) ? 'used a pact slot' : 'got back a pact slot';
+    else if (k === 'death' && a && b) w = 'death saves ' + arrow(`${num(a.s)}✓ ${num(a.f)}✗`, `${num(b.s)}✓ ${num(b.f)}✗`);
+    else if (k === 'exhaustion') w = 'exhaustion ' + arrow(num(a), num(b));
+    else if (k === 'concentration') w = b ? 'concentrating on ' + nm(b) : 'stopped concentrating' + (a ? ' on ' + nm(a) : '');
+    else if (k === 'abilities' && a && b) w = Object.keys(b).filter(x => num(a[x]) !== num(b[x])).map(x => x.toUpperCase() + ' ' + arrow(num(a[x]), num(b[x]))).join(', ');
+    else if (k === 'saves' && a && b) w = Object.keys(b).filter(x => !!a[x] !== !!b[x]).map(x => (b[x] ? 'proficient in ' : 'not proficient in ') + x.toUpperCase() + ' saves').join(', ');
+    else if (k === 'skills' && Array.isArray(a) && Array.isArray(b)) w = b.map((x, i) => { const o = a[i] || {}; return num(o.prof) !== num(x.prof) ? (num(x.prof) >= 2 ? 'expertise in ' : num(x.prof) ? 'proficient in ' : 'not proficient in ') + x.name : num(o.misc) !== num(x.misc) ? x.name + ' bonus ' + arrow(num(o.misc), num(x.misc)) : ''; }).filter(Boolean).join(', ');
+    else if (k === 'classes' && Array.isArray(a) && Array.isArray(b)) { const lv = c => `${c.name || c.key || 'class'} ${c.level || ''}`.trim(); w = JSON.stringify(a.map(lv)) !== JSON.stringify(b.map(lv)) ? arrow(a.map(lv).join(' / ') || 'none', b.map(lv).join(' / ')) : 'class details changed'; }
+    else if (k === 'hdUsed') w = 'hit dice used changed';
+    else if (k === 'turn' && a && b) { const r = []; if (num(a.round) !== num(b.round)) r.push('round ' + arrow(num(a.round), num(b.round))); const ua = a.used || {}, ub = b.used || {}; Object.keys(Object.assign({}, ua, ub)).forEach(x => { if (!!ua[x] !== !!ub[x]) r.push((ub[x] ? 'used ' : 'got back ') + (x === 'action' ? 'the action' : x === 'bonus' ? 'the bonus action' : x === 'reaction' ? 'the reaction' : x)); }); if (num(a.moved) !== num(b.moved)) r.push('moved ' + arrow(num(a.moved), num(b.moved)) + ' ft'); w = r.join(', ') || 'turn tracker changed'; }
+    else if (Array.isArray(a) || Array.isArray(b)) w = (CH_NAMES[k] ? CH_NAMES[k][0].toUpperCase() + CH_NAMES[k].slice(1) + ': ' : '') + list(a, b, CH_NAMES[k] || k);
+    else if (typeof b === 'string' || typeof a === 'string') { const t = CH_NAMES[k] || k; w = String(b || '').length < 40 && String(a || '').length < 40 ? `${t}: ${arrow(a || '—', b || '—')}` : 'edited ' + t; }
+    else if (typeof b === 'number' || typeof a === 'number') w = (CH_NAMES[k] || k) + ' ' + arrow(num(a), num(b));
+    else w = (CH_NAMES[k] || k) + ' changed';
+    if (w) out.push(w); }
+  const t = out.join('; '); return t ? t[0].toUpperCase() + t.slice(1, 300) : 'Change';
+}
 function commit() {
-  const label = pendingLabel || 'Change', merge = label.startsWith('Edit: ');
-  pendingLabel = null;
   const cur = snapAll(), changed = {};
   new Set([...Object.keys(cur), ...Object.keys(LAST || {})]).forEach(k => { if (cur[k] !== (LAST || {})[k]) changed[k] = (LAST || {})[k] === undefined ? null : LAST[k]; });
+  let label = pendingLabel || ''; pendingLabel = null; if (!label) { try { label = changeWords(changed, cur); } catch (e) { label = 'Change'; } }
+  const merge = label.startsWith('Edit: ');
   LAST = cur;
   if (!Object.keys(changed).length || !S.created) return;
   const now = Date.now(), top = HIST[HIST.length - 1];
@@ -1603,6 +1642,7 @@ const critDice = e => { e = String(e || ''); if (ST('critRule') !== 'max') retur
 const diceTimes = (e, k) => String(e || '').replace(/(\d*)d(\d+)/gi, (m, n, sd) => ((N(n) || 1) * k) + 'd' + sd);
 
 // ---------- Toasts & modal ----------
+window.sheetToast = (...a) => toast(...a); // (the site's own code on a sheet page shows its notes the same way)
 function toast(html, cls = '', ms = 4500, action) {
   // Rolling in Roll20 yourself: a result card becomes "roll these dice" (the sheet still did everything else).
   if (SKIPPED.length && /^\s*<(b class="total"|div class="rc-multi")/.test(html)) {
@@ -5149,7 +5189,7 @@ function profWeapon(w) {
 function attackFromItem(it) {
   const w = it.weapon, props = w.props || [], ranged = w.kind === 'ranged';
   const monkOK = clsLv('monk') && ((w.cat === 'simple' && !ranged && !props.includes('heavy') && !props.includes('two-handed')) || /shortsword/i.test(it.name));
-  const ab = monkOK ? 'monk' : props.includes('finesse') ? 'fin' : ranged ? 'dex' : 'str';
+  const ab = it.atkAb && it.atkAb !== 'monk' ? it.atkAb : monkOK ? 'monk' : props.includes('finesse') ? 'fin' : ranged ? 'dex' : 'str';
   const vers = props.find(p => /versatile/.test(p));
   return { name: it.name, ab, prof: profWeapon([w.base || it.name, w.cat]), magic: N((it.mods || {}).atk), dice: w.dice, type: w.type, notes: props.filter(p => !/versatile/.test(p)).concat(vers ? [vers.replace('versatile ', 'two hands ')] : []).join(', ') + (w.range ? ` · ${w.range} ft` : '') + (it.silvered ? ' · silvered' : ''), kind: ranged ? 'ranged' : 'melee', oneHanded: !props.includes('two-handed') && !ranged, monk: monkOK, item: it.id };
 }
@@ -10389,6 +10429,8 @@ function ptyBusy() { const a = document.activeElement; return $('#wizard').class
 const ptyFreeKind = k => ['note', 'end', 'reply'].includes(k);
 function ptyTrusted(m) { const P = PTYX(), I = P && P.info(); if (ptyFreeKind(m.kind) && !(m.data && m.data.reason)) return true; if (!m.by) return false;
   if (m.data && m.data.ask) return false; // sent from the party page: always asked, even from the DM
+  // loot the whole party agreed to split (each player said OK on their own sheet): it just arrives
+  if (m.data && m.data.split && ['item', 'loot', 'coins'].includes(m.kind)) return true;
   // only the DM, or this character's own player (their own characters) — not whoever happens to have the sheet open
   return !!I && (m.by === I.dm || (I.mgrs || []).includes(m.by) || m.by === (P.owner && P.owner())); }
 function ptyInFlush() { const I = PTYX() && PTYX().info(); if (!S.created || ptyBusy() || !I || I.loading) { clearTimeout(ptyInFlush._t); ptyInFlush._t = setTimeout(ptyInFlush, 800); return; }
