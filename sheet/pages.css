@@ -3710,10 +3710,13 @@ body.hubbody:not(.adminbody) #hub:not(.hd2) .hub-head.hd-stuck { border-bottom-c
 
 /* Add to home screen: a quiet line at the top of the button saying why, then the button's own words */
 .pg-a2hs a, body.hubbody:not(.adminbody) .hub-views .pg-a2hs a { flex-direction: column !important; gap: 1px !important; }
-.pg-a2hs .pg-a2hs-why { display: block; max-width: 320px; margin: 0 auto 5px; font-size: .7rem; line-height: 1.35; font-weight: 500; opacity: .62; text-align: center; white-space: normal; }
+.pg-a2hs .pg-a2hs-why { display: block; max-width: 330px; margin: 0 auto 5px; font-size: .7rem; line-height: 1.35; font-weight: 400; color: inherit; opacity: 1; text-align: center; white-space: normal; }
 .pg-a2hs a, body.hubbody:not(.adminbody) .hub-views .pg-a2hs a { padding-top: 9px !important; padding-bottom: 9px !important; }
 .pg-a2hs .pg-a2hs-go { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
 
 /* sign-in page on a phone: Add to home screen sits at the very top, above the sign-in panel, styled like the lobby's */
 .pg-si2 > .pg-a2hs { order: -2; grid-column: 1 / -1; width: 100%; margin: 0; text-align: center; font-size: .84rem; }
 .pg-si2 > .pg-a2hs a { display: flex; align-items: center; justify-content: center; padding: 9px 14px; border-radius: 12px; color: #c9962b; text-decoration: none; font-weight: 600; background: rgba(201,150,43,.1); border: 1px solid rgba(201,150,43,.3); }
+/* …with the lobby's dashed outline, and closer to the sign-in panel */
+.pg-si2 > .pg-a2hs { margin-bottom: -10px; }
+.pg-si2 > .pg-a2hs a { background: transparent !important; border: 1px dashed rgba(201,150,43,.4) !important; color: #c9b07a !important; box-shadow: none !important; }
