@@ -4839,7 +4839,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261030205632', ASSETS = {"data": "a/data.e8173a24cd9b.js", "app": "a/app.66441a507363.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.c9b23b769732.html", "desk": "a/desk.ab6b05dfed51.js", "deskcss": "a/deskcss.407b744be102.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261030210022', ASSETS = {"data": "a/data.e8173a24cd9b.js", "app": "a/app.66441a507363.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.c9b23b769732.html", "desk": "a/desk.ab6b05dfed51.js", "deskcss": "a/deskcss.407b744be102.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   // The test site says so on every page (and in the tab's title), so it's never mistaken for the real one.
   if (CFG.test) { window.PG_TEST = true; const mark = () => { if (!document.body || document.getElementById('pg-testmark')) return; const t = document.createElement('div'); t.id = 'pg-testmark'; t.textContent = 'Test site'; t.title = 'This is the test copy of Adventurer’s Tome. Changes here don’t touch the real site.'; document.body.appendChild(t);
       if (!/^\[Test\] /.test(document.title)) document.title = '[Test] ' + document.title; };
@@ -5102,7 +5102,7 @@ function wireDie(root) {
       const kind = i => i === 'development' ? 'developer copy' : i === 'normal' ? 'store version' : i === 'two copies' ? 'with an old developer copy still installed' : '', ver = x => /^[\d.]+$/.test(x) ? 'v' + x : '';
       if (!ME.ext) pgLog('ext_install', { detail: [ver(v), kind(inst)].filter(Boolean).join(', ') });
       else if (ME.ext !== v || (inst && ME.extInst && ME.extInst !== inst)) pgLog('ext_update', { detail: `${ver(ME.ext) || 'an older version'}${ME.extInst && kind(ME.extInst) ? ' (' + kind(ME.extInst) + ')' : ''} → ${ver(v) || 'a new version'}${kind(inst) ? ' (' + kind(inst) + ')' : ''}` });
-      ME.ext = v; ME.extInst = inst; ME.extAt = Date.now(); UREF.update(Object.assign({ ext: v, extAt: ME.extAt }, inst ? { extInst: inst } : {})).catch(() => {}); };
+      ME.ext = v; ME.extInst = inst; ME.extAt = Date.now(); UREF.update({ ext: v, extAt: ME.extAt }).catch(() => {}); if (inst) UREF.update({ extInst: inst }).catch(() => {}); /* (separately, so the version is kept even where the database doesn't take the other yet) */ };
     // Only a page someone has actually looked at keeps them online. A page the browser loads out of sight (Chrome
     // preparing a page you might open from the address bar, Opera's Speed Dial refreshing its preview, a link opened in
     // a background tab) never counts, and a tab left in the background stops counting 15 minutes after it was last on

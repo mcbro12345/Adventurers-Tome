@@ -1099,7 +1099,7 @@ function wireDie(root) {
       const kind = i => i === 'development' ? 'developer copy' : i === 'normal' ? 'store version' : i === 'two copies' ? 'with an old developer copy still installed' : '', ver = x => /^[\d.]+$/.test(x) ? 'v' + x : '';
       if (!ME.ext) pgLog('ext_install', { detail: [ver(v), kind(inst)].filter(Boolean).join(', ') });
       else if (ME.ext !== v || (inst && ME.extInst && ME.extInst !== inst)) pgLog('ext_update', { detail: `${ver(ME.ext) || 'an older version'}${ME.extInst && kind(ME.extInst) ? ' (' + kind(ME.extInst) + ')' : ''} → ${ver(v) || 'a new version'}${kind(inst) ? ' (' + kind(inst) + ')' : ''}` });
-      ME.ext = v; ME.extInst = inst; ME.extAt = Date.now(); UREF.update(Object.assign({ ext: v, extAt: ME.extAt }, inst ? { extInst: inst } : {})).catch(() => {}); };
+      ME.ext = v; ME.extInst = inst; ME.extAt = Date.now(); UREF.update({ ext: v, extAt: ME.extAt }).catch(() => {}); if (inst) UREF.update({ extInst: inst }).catch(() => {}); /* (separately, so the version is kept even where the database doesn't take the other yet) */ };
     // Only a page someone has actually looked at keeps them online. A page the browser loads out of sight (Chrome
     // preparing a page you might open from the address bar, Opera's Speed Dial refreshing its preview, a link opened in
     // a background tab) never counts, and a tab left in the background stops counting 15 minutes after it was last on
