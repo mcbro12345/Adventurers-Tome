@@ -474,7 +474,7 @@ function pgAuthHandoff() { return new Promise(res => { if (!PG_BC) return res(fa
 let PG_INSTALL = null;
 addEventListener('beforeinstallprompt', e => { e.preventDefault(); PG_INSTALL = e; document.querySelectorAll('.pg-a2hs').forEach(x => x.hidden = false); });
 addEventListener('appinstalled', () => { PG_INSTALL = null; try { localStorage.setItem('pg-installed', '1'); } catch (e) {} document.querySelectorAll('.pg-a2hs').forEach(x => x.remove()); });
-const pgStandalone = () => { try { return matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches || navigator.standalone === true; } catch (e) { return false; } };
+const pgStandalone = () => { try { return matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; /* (not 'fullscreen': that's also true for a browser window someone made full screen with F11) */ } catch (e) { return false; } };
 const pgIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const pgMobile = () => pgIOS() || /Android|Mobile/i.test(navigator.userAgent);
 function a2hsHTML() { if (pgStandalone() || !pgMobile()) return '';
@@ -1106,7 +1106,7 @@ function wireDie(root) {
       ME.ext = v; ME.extInst = inst; ME.extAt = Date.now(); UREF.update({ ext: v, extAt: ME.extAt }).catch(() => {}); if (inst) UREF.update({ extInst: inst }).catch(() => {}); /* (separately, so the version is kept even where the database doesn't take the other yet) */ };
     // Opened from an icon on their home screen (the site added as an app): noted per device, once a day; the first time on
     // each kind of device goes in the audit log.
-    try { let ses = false; try { ses = sessionStorage.getItem('pg-app') === '1'; } catch (e) {} const app = ses || matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches || navigator.standalone === true;
+    try { let ses = false; try { ses = sessionStorage.getItem('pg-app') === '1'; } catch (e) {} const app = ses || matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; /* (not 'fullscreen': that's also true for a browser window someone made full screen with F11) */
       if (app) { const k = pgIsPhone() ? 'pwaPhone' : 'pwaPc', was = Number(ME[k]) || 0;
         if (Date.now() - was > 864e5) { ME[k] = Date.now(); UREF.update({ [k]: ME[k] }).catch(() => {}); }
         // (the activity log is set up a little further down this page's start-up, so it's written once that's ready)
