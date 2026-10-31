@@ -3710,5 +3710,6 @@ body.hubbody:not(.adminbody) #hub:not(.hd2) .hub-head.hd-stuck { border-bottom-c
 
 /* Add to home screen: a quiet line at the top of the button saying why, then the button's own words */
 .pg-a2hs a, body.hubbody:not(.adminbody) .hub-views .pg-a2hs a { flex-direction: column !important; gap: 1px !important; }
-.pg-a2hs .pg-a2hs-why { display: block; font-size: .68rem; line-height: 1.25; font-weight: 500; opacity: .6; letter-spacing: .01em; }
+.pg-a2hs .pg-a2hs-why { display: block; max-width: 320px; margin: 0 auto 5px; font-size: .7rem; line-height: 1.35; font-weight: 500; opacity: .62; text-align: center; white-space: normal; }
+.pg-a2hs a, body.hubbody:not(.adminbody) .hub-views .pg-a2hs a { padding-top: 9px !important; padding-bottom: 9px !important; }
 .pg-a2hs .pg-a2hs-go { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
