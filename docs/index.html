@@ -3917,8 +3917,10 @@ body.hubbody:not(.adminbody) #hub:not(.hd2) .hub-head.hd-stuck { border-bottom-c
  :where(html[data-pgtheme="light"]) body.hubbody:not(.adminbody) #hub:not(.hd2) .hub-head.hd-stuck { border-bottom-color: rgba(138,100,32,.3); box-shadow: 0 10px 18px -10px rgba(60,45,20,.28); } 
 @media (prefers-reduced-motion: reduce) { body.hubbody:not(.adminbody) #hub:not(.hd2) .hub-head { transition: none; } }
 
-/* the line under Add to home screen: why it's worth doing */
-.pg-a2hs .pg-a2hs-why { display: block; max-width: 340px; margin: 7px auto 0; font-size: .76rem; line-height: 1.4; font-weight: 500; opacity: .72; text-align: center; }
+/* Add to home screen: a quiet line at the top of the button saying why, then the button's own words */
+.pg-a2hs a, body.hubbody:not(.adminbody) .hub-views .pg-a2hs a { flex-direction: column !important; gap: 1px !important; }
+.pg-a2hs .pg-a2hs-why { display: block; font-size: .68rem; line-height: 1.25; font-weight: 500; opacity: .6; letter-spacing: .01em; }
+.pg-a2hs .pg-a2hs-go { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
 </style>
 </head>
 <body>
@@ -4507,7 +4509,7 @@ const pgStandalone = () => { try { return matchMedia('(display-mode: standalone)
 const pgIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const pgMobile = () => pgIOS() || /Android|Mobile/i.test(navigator.userAgent);
 function a2hsHTML() { if (pgStandalone() || !pgMobile()) return '';
-  return `<p class="pg-a2hs"><a href="#a2hs"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M12 8v6M9 11h6"/></svg>Add to home screen</a><small class="pg-a2hs-why">Adventurer’s Tome is made to be used as an app from your home screen. It isn’t designed for a regular mobile browser, where some things won’t fit or work as well.</small></p>`; }
+  return `<p class="pg-a2hs"><a href="#a2hs"><small class="pg-a2hs-why">Made to be used as an app, not in a mobile browser</small><span class="pg-a2hs-go"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M12 8v6M9 11h6"/></svg>Add to home screen</span></a></p>`; }
 function wireA2HS(root) { const el = root && root.querySelector('.pg-a2hs'); if (!el) return;
   // Already installed (Android can tell from the browser): don't offer it again.
   try { if (navigator.getInstalledRelatedApps) navigator.getInstalledRelatedApps().then(l => { if (l && l.length) el.remove(); }).catch(() => {}); } catch (e) {}
@@ -4869,7 +4871,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261031115405', ASSETS = {"data": "a/data.e8173a24cd9b.js", "app": "a/app.5357e015575b.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.770d474243cf.html", "desk": "a/desk.ab6b05dfed51.js", "deskcss": "a/deskcss.407b744be102.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261031115647', ASSETS = {"data": "a/data.e8173a24cd9b.js", "app": "a/app.5357e015575b.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.770d474243cf.html", "desk": "a/desk.ab6b05dfed51.js", "deskcss": "a/deskcss.407b744be102.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   // The test site says so on every page (and in the tab's title), so it's never mistaken for the real one.
   if (CFG.test) { window.PG_TEST = true; const mark = () => { if (!document.body || document.getElementById('pg-testmark')) return; const t = document.createElement('div'); t.id = 'pg-testmark'; t.textContent = 'Test site'; t.title = 'This is the test copy of Adventurer’s Tome. Changes here don’t touch the real site.'; document.body.appendChild(t);
       if (!/^\[Test\] /.test(document.title)) document.title = '[Test] ' + document.title; };
