@@ -3703,10 +3703,12 @@ html.mobile .rc-x svg { display: none; } html.mobile .rc-x::before { content: 'â
 @container (max-width: 760px) { .us-t th:nth-child(7), .us-t td.us-app { display: none; } }
 /* phones (the lobby without tiles): the divider under the pinned top, and its soft shadow, only fade in once the list has
    scrolled up under it */
-body.hubbody:not(.adminbody) #hub:not(.hd2) .hub-head { border-bottom: 1px solid transparent; box-shadow: 0 10px 18px -10px rgba(5,8,14,0); transition: border-color .25s ease, box-shadow .25s ease; }
-body.hubbody:not(.adminbody) #hub:not(.hd2) .hub-head.hd-stuck { border-bottom-color: rgba(201,150,43,.28); box-shadow: 0 10px 18px -10px rgba(5,8,14,.65); }
-@media (prefers-color-scheme: light) { body.hubbody:not(.adminbody) #hub:not(.hd2) .hub-head.hd-stuck { border-bottom-color: rgba(138,100,32,.3); box-shadow: 0 10px 18px -10px rgba(60,45,20,.28); } }
-@media (prefers-reduced-motion: reduce) { body.hubbody:not(.adminbody) #hub:not(.hd2) .hub-head { transition: none; } }
+body.hubbody:not(.adminbody) #hub:not(.hd2) .hub-head { border-bottom: 1px solid transparent; transition: border-color .25s ease; }
+body.hubbody:not(.adminbody) #hub:not(.hd2) .hub-head::after { opacity: 0; transition: opacity .25s ease; }
+body.hubbody:not(.adminbody) #hub:not(.hd2) .hub-head.hd-stuck { border-bottom-color: rgba(201,150,43,.28); }
+body.hubbody:not(.adminbody) #hub:not(.hd2) .hub-head.hd-stuck::after { opacity: 1; }
+@media (prefers-color-scheme: light) { body.hubbody:not(.adminbody) #hub:not(.hd2) .hub-head.hd-stuck { border-bottom-color: rgba(138,100,32,.3); } }
+@media (prefers-reduced-motion: reduce) { body.hubbody:not(.adminbody) #hub:not(.hd2) .hub-head, body.hubbody:not(.adminbody) #hub:not(.hd2) .hub-head::after { transition: none; } }
 
 /* Add to home screen: a quiet line at the top of the button saying why, then the button's own words */
 .pg-a2hs a, body.hubbody:not(.adminbody) .hub-views .pg-a2hs a { flex-direction: column !important; gap: 1px !important; }
