@@ -4501,7 +4501,7 @@ function lootHTML() {
   const left = LOOT.list == null ? '<p class="dk-hint">Loading…</p>' : lootSection(null), right = boxes.map(lootSection).join('');
   return `<div class="dk-loot2"><section class="dk-card dk-lpanel">
     <h2 class="dk-lph"><span class="dk-lpht">Loot</span><span class="dk-lbtns"><button class="dk-btn gold" data-act="lootcat" data-to="">+ Add item</button><button class="dk-btn" data-act="loothb" data-to="">+ Homebrew item</button><button class="dk-btn" data-act="lootcoins" data-to="">+ Coins</button><button class="dk-btn" data-act="lootbox">+ Container</button>
-      <span class="dk-menu"><button class="dk-btn" data-act="menu" aria-haspopup="menu">More</button><span class="dk-mlist" role="menu"><button data-act="lootpaste" data-to="">Paste an item’s text</button>${aiReady() ? '<button data-act="lootai" data-to="">Design an item with AI</button>' : ''}</span></span></span></h2>
+      ${aiReady() ? '<button class="dk-btn" data-act="lootai" data-to="">+ AI item</button>' : ''}</span></h2>
     <div class="dk-lsearch"><input class="dk-f dk-lq" id="dk-lq" type="search" placeholder="Search the loot…" aria-label="Search the loot" value="${esc(LOOT.q)}"></div>
     <div class="dk-lstats"><span>Items <b>${things.reduce((t, e) => t + (N(e.qty) || 1), 0)}</b></span><span>Coins <b>≈ ${Math.round(worth).toLocaleString()} gp</b></span><span>Containers <b>${boxes.length}</b></span>${sessions.length ? `<div class="dk-seg2 dk-lsess2" data-pk="lootf">${chip('all', 'Everything')}${chip('none', 'Not planned')}${sessions.map(s => chip(s.id, s.title)).join('')}</div>` : ''}</div>
     <div class="dk-lboxes dk-linv">${left}${right}</div>
