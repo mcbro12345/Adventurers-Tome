@@ -2424,7 +2424,7 @@ function tkPath(g, N, inset, add) {
   // shape can melt from one to the other when it's switched
   if (!add) g.beginPath(); const m = TK.m == null ? (TK.shape === 'round' ? 1 : 0) : TK.m, s = Math.max(0, N - 2 * inset), half = s / 2;
   if (m >= 1) { const rr = Math.max(0, N / 2 - inset); g.moveTo(N / 2 + rr, N / 2); g.arc(N / 2, N / 2, rr, 0, Math.PI * 2); g.closePath(); return; }
-  const r0 = Math.max(0, Math.min(half, N * .09 - inset * .6)), r = r0 + (half - r0) * m, x0 = inset, y0 = inset, x1 = inset + s, y1 = inset + s;
+  const r0 = Math.max(0, Math.min(half, N * .09 - inset * .6)), r = r0 + (half - r0) * Math.sqrt(m), /* (√: how round a corner looks grows with its area, so this makes the change look even both ways) */ x0 = inset, y0 = inset, x1 = inset + s, y1 = inset + s;
   g.moveTo(x0 + r, y0); g.lineTo(x1 - r, y0); g.arcTo(x1, y0, x1, y0 + r, r); g.lineTo(x1, y1 - r); g.arcTo(x1, y1, x1 - r, y1, r); g.lineTo(x0 + r, y1); g.arcTo(x0, y1, x0, y1 - r, r); g.lineTo(x0, y0 + r); g.arcTo(x0, y0, x0 + r, y0, r); g.closePath();
 }
 // switching round ↔ square: the corners ease from one to the other
@@ -2435,7 +2435,7 @@ function tkMorph(to) { const from = TK.m == null ? (TK.shape === 'round' ? 1 : 0
   const t0 = performance.now(), D = 380, ease = bez(.3, 1.25, .45, 1);
   // (the box around it rounds along with it; it's looked up each frame since the page may redraw it)
   const box = () => document.getElementById('dk-tkbox');
-  const step = now => { const t = Math.min(1, (now - t0) / D); TK.m = Math.max(0, Math.min(1, from + (goal - from) * ease(t))); const b = box(); if (b) b.style.borderRadius = (9 + 41 * TK.m) + '%'; tkRedraw(); if (t < 1) TK.mraf = requestAnimationFrame(step); else { TK.m = null; TK.mraf = 0; const b2 = box(); if (b2) b2.style.borderRadius = ''; tkRedraw(); } };
+  const step = now => { const t = Math.min(1, (now - t0) / D); TK.m = Math.max(0, Math.min(1, from + (goal - from) * ease(t))); const b = box(); if (b) b.style.borderRadius = (9 + 41 * Math.sqrt(TK.m)) + '%'; tkRedraw(); if (t < 1) TK.mraf = requestAnimationFrame(step); else { TK.m = null; TK.mraf = 0; const b2 = box(); if (b2) b2.style.borderRadius = ''; tkRedraw(); } };
   TK.m = from; tkSync(); TK.mraf = requestAnimationFrame(step); }
 function tkClamp() { if (!TK.im) return; const W = TK.im.naturalWidth, H = TK.im.naturalHeight, D = 1, k = Math.max(D / W, D / H) * TK.z, mx = Math.max(0, (W * k - D) / 2), my = Math.max(0, (H * k - D) / 2); TK.x = Math.max(-mx, Math.min(mx, TK.x)); TK.y = Math.max(-my, Math.min(my, TK.y)); }
 // draws the token at N×N pixels; the picture fills the inside, offset by TK.x/TK.y (fractions of the inside)

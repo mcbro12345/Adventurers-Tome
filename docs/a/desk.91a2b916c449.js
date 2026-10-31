@@ -2144,7 +2144,7 @@ async function onClick(e) {
     case 'bugreport': try { CTX.bugReport(); } catch (e) {} return;
     case 'tkpick': { const f = document.getElementById('dk-tkfile'); if (f) f.click(); return; }
     case 'tkcol': TK.color = b.dataset.v; tkSync(); return;
-    case 'tkshape': TK.shape = b.dataset.v; tkSync(); return;
+    case 'tkshape': if (b.dataset.v !== TK.shape) tkMorph(b.dataset.v); return;
     case 'tksize': TK.size = +b.dataset.v; tkSync(); return;
     case 'tkreset': TK.z = 1; TK.x = TK.y = 0; tkSync(); return;
     case 'tkclear': TK.im = null; paint(); return;
@@ -2684,13 +2684,13 @@ function tokensHTML() {
   const has = !!TK.im, sw = TKCOLS.map(([n, c]) => `<button class="dk-tksw${TK.color === c ? ' on' : ''}" data-act="tkcol" data-v="${c}" style="--c:${c}" title="${n}" aria-label="${n}" aria-pressed="${TK.color === c}"></button>`).join('');
   const custom = !TKCOLS.some(([, c]) => c === TK.color);
   return `<div class="dk-tok-tool"><section class="dk-card dk-tkstage"><h2>Token maker</h2>
-      <div class="dk-tkbox${has ? '' : ' empty'}" id="dk-tkbox">${has ? `<canvas id="dk-tkc" aria-label="Token preview. Drag to move the picture, scroll or pinch to zoom."></canvas>` : `<button class="dk-tkdrop" data-act="tkpick">${ICON.token}<b>Choose a picture</b><span>or drop one here</span></button>`}</div>
-      ${has ? `<div class="dk-tkzoom"><span class="dk-lbl">Zoom</span><input type="range" id="dk-tkz" min="1" max="5" step="0.01" value="${TK.z}" aria-label="Zoom"><button class="dk-btn sm" data-act="tkreset">Reset</button></div><p class="dk-hint">Drag the picture to move it. Scroll or pinch to zoom.</p>` : '<p class="dk-hint">Make a round token from any picture for your map or virtual tabletop. Nothing is uploaded or saved — it all happens in your browser.</p>'}
+      <div class="dk-tkbox${has ? '' : ' empty'}" id="dk-tkbox">${has ? `<canvas id="dk-tkc" aria-label="Token preview. Drag to move the picture, scroll or pinch to zoom."></canvas>` : `<button class="dk-tkdrop" data-act="tkpick"><span class="dk-tkdz-i" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg></span><b>Choose a picture</b><span>or drop one here</span></button>`}</div>
+      ${has ? `<div class="dk-tkzoom"><span class="dk-lbl">Zoom</span><input type="range" id="dk-tkz" min="1" max="5" step="0.01" value="${TK.z}" style="--p:${(TK.z - 1) / 4 * 100}%" aria-label="Zoom"><button class="dk-btn sm" data-act="tkreset">Reset</button></div><p class="dk-hint">Drag the picture to move it. Scroll or pinch to zoom.</p>` : '<p class="dk-hint">Make a round token from any picture for your map or virtual tabletop. Nothing is uploaded or saved — it all happens in your browser.</p>'}
       <input type="file" id="dk-tkfile" accept="image/*" hidden></section>
     <section class="dk-card dk-tkctl">
       <div><span class="dk-lbl">Picture</span><div class="dk-tkrow"><button class="dk-btn" data-act="tkpick">${has ? 'Change picture' : 'Choose picture'}</button>${has ? '<button class="dk-btn" data-act="tkclear">Clear</button>' : ''}</div></div>
       <div><span class="dk-lbl">Border colour</span><div class="dk-tksws">${sw}<label class="dk-tksw dk-tkcus${custom ? ' on' : ''}" title="Any colour" style="--c:${custom ? TK.color : 'transparent'}"><input type="color" id="dk-tkcol" value="${TK.color}" aria-label="Any colour"></label></div></div>
-      <div><span class="dk-lbl">Border width</span><div class="dk-tkrow"><input type="range" id="dk-tkbw" min="0" max="14" step="0.5" value="${TK.bw}" aria-label="Border width"><output id="dk-tkbwo">${TK.bw ? Math.round(TK.bw * 10) / 10 + '%' : 'None'}</output></div></div>
+      <div><span class="dk-lbl">Border width</span><div class="dk-tkrow"><input type="range" id="dk-tkbw" min="0" max="14" step="0.5" value="${TK.bw}" style="--p:${TK.bw / 14 * 100}%" aria-label="Border width"><output id="dk-tkbwo">${TK.bw ? TK.bw.toFixed(1) + '%' : 'None'}</output></div></div>
       <label class="dk-chk"><input type="checkbox" id="dk-tkshade" ${TK.shade ? 'checked' : ''}> Metal shine on the border</label>
       <div><span class="dk-lbl">Shape</span><div class="dk-seg2 dk-tkseg" data-pk="tkshape">${[['round', 'Round'], ['square', 'Square']].map(([k, n]) => `<button class="${TK.shape === k ? 'on' : ''}" data-act="tkshape" data-v="${k}">${n}</button>`).join('')}</div></div>
       <div><span class="dk-lbl">Download size</span><div class="dk-seg2 dk-tkseg" data-pk="tksize">${[256, 512, 1024].map(n => `<button class="${TK.size === n ? 'on' : ''}" data-act="tksize" data-v="${n}">${n}px</button>`).join('')}</div></div>
@@ -2699,9 +2699,23 @@ function tokensHTML() {
 const tkHex = h => { h = String(h || '').replace('#', ''); if (h.length === 3) h = h.replace(/./g, '$&$&'); const n = parseInt(h, 16) || 0; return [n >> 16 & 255, n >> 8 & 255, n & 255]; };
 const tkMix = (h, t, a) => { const c = tkHex(h), m = t === 'w' ? 255 : 0; return `rgb(${c.map(v => Math.round(v + (m - v) * a)).join(',')})`; };
 function tkPath(g, N, inset, add) {
-  if (!add) g.beginPath(); if (TK.shape === 'round') { const rr = Math.max(0, N / 2 - inset); g.moveTo(N / 2 + rr, N / 2); g.arc(N / 2, N / 2, rr, 0, Math.PI * 2); g.closePath(); return; }
-  const s = N - 2 * inset, r = Math.max(0, N * .09 - inset * .6); if (g.roundRect) g.roundRect(inset, inset, s, s, r); else g.rect(inset, inset, s, s);
+  // one rounded square whose corners go from the square's to fully round (a circle): TK.m is how round it is, so the
+  // shape can melt from one to the other when it's switched
+  if (!add) g.beginPath(); const m = TK.m == null ? (TK.shape === 'round' ? 1 : 0) : TK.m, s = Math.max(0, N - 2 * inset), half = s / 2;
+  if (m >= 1) { const rr = Math.max(0, N / 2 - inset); g.moveTo(N / 2 + rr, N / 2); g.arc(N / 2, N / 2, rr, 0, Math.PI * 2); g.closePath(); return; }
+  const r0 = Math.max(0, Math.min(half, N * .09 - inset * .6)), r = r0 + (half - r0) * Math.sqrt(m), /* (√: how round a corner looks grows with its area, so this makes the change look even both ways) */ x0 = inset, y0 = inset, x1 = inset + s, y1 = inset + s;
+  g.moveTo(x0 + r, y0); g.lineTo(x1 - r, y0); g.arcTo(x1, y0, x1, y0 + r, r); g.lineTo(x1, y1 - r); g.arcTo(x1, y1, x1 - r, y1, r); g.lineTo(x0 + r, y1); g.arcTo(x0, y1, x0, y1 - r, r); g.lineTo(x0, y0 + r); g.arcTo(x0, y0, x0 + r, y0, r); g.closePath();
 }
+// switching round ↔ square: the corners ease from one to the other
+function tkMorph(to) { const from = TK.m == null ? (TK.shape === 'round' ? 1 : 0) : TK.m, goal = to === 'round' ? 1 : 0; TK.shape = to;
+  if (TK.mraf) cancelAnimationFrame(TK.mraf); if (matchMedia('(prefers-reduced-motion: reduce)').matches) { TK.m = null; return tkSync(); }
+  // (same timing and curve as the Round/Square switch's sliding background, so the two move together)
+  const bez = (x1, y1, x2, y2) => t => { let u = t; for (let i = 0; i < 8; i++) { const x = 3 * (1 - u) * (1 - u) * u * x1 + 3 * (1 - u) * u * u * x2 + u * u * u - t, dx = 3 * (1 - u) * (1 - u) * x1 + 6 * (1 - u) * u * (x2 - x1) + 3 * u * u * (1 - x2); if (Math.abs(x) < 1e-5 || !dx) break; u = Math.max(0, Math.min(1, u - x / dx)); } return 3 * (1 - u) * (1 - u) * u * y1 + 3 * (1 - u) * u * u * y2 + u * u * u; };
+  const t0 = performance.now(), D = 380, ease = bez(.3, 1.25, .45, 1);
+  // (the box around it rounds along with it; it's looked up each frame since the page may redraw it)
+  const box = () => document.getElementById('dk-tkbox');
+  const step = now => { const t = Math.min(1, (now - t0) / D); TK.m = Math.max(0, Math.min(1, from + (goal - from) * ease(t))); const b = box(); if (b) b.style.borderRadius = (9 + 41 * Math.sqrt(TK.m)) + '%'; tkRedraw(); if (t < 1) TK.mraf = requestAnimationFrame(step); else { TK.m = null; TK.mraf = 0; const b2 = box(); if (b2) b2.style.borderRadius = ''; tkRedraw(); } };
+  TK.m = from; tkSync(); TK.mraf = requestAnimationFrame(step); }
 function tkClamp() { if (!TK.im) return; const W = TK.im.naturalWidth, H = TK.im.naturalHeight, D = 1, k = Math.max(D / W, D / H) * TK.z, mx = Math.max(0, (W * k - D) / 2), my = Math.max(0, (H * k - D) / 2); TK.x = Math.max(-mx, Math.min(mx, TK.x)); TK.y = Math.max(-my, Math.min(my, TK.y)); }
 // draws the token at N×N pixels; the picture fills the inside, offset by TK.x/TK.y (fractions of the inside)
 function tkDraw(g, N) {
@@ -2722,7 +2736,7 @@ function tkSync() {
   $$('.dk-tok-tool [data-act=tkcol]').forEach(x => { const on = x.dataset.v === TK.color; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on); });
   const cus = $('.dk-tkcus'), custom = !TKCOLS.some(([, c]) => c === TK.color); if (cus) { cus.classList.toggle('on', custom); cus.style.setProperty('--c', custom ? TK.color : 'transparent'); }
   $$('.dk-tok-tool [data-act=tkshape]').forEach(x => x.classList.toggle('on', x.dataset.v === TK.shape)); $$('.dk-tok-tool [data-act=tksize]').forEach(x => x.classList.toggle('on', +x.dataset.v === TK.size));
-  const z = document.getElementById('dk-tkz'); if (z) z.value = TK.z; const o = document.getElementById('dk-tkbwo'); if (o) o.textContent = TK.bw ? Math.round(TK.bw * 10) / 10 + '%' : 'None';
+  const z = document.getElementById('dk-tkz'); if (z) z.value = TK.z; const o = document.getElementById('dk-tkbwo'); if (o) o.textContent = TK.bw ? TK.bw.toFixed(1) + '%' : 'None';
   // (the sliders fill in gold up to where they're set)
   $$('.dk-tok-tool input[type=range]').forEach(r => { const a = +r.min || 0, b = +r.max || 100; r.style.setProperty('--p', ((+r.value - a) / (b - a || 1) * 100) + '%'); });
   const box = document.getElementById('dk-tkbox'); if (box) box.classList.toggle('sq', TK.shape === 'square');
@@ -2736,7 +2750,7 @@ function tkLoad(file) {
   im.src = url;
 }
 function tkDownload() {
-  if (!TK.im) return; const c = document.createElement('canvas'); c.width = c.height = TK.size; tkDraw(c.getContext('2d'), TK.size);
+  if (!TK.im) return; const c = document.createElement('canvas'); c.width = c.height = TK.size; const m0 = TK.m; TK.m = null; tkDraw(c.getContext('2d'), TK.size); TK.m = m0; /* (the finished shape, even mid-switch) */
   c.toBlob(bl => { if (!bl) return toast({ title: 'Couldn’t make the file.', cls: 'bad' }); const a = document.createElement('a'), u = URL.createObjectURL(bl); a.href = u; a.download = TK.name + '-token.png'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000); toast({ title: 'Token downloaded', det: esc(a.download) }); }, 'image/png');
 }
 function tkMount() {
