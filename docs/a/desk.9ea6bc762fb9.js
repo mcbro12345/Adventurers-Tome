@@ -1639,6 +1639,7 @@ function paint0(pg) {
   if (edA) { const ed = document.getElementById(edA.id); if (ed) { ed.focus({ preventScroll: true }); if (edA.off >= 0) setCaretOffset(ed, edA.off); } }
   try { notesAfterPaint(); } catch (e) { console.warn(e); }
   if (UI.tab === 'tokens') try { tkMount(); } catch (e) { console.warn(e); }
+  if (UI.tab === 'loot') try { lootWire(); } catch (e) { console.warn(e); }
   $$('[data-keep]').forEach(el => { if (keep[el.dataset.keep]) el.scrollTop = keep[el.dataset.keep]; });
   if (fid) { const el = document.getElementById(fid); if (el && el !== document.activeElement) { if (val != null && el.tagName === a.tagName && el.value !== val) el.value = val; el.focus({ preventScroll: true }); if (sel) try { el.setSelectionRange(sel[0], sel[1]); } catch (e) {} } }
   if (Math.abs(scrollY - y) > 2) scrollTo(scrollX, y);
@@ -2255,6 +2256,8 @@ function closeMenus() { $$('.dk-menu.open').forEach(m => m.classList.remove('ope
 function onChange(e) {
   const el = e.target; if (!ROOT.contains(el)) return;
   if (el.dataset && el.dataset.lsess != null) { const e = lootById(el.dataset.lsess); if (e) { e.sess = el.value || ''; lootSave(e, 'the plan'); } return; }
+  if (el.dataset && el.dataset.lcoin != null) { const [key, k] = el.dataset.lcoin.split('|'); lootCoinSet(key, k, el.value); return; }
+  if (el.dataset && el.dataset.lbox != null && el.tagName === 'SELECT') { const e = lootById(el.dataset.lbox); if (e) { e.box = el.value || ''; lootSave(e, 'the move'); } return; }
   if (!el.closest('.dk-modal, .dk-addrow, .dk-add') && !/^dk-add/.test(el.id || '')) { const n = (el.getAttribute && (el.getAttribute('aria-label') || el.getAttribute('placeholder') || el.getAttribute('title'))) || (el.closest && el.closest('label') && el.closest('label').textContent.trim().slice(0, 40)) || 'a field'; dPend('Edit: ') + n; }
   if (onNotesChange(el)) return;
   if (el.dataset && el.dataset.qt) { QTYPE[el.dataset.qt] = el.value; return; }
@@ -2361,7 +2364,7 @@ function mount(root, ctx) {
   on(root, 'mousedown', e => { const t = e.target.closest && e.target.closest('[data-ed],[data-auto]'); if (!t) return; e.preventDefault(); if (t.dataset.ed) edCmd(t.dataset.ed); else edAutoPick(N(t.dataset.auto)); });
   on(root, 'paste', e => { if (e.target.closest && e.target.closest('.dk-ed')) edPaste(e); });
   on(root, 'dragstart', e => { onDragStart(e); if (DRAG) ROOT.classList.add('dk-dragon'); }); on(root, 'dragover', onDragOver); on(root, 'drop', e => { dPend('Move'); onDrop(e); ROOT.classList.remove('dk-dragon'); }); on(root, 'dragend', () => { DRAG = null; ROOT.classList.remove('dk-dragon'); $$('.dragging').forEach(x => x.classList.remove('dragging')); });
-  on(root, 'mouseover', onNotesOver); on(root, 'contextmenu', e => { if (!sCtx(e)) nCtx(e); }); on(root, 'pointerdown', ctxLongPress); on(root, 'pointermove', ctxLongMove); on(root, 'pointerup', ctxLongEnd); on(root, 'pointercancel', ctxLongEnd);
+  on(root, 'mouseover', onNotesOver); on(root, 'contextmenu', e => { if (!sCtx(e) && !lootCtx(e)) nCtx(e); }); on(root, 'pointerdown', ctxLongPress); on(root, 'pointermove', ctxLongMove); on(root, 'pointerup', ctxLongEnd); on(root, 'pointercancel', ctxLongEnd);
   root.addEventListener('click', e => { if (LP && LP.fired) { const own = LP.row.contains(e.target); LP = null; if (own) { e.preventDefault(); e.stopPropagation(); } } }, true); // (the tap that ends a long press doesn't also open the row) on(window, 'beforeunload', notesLeave); on(window, 'pagehide', notesLeave); on(document, 'visibilitychange', () => { if (document.hidden) notesLeave(); else notesRefresh(); });
   on(document, 'keydown', onKey); on(document, 'mousedown', onDocDown); on(document, 'touchstart', onDocDown, { passive: true });
   on(window, 'message', onR20Msg); on(document, 'visibilitychange', onVis); on(window, 'storage', onStorage);
@@ -2676,7 +2679,7 @@ Return JSON with string fields: {"name","race","occupation","age","look","person
 }
 // ----- Tokens: a stand-alone token maker. Nothing is saved: pick a picture, frame it, pick a border, download. -----
 const TKCOLS = [['Gold', '#c9962b'], ['Silver', '#aab3bd'], ['Bronze', '#a0612f'], ['Crimson', '#a8262a'], ['Royal blue', '#2c5fa8'], ['Forest', '#2f7a43'], ['Violet', '#6d45a8'], ['Obsidian', '#26262b'], ['Bone', '#e9e2d0']];
-const TK = { im: null, name: 'token', z: 1, x: 0, y: 0, color: '#c9962b', bw: 6, shade: true, shape: 'round', size: 512 };
+const TK = { im: null, name: 'token', z: 1, x: 0, y: 0, color: '#c9962b', bw: 2.5, shade: true, shape: 'round', size: 512 };
 function tokensHTML() {
   const has = !!TK.im, sw = TKCOLS.map(([n, c]) => `<button class="dk-tksw${TK.color === c ? ' on' : ''}" data-act="tkcol" data-v="${c}" style="--c:${c}" title="${n}" aria-label="${n}" aria-pressed="${TK.color === c}"></button>`).join('');
   const custom = !TKCOLS.some(([, c]) => c === TK.color);
@@ -2720,6 +2723,8 @@ function tkSync() {
   const cus = $('.dk-tkcus'), custom = !TKCOLS.some(([, c]) => c === TK.color); if (cus) { cus.classList.toggle('on', custom); cus.style.setProperty('--c', custom ? TK.color : 'transparent'); }
   $$('.dk-tok-tool [data-act=tkshape]').forEach(x => x.classList.toggle('on', x.dataset.v === TK.shape)); $$('.dk-tok-tool [data-act=tksize]').forEach(x => x.classList.toggle('on', +x.dataset.v === TK.size));
   const z = document.getElementById('dk-tkz'); if (z) z.value = TK.z; const o = document.getElementById('dk-tkbwo'); if (o) o.textContent = TK.bw ? Math.round(TK.bw * 10) / 10 + '%' : 'None';
+  // (the sliders fill in gold up to where they're set)
+  $$('.dk-tok-tool input[type=range]').forEach(r => { const a = +r.min || 0, b = +r.max || 100; r.style.setProperty('--p', ((+r.value - a) / (b - a || 1) * 100) + '%'); });
   const box = document.getElementById('dk-tkbox'); if (box) box.classList.toggle('sq', TK.shape === 'square');
   try { pills(); } catch (e) {} tkRedraw();
 }
@@ -2759,7 +2764,7 @@ function tkMount() {
   }
   tkRedraw();
 }
-function tkZoom(nz) { nz = Math.max(1, Math.min(5, nz)); TK.x *= nz / TK.z; TK.y *= nz / TK.z; TK.z = nz; const z = document.getElementById('dk-tkz'); if (z && +z.value !== nz) z.value = nz; tkRedraw(); }
+function tkZoom(nz) { nz = Math.max(1, Math.min(5, nz)); TK.x *= nz / TK.z; TK.y *= nz / TK.z; TK.z = nz; const z = document.getElementById('dk-tkz'); if (z && +z.value !== nz) z.value = nz; if (z) z.style.setProperty('--p', ((nz - 1) / 4 * 100) + '%'); tkRedraw(); }
 // ----- drawing -----
 function genHTML() {
   const sub = UI.gen === 'npc' ? 'npc' : 'enc';
@@ -4042,6 +4047,10 @@ const CTXI = {
   pin: CI('<path d="M12 17v5"/><path d="M8 3h8l-1 6 3 4H6l3-4z"/>'),
   tag: CI('<path d="M20 12 12 20l-8-8V4h8z"/><circle cx="8.5" cy="8.5" r="1.3"/>'),
   md: CI('<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>'),
+  give: CI('<path d="M20 12v9H4v-9"/><path d="M2 7h20v5H2z"/><path d="M12 21V7"/><path d="M12 7H7.5a2.5 2.5 0 1 1 0-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 1 0 0-5C13 2 12 7 12 7z"/>'),
+  split: CI('<circle cx="8" cy="8" r="3"/><circle cx="16" cy="8" r="3"/><path d="M2.5 20c.6-3.3 2.8-5.5 5.5-5.5s4.9 2.2 5.5 5.5M10.5 20c.6-3.3 2.8-5.5 5.5-5.5s4.9 2.2 5.5 5.5"/>'),
+  note: CI('<path d="M5 4h14v16H5z"/><path d="M9 9h6M9 13h6M9 17h3"/>'),
+  coins: CI('<ellipse cx="9" cy="7" rx="6" ry="3"/><path d="M3 7v4c0 1.7 2.7 3 6 3s6-1.3 6-3V7"/><path d="M9 17c0 1.7 2.7 3 6 3s6-1.3 6-3v-4c0-1.7-2.7-3-6-3"/>'),
   rename: CI('<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13 7 4 4"/>'),
 };
 function nCtxClose() { $$('.dk-ctx').forEach(m => m.remove()); }
@@ -4068,9 +4077,9 @@ function sCtx(e) {
 // A long press on a touch screen opens the same menu
 let LP = null;
 function ctxLongPress(e) {
-  if (e.pointerType !== 'touch' || !e.target.closest) return; const row = e.target.closest('.dk-rail .dk-tc[data-iid], .dk-rail .dk-tsn[data-sid], .dk-ntrow[data-drag]'); if (!row) return;
+  if (e.pointerType !== 'touch' || !e.target.closest) return; const row = e.target.closest('.dk-rail .dk-tc[data-iid], .dk-rail .dk-tsn[data-sid], .dk-ntrow[data-drag], .dk-loot2 .dk-lr[data-lid], .dk-loot2 .dk-lsh'); if (!row) return;
   const x0 = e.clientX, y0 = e.clientY; clearTimeout(LP && LP.t);
-  LP = { row, t: setTimeout(() => { LP.fired = true; const ev = { target: row, clientX: x0, clientY: y0, preventDefault() {} }; if (!sCtx(ev)) nCtx(ev); try { navigator.vibrate && navigator.vibrate(12); } catch (x) {} }, 520), x0, y0 };
+  LP = { row, t: setTimeout(() => { LP.fired = true; const ev = { target: row, clientX: x0, clientY: y0, preventDefault() {} }; if (!sCtx(ev) && !lootCtx(ev)) nCtx(ev); try { navigator.vibrate && navigator.vibrate(12); } catch (x) {} }, 520), x0, y0 };
 }
 function ctxLongMove(e) { if (LP && !LP.fired && Math.hypot(e.clientX - LP.x0, e.clientY - LP.y0) > 10) { clearTimeout(LP.t); LP = null; } }
 function ctxLongEnd() { if (LP && !LP.fired) { clearTimeout(LP.t); LP = null; } }
@@ -4675,13 +4684,13 @@ const ItemParse = (() => {
 // from there an item or coins can be handed to a character (they're asked to accept it, like the party page's Give).
 const LOOTC = () => BASE ? BASE.collection('loot') : null;
 const COINK = ['pp', 'gp', 'ep', 'sp', 'cp'], COINV = { pp: 10, gp: 1, ep: .5, sp: .1, cp: .01 };
-let LOOT = { list: null, loading: false, f: 'all', q: '', chars: null };
+let LOOT = { list: null, loading: false, f: 'all', q: '', chars: null, to: '', sp: {}, sw: {}, appl: new Set() };
 let DNDL = null; const deskDND = () => DNDL || (DNDL = window.DND && window.DND.magic ? Promise.resolve() : fetch(window.PG_ASSETS && window.PG_ASSETS.data).then(r => r.text()).then(t => { const sc = document.createElement('script'); sc.textContent = t; document.body.appendChild(sc); }).catch(() => { DNDL = null; }));
 function lootFrom(id, d) { const e = Object.assign({ id }, d); if (typeof e.item === 'string') { try { e.item = JSON.parse(e.item); } catch (x) { e.item = null; } } return e; }
 async function lootLoad() {
   if (LOOT.loading) return; LOOT.loading = true;
   try { const c = LOOTC(); LOOT.list = c ? (await withTimeout(c.get(), 15000, 'Loading')).docs.map(d => lootFrom(d.id, d.data())).sort((a, b) => N(b.at) - N(a.at)) : []; } catch (e) { console.warn('loot', e); LOOT.list = LOOT.list || []; }
-  LOOT.loading = false; if (HBM.mine == null) hbLoadLists(); if (UI.tab === 'loot') paint();
+  LOOT.loading = false; if (HBM.mine == null) hbLoadLists(); lootBoxes().concat((LOOT.list || []).filter(e => e.kind === 'loose')).forEach(b => { if (b.split) lootSplitWatch(b); }); if (UI.tab === 'loot') paint();
 }
 async function lootPut(e) {
   const c = LOOTC(); if (!c) return; const o = {}; Object.keys(e).forEach(k => { if (k !== 'id' && e[k] !== undefined) o[k] = e[k]; }); if (o.item) o.item = JSON.stringify(o.item);
@@ -4689,7 +4698,7 @@ async function lootPut(e) {
 }
 async function lootDel(id) { const c = LOOTC(); if (c) await withTimeout(c.doc(id).delete(), 12000, 'Deleting'); }
 async function lootAdd(e) {
-  e = Object.assign({ qty: 1, at: Date.now(), by: CTX.EMAIL || '' }, e); if (!e.id) e.id = 'l' + uid(); if (LOOT.f !== 'all' && LOOT.f !== 'none' && !e.sess) e.sess = LOOT.f;
+  e = Object.assign({ qty: 1, at: Date.now(), by: CTX.EMAIL || '' }, e); if (!e.id) e.id = 'l' + uid(); if (e.kind !== 'box' && e.box == null && LOOT.to && lootById(LOOT.to)) e.box = LOOT.to;
   LOOT.list = [e].concat(LOOT.list || []); paint();
   try { await lootPut(e); } catch (x) { LOOT.list = LOOT.list.filter(z => z !== e); paint(); throw x; }
   return e;
@@ -4699,46 +4708,207 @@ function lootCatOf(it) { if (!it) return ''; if (it.weapon) return 'Weapon'; if 
 const lootCoinTxt = c => COINK.filter(k => N((c || {})[k])).map(k => N(c[k]).toLocaleString() + ' ' + k).join(', ') || 'No coins';
 const lootGp = c => COINK.reduce((t, k) => t + N((c || {})[k]) * COINV[k], 0);
 const lootSessName = id => { const s = S.sessions.find(x => x.id === id); return s ? s.title : ''; };
-function lootShown() {
-  const q = LOOT.q.trim().toLowerCase(); return (LOOT.list || []).filter(e => (LOOT.f === 'all' || (LOOT.f === 'none' ? !lootSessName(e.sess) : e.sess === LOOT.f)) && (!q || [e.name, e.note, e.cat, e.rarity].join(' ').toLowerCase().includes(q)));
+const lootBoxes = () => (LOOT.list || []).filter(e => e.kind === 'box').sort((a, b) => N(a.at) - N(b.at));
+const lootStuff = () => (LOOT.list || []).filter(e => e.kind !== 'box' && e.kind !== 'loose');
+// Unsorted loot can be split too: a hidden record keeps its split going (id 'unsorted')
+const lootLoose = () => { let e = lootById('unsorted'); if (!e) { e = { id: 'unsorted', kind: 'loose', name: 'Unsorted loot', qty: 0, at: 0 }; LOOT.list = (LOOT.list || []).concat([e]); } return e; };
+const lootKey = b => b && b.kind === 'loose' ? '' : b ? b.id : '';
+const lootBoxOf = e => { const b = e.box && lootById(e.box); return b && b.kind === 'box' ? b : null; };
+const lootOrd = e => e.ord != null ? N(e.ord) : -N(e.at) / 1e13;
+const lootIn = id => lootStuff().filter(e => (lootBoxOf(e) ? e.box : '') === id).sort((a, b) => lootOrd(a) - lootOrd(b));
+// a session plan belongs to a container (older loot kept its own)
+const lootSessOf = e => { const b = lootBoxOf(e); return (b && b.sess) || e.sess || ''; };
+function lootMatch(e) {
+  const q = LOOT.q.trim().toLowerCase(), ss = lootSessName(lootSessOf(e)) ? lootSessOf(e) : '';
+  return (LOOT.f === 'all' || (LOOT.f === 'none' ? !ss : ss === LOOT.f)) && (!q || [e.name, e.note, e.cat, e.rarity, (lootBoxOf(e) || {}).name].join(' ').toLowerCase().includes(q));
+}
+const lootShown = () => lootStuff().filter(lootMatch);
+// Laid out like a character sheet's Inventory: a purse, a search, "Unsorted" like the Pack, containers like bags; each
+// row has its count, ⇄ (move to a container, or give to a character), ✎ and ✕.
+const lootPurse = key => lootStuff().find(e => e.kind === 'coins' && e.purse && (lootBoxOf(e) ? e.box : '') === key) || null;
+const COINC = { pp: '#dfe3e8', gp: '#e3b23c', ep: '#9fb3c8', sp: '#c7ccd3', cp: '#b8733a' };
+function lootPurseHTML(key, top) {
+  const e = lootPurse(key), c = (e && e.coins) || {}, gp = lootGp(c);
+  return `<div class="dk-lpurse${top ? ' top' : ''}"><span class="dk-lpl">Loose coins</span>${COINK.slice().reverse().map(k => `<div class="dk-lcn${k === 'gp' ? ' gp' : ''}"><span class="dk-lcd" style="--c:${COINC[k]}"></span><b>${k.toUpperCase()}</b><button data-act="lootcoin" data-key="${esc(key)}" data-k="${k}" data-d="-1" aria-label="One fewer ${k}">−</button><input class="dk-f" type="number" min="0" inputmode="numeric" data-lcoin="${esc(key)}|${k}" value="${N(c[k]) || 0}" aria-label="${k}"><button data-act="lootcoin" data-key="${esc(key)}" data-k="${k}" data-d="1" aria-label="One more ${k}">+</button></div>`).join('')}
+    <span class="dk-lworth">≈ ${(Math.round(gp * 100) / 100).toLocaleString()} gp</span>${e && gp ? `<button class="dk-btn sm" data-act="lootgive" data-lid="${esc(e.id)}" ${CTX.lootGive ? '' : 'disabled title="Open your party’s page to hand loot to its characters"'}>Give…</button>` : ''}</div>`;
+}
+async function lootCoinSet(key, k, v) {
+  let e = lootPurse(key); v = Math.max(0, Math.floor(N(v)));
+  if (!e) { if (!v) return; e = { id: 'l' + uid(), kind: 'coins', purse: true, name: 'Loose coins', coins: {}, qty: 1, at: Date.now(), by: CTX.EMAIL || '', box: key }; LOOT.list = (LOOT.list || []).concat([e]); }
+  e.coins = Object.assign({}, e.coins, { [k]: v }); if (!v) delete e.coins[k];
+  if (!Object.keys(e.coins).length) { LOOT.list = LOOT.list.filter(z => z !== e); paint(); return runOk(() => lootDel(e.id)); }
+  lootSave(e, 'the coins');
 }
 function lootRow(e) {
-  const coins = e.kind === 'coins', sess = lootSessName(e.sess), canGive = !!CTX.lootGive, it = e.item;
-  const sum = coins ? lootCoinTxt(e.coins) : [e.cat, it && it.attune ? 'attunement' : '', it && (it.summary || it.notes) ? String(it.summary || it.notes).slice(0, 140) : e.kind === 'named' ? 'From the rule books' : ''].filter(Boolean).join(' · ');
-  const opts = `<option value="">Not planned</option>${S.sessions.map(s => `<option value="${esc(s.id)}"${s.id === e.sess ? ' selected' : ''}>${esc(s.title)}</option>`).join('')}`;
-  return `<div class="dk-lrow${coins ? ' dk-lcoinrow' : ''}" data-lid="${esc(e.id)}"><span class="dk-lic" aria-hidden="true">${coins ? ICON.coins : e.kind === 'item' ? ICON.spark : ICON.chest}</span>
-    <div class="dk-lot"><div class="dk-ln"><b>${esc(e.name)}</b>${e.rarity ? `<span class="dk-rar r-${esc(String(e.rarity).replace(/\s+/g, ''))}">${esc(e.rarity)}</span>` : ''}${e.kind === 'item' ? '<span class="dk-rar hb">homebrew</span>' : ''}</div>
-      <small>${esc(sum)}${e.note ? ` · <i>${esc(e.note)}</i>` : ''}</small></div>
-    <label class="dk-lsess" title="Plan it for a session"><span class="sr">Planned for</span><select class="dk-f" data-lsess="${esc(e.id)}">${opts}</select></label>
-    ${coins ? `<span class="dk-lgp">${Math.round(lootGp(e.coins) * 100) / 100} gp</span>` : `<div class="dk-qty"><button data-act="lootqty" data-lid="${esc(e.id)}" data-d="-1" aria-label="One fewer">−</button><b>${N(e.qty) || 1}</b><button data-act="lootqty" data-lid="${esc(e.id)}" data-d="1" aria-label="One more">+</button></div>`}
-    <button class="dk-btn gold sm" data-act="lootgive" data-lid="${esc(e.id)}" ${canGive ? '' : 'disabled title="Open your party’s page to hand loot to its characters"'}>Give</button>
-    <div class="dk-menu"><button class="dk-btn icon sm" data-act="menu" aria-label="More for ${esc(e.name)}" aria-haspopup="menu">${ICON.dots}</button><div class="dk-mlist" role="menu">
-      ${e.kind === 'item' ? `<button data-act="lootedit" data-lid="${esc(e.id)}">Edit item</button>` : ''}${e.kind === 'coins' ? `<button data-act="lootcoins" data-lid="${esc(e.id)}">Edit coins</button>` : ''}
-      <button data-act="lootnote" data-lid="${esc(e.id)}">${e.note ? 'Change the note' : 'Add a note'}</button>
-      ${e.kind === 'item' && CTX.partyHB ? `<button data-act="lootphb" data-lid="${esc(e.id)}">Add to the party’s homebrew</button>` : ''}
-      <button data-act="lootdup" data-lid="${esc(e.id)}">Duplicate</button><button class="red" data-act="lootdel" data-lid="${esc(e.id)}">Delete</button></div></div></div>`;
+  const it = e.item, boxes = lootBoxes(), here = lootBoxOf(e) ? e.box : '', chars = LOOT.chars || [], mag = !!(e.rarity || (it && it.magic));
+  const dests = [['', 'Unsorted']].concat(boxes.map(b => [b.id, b.name])).filter(([v]) => v !== here);
+  const tags = [e.kind === 'coins' ? `<span class="dk-ltag coin">${esc(lootCoinTxt(e.coins))}</span>` : '', e.rarity ? `<span class="dk-rar r-${esc(String(e.rarity).replace(/\s+/g, ''))}">${esc(e.rarity)}</span>` : '', e.kind === 'item' ? '<span class="dk-rar hb">Homebrew</span>' : '', it && it.attune ? '<span class="dk-rar att">◇ Attune</span>' : '', e.cat && !e.rarity ? `<span class="dk-ltag">${esc(e.cat)}</span>` : '', e.note ? `<span class="dk-lnote2" title="Only you see this">${esc(e.note)}</span>` : ''].join('') + lootPicks(e);
+  const mv = `<div class="dk-menu dk-lmv"><button class="dk-lib" data-act="menu" aria-haspopup="menu" title="Move or give" aria-label="Move or give ${esc(e.name)}">⇄</button><div class="dk-mlist" role="menu">
+      ${dests.length ? `<div class="dk-mlab">Move to</div>${dests.map(([v, t]) => `<button data-act="lootmove" data-lid="${esc(e.id)}" data-to="${esc(v)}">${esc(t)}</button>`).join('')}` : ''}
+      ${CTX.lootGive ? `<div class="dk-mlab">Give to</div>${chars.length ? chars.map(c => `<button data-act="lootgiveto" data-lid="${esc(e.id)}" data-who="${esc(c.id)}">${esc(c.name)}</button>`).join('') : '<div class="dk-mnone">Loading the party…</div>'}<button data-act="lootgive" data-lid="${esc(e.id)}">Several characters…</button>` : ''}
+      <div class="dk-mlab">More</div>${e.kind === 'item' && CTX.partyHB ? `<button data-act="lootphb" data-lid="${esc(e.id)}">Add to the party’s homebrew</button>` : ''}<button data-act="lootdup" data-lid="${esc(e.id)}">Duplicate</button></div></div>`;
+  return `<div class="dk-lr" data-lid="${esc(e.id)}"><div class="dk-lr1"><span class="dk-lgrip" title="Drag to reorder or move to another container" aria-hidden="true">⠿</span>${e.kind === 'coins' ? `<span class="dk-lci2" aria-hidden="true">${ICON.coins}</span>` : ''}<span class="dk-lrn${mag ? ' mag' : ''}">${esc(e.name)}</span>${it && (it.summary || it.notes) ? `<span class="dk-ltip" title="${esc(String(it.summary || it.notes).slice(0, 400))}">ⓘ</span>` : ''}<span class="dk-lgrow"></span>
+      ${e.kind === 'coins' ? `<span class="dk-lgp">${(Math.round(lootGp(e.coins) * 100) / 100).toLocaleString()} gp</span>` : `<div class="dk-qty"><button data-act="lootqty" data-lid="${esc(e.id)}" data-d="-1" aria-label="One fewer">−</button><b>${N(e.qty) || 1}</b><button data-act="lootqty" data-lid="${esc(e.id)}" data-d="1" aria-label="One more">+</button></div>`}
+      ${mv}<button class="dk-lib" data-act="${e.kind === 'item' ? 'lootedit' : e.kind === 'coins' ? 'lootcoins' : 'lootnote'}" data-lid="${esc(e.id)}" title="${e.kind === 'item' ? 'Edit the item' : e.kind === 'coins' ? 'Edit the coins' : 'Add a note'}" aria-label="Edit ${esc(e.name)}">✎</button><button class="dk-lib x" data-act="lootdel" data-lid="${esc(e.id)}" title="Delete" aria-label="Delete ${esc(e.name)}">✕</button></div>
+    ${tags.trim() ? `<div class="dk-lr2">${tags}</div>` : ''}</div>`;
+}
+const lootTot = list => { const n = list.filter(e => e.kind !== 'coins').reduce((t, e) => t + (N(e.qty) || 1), 0), gp = list.filter(e => e.kind === 'coins').reduce((t, e) => t + lootGp(e.coins), 0); return [n ? `${n} item${n === 1 ? '' : 's'}` : '', gp ? `${Math.round(gp).toLocaleString()} gp` : ''].filter(Boolean).join(' · ') || 'Empty'; };
+function lootSplitBtns(key, rec, mine) {
+  const id = key || 'unsorted', give = !!CTX.lootGive, sp = rec && rec.split;
+  return sp ? `<span class="dk-lsplit" title="The players are choosing who gets what on their sheets">${ICON.spark}${esc(lootSplitTxt(rec))}</span><button class="dk-btn sm" data-act="lootsplitstop" data-v="${esc(id)}">Stop</button>`
+    : `<button class="dk-btn sm gold" data-act="lootsplit" data-v="${esc(id)}" ${give && CTX.lootGive.split && mine.length ? '' : 'disabled'} title="${give ? 'A window on every player’s sheet: they agree on who gets what, then it’s handed out' : 'Open your party’s page to share loot with its characters'}">Let the party split it</button><button class="dk-btn sm" data-act="lootgiveall" data-v="${esc(id)}" ${give && mine.length ? '' : 'disabled'}${give ? '' : ' title="Open your party’s page to hand loot to its characters"'}>Give all</button>`;
+}
+function lootSection(b) {
+  const id = b ? b.id : '', mine = lootIn(id), things = mine, rows = things.filter(lootMatch), shut = !!(UI.lootShut || {})[id || '_'], filt = !!LOOT.q.trim() || LOOT.f !== 'all';
+  if (filt && !rows.length && !(b && LOOT.f !== 'all' && b.sess === LOOT.f && !LOOT.q.trim())) return '';
+  const rec = b || lootById('unsorted'), n = things.length;
+  const sopts = b ? `<option value="">No session</option>${S.sessions.map(x => `<option value="${esc(x.id)}"${x.id === b.sess ? ' selected' : ''}>${esc(x.title)}</option>`).join('')}` : '';
+  const head = `<header class="dk-lsh"><button class="dk-lst" data-act="lootshut" data-v="${esc(id)}" aria-expanded="${!shut}"><span class="dk-lbc" aria-hidden="true">${shut ? '▸' : '▾'}</span><span class="dk-lbi${b ? '' : ' loose'}" aria-hidden="true">${b ? ICON.chest : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13h4l2 3h4l2-3h4"/><path d="M5.5 6h13L20 13v6H4v-6z"/></svg>'}</span><b>${esc(b ? b.name : 'Unsorted')}</b><span class="dk-lcount">${n}</span>${b && b.note ? `<small class="dk-lbnote">${esc(b.note)}</small>` : ''}</button>
+      <div class="dk-lbacts">${b ? `<label class="dk-lbs" title="Plan it for a session"><span class="sr">Session</span><select class="dk-f" data-lsess="${esc(id)}">${sopts}</select></label>` : ''}${lootSplitBtns(id, rec, mine)}
+      ${b ? `<div class="dk-menu"><button class="dk-lib" data-act="menu" aria-label="More for ${esc(b.name)}" aria-haspopup="menu">⋯</button><div class="dk-mlist" role="menu">
+        <button data-act="lootcat" data-to="${esc(id)}">Add an item here</button><button data-act="loothb" data-to="${esc(id)}">Add a homebrew item here</button><button data-act="lootcoins" data-to="${esc(id)}">Add coins here</button>
+        <button data-act="lootbox" data-lid="${esc(id)}">Rename or add a note</button><button class="red" data-act="lootboxdel" data-lid="${esc(id)}">Delete container</button></div></div>` : ''}</div></header>`;
+  const body = shut ? '' : `<div class="dk-llist">${rows.length ? rows.map(lootRow).join('') : `<p class="dk-lempty">${b ? 'Empty — drag items here, or use ⋯ → Add an item here.' : filt ? 'Nothing matches.' : 'Nothing unsorted.'}</p>`}</div>`;
+  return `<section class="dk-lbox${b ? '' : ' loose'}${shut ? ' shut' : ''}" data-lbox="${esc(id)}">${head}${body}</section>`;
 }
 function lootHTML() {
   if (LOOT.list == null && !LOOT.loading) setTimeout(lootLoad, 0);
-  const all = LOOT.list || [], shown = lootShown(), items = all.filter(e => e.kind !== 'coins').reduce((t, e) => t + (N(e.qty) || 1), 0), gp = all.filter(e => e.kind === 'coins').reduce((t, e) => t + lootGp(e.coins), 0);
-  const sessions = S.sessions.filter(s => all.some(e => e.sess === s.id));
+  if (CTX.lootGive && LOOT.chars == null && !LOOT.charsL) { LOOT.charsL = 1; CTX.lootGive.chars().then(cs => { LOOT.chars = cs.sort((a, b) => String(a.name).localeCompare(String(b.name))); if (UI.tab === 'loot') paint(); }, () => { LOOT.chars = []; }); }
+  const all = lootStuff(), boxes = lootBoxes(), things = all.filter(e => e.kind !== 'coins'), sessIds = [...new Set(things.map(lootSessOf).concat(boxes.map(b => b.sess)).filter(x => x && lootSessName(x)))], sessions = S.sessions.filter(s => sessIds.includes(s.id));
   const chip = (v, t, n) => `<button class="${LOOT.f === v ? 'on' : ''}" data-act="lootf" data-v="${esc(v)}">${esc(t)}${n != null ? ` <small>${n}</small>` : ''}</button>`;
-  const side = `<aside class="dk-card dk-lside">${CTX.partyHB ? `<h2>${esc((CTX.party && CTX.party.name) || 'Party')} homebrew</h2><p class="dk-hint">Players can add these themselves from Add an item → Homebrew.</p>${HBM.party == null ? '<p class="dk-hint">Loading…</p>' : HBM.party.length ? HBM.party.map(it => `<div class="dk-hbrow"><b>${esc(it.name)}</b><button class="dk-btn sm" data-act="lootfromp" data-id="${esc(it._pid)}">Add to loot</button><button class="dk-btn sm ghost" data-act="hbpdel" data-id="${esc(it._pid)}" aria-label="Remove ${esc(it.name)}">${ICON.trash || '✕'}</button></div>`).join('') : '<p class="dk-hint">Nothing yet. Use “Add to the party’s homebrew” on an item.</p>'}` : ''}
-    ${(HBM.mine || []).length ? `<h2>Saved items</h2><p class="dk-hint">Items saved on this desk before Loot existed.</p>${HBM.mine.map(d => `<div class="dk-hbrow"><b>${esc((d.data && ((d.data.item && d.data.item.name) || (d.data.spec && d.data.spec.name))) || 'Item')}</b><button class="dk-btn sm" data-act="lootfroms" data-id="${esc(d._id)}">Add to loot</button><button class="dk-btn sm ghost" data-act="hbdel" data-id="${esc(d._id)}" aria-label="Delete">${ICON.trash || '✕'}</button></div>`).join('')}` : ''}</aside>`;
-  const hasSide = !!CTX.partyHB || (HBM.mine || []).length;
-  return `<div class="dk-loot${hasSide ? '' : ' solo'}"><section class="dk-card dk-lmain">
-    <header class="dk-lhd"><div><h2>Loot</h2><p class="dk-hint">${LOOT.list == null ? 'Loading…' : all.length ? `${items} item${items === 1 ? '' : 's'}${gp ? ` · ${Math.round(gp).toLocaleString()} gp in coins` : ''}` : 'Plan treasure here, then hand it out when the party finds it.'}</p></div>
-      <div class="dk-lbtns"><button class="dk-btn gold" data-act="lootcat">${ICON.plus || '+'} Add item</button><button class="dk-btn" data-act="loothb">Homebrew item</button><button class="dk-btn" data-act="lootcoins">Coins</button><button class="dk-btn" data-act="lootpaste">Paste item</button>${aiReady() ? '<button class="dk-btn" data-act="lootai">Design with AI</button>' : ''}</div></header>
-    ${all.length ? `<div class="dk-lfil"><div class="dk-seg2" data-pk="lootf">${chip('all', 'All', all.length)}${chip('none', 'Not planned')}${sessions.map(s => chip(s.id, s.title, all.filter(e => e.sess === s.id).length)).join('')}</div><input class="dk-f dk-lq" id="dk-lq" type="search" placeholder="Search loot" aria-label="Search loot" value="${esc(LOOT.q)}"></div>` : ''}
-    <div class="dk-llist">${LOOT.list == null ? '<p class="dk-hint">Loading…</p>' : shown.length ? shown.map(lootRow).join('') : all.length ? '<p class="dk-hint">Nothing here.</p>' : `<div class="dk-empty sm"><div class="dk-emblem">${ICON.chest}</div><p>No loot yet.</p></div>`}</div>
-    ${CTX.lootGive ? '' : '<p class="dk-hint dk-lnote">Handing loot to characters works from your party’s page.</p>'}</section>${hasSide ? side : ''}</div>`;
+  const hb = `${CTX.partyHB ? `<div class="dk-lhbcol"><h3>${esc((CTX.party && CTX.party.name) || 'Party')} homebrew</h3><p class="dk-hint">Players can add these themselves from Add an item → Homebrew.</p>${HBM.party == null ? '<p class="dk-hint">Loading…</p>' : HBM.party.length ? HBM.party.map(it => `<div class="dk-hbrow"><b>${esc(it.name)}</b><button class="dk-btn sm" data-act="lootfromp" data-id="${esc(it._pid)}">Add to loot</button><button class="dk-btn sm ghost" data-act="hbpdel" data-id="${esc(it._pid)}" aria-label="Remove ${esc(it.name)}">${ICON.trash || '✕'}</button></div>`).join('') : '<p class="dk-hint">Nothing yet. Use ⇄ → Add to the party’s homebrew on a homebrew item.</p>'}</div>` : ''}
+    ${(HBM.mine || []).length ? `<div class="dk-lhbcol"><h3>Saved items</h3><p class="dk-hint">Items saved on this desk before Loot existed.</p>${HBM.mine.map(d => `<div class="dk-hbrow"><b>${esc((d.data && ((d.data.item && d.data.item.name) || (d.data.spec && d.data.spec.name))) || 'Item')}</b><button class="dk-btn sm" data-act="lootfroms" data-id="${esc(d._id)}">Add to loot</button><button class="dk-btn sm ghost" data-act="hbdel" data-id="${esc(d._id)}" aria-label="Delete">${ICON.trash || '✕'}</button></div>`).join('')}</div>` : ''}`;
+  const worth = all.filter(e => e.kind === 'coins').reduce((t, e) => t + lootGp(e.coins), 0);
+  const left = LOOT.list == null ? '<p class="dk-hint">Loading…</p>' : lootSection(null), right = boxes.map(lootSection).join('');
+  return `<div class="dk-loot2"><section class="dk-card dk-lpanel">
+    <h2 class="dk-lph"><span class="dk-lpht">Loot</span><span class="dk-lbtns"><button class="dk-btn gold" data-act="lootcat" data-to="">+ Add item</button><button class="dk-btn" data-act="loothb" data-to="">+ Homebrew item</button><button class="dk-btn" data-act="lootcoins" data-to="">+ Coins</button><button class="dk-btn" data-act="lootbox">+ Container</button>
+      ${aiReady() ? '<button class="dk-btn" data-act="lootai" data-to="">+ AI item</button>' : ''}</span></h2>
+    <div class="dk-lsearch"><input class="dk-f dk-lq" id="dk-lq" type="search" placeholder="Search the loot…" aria-label="Search the loot" value="${esc(LOOT.q)}"></div>
+    <div class="dk-lstats"><span>Items <b>${things.reduce((t, e) => t + (N(e.qty) || 1), 0)}</b></span><span>Coins <b>≈ ${Math.round(worth).toLocaleString()} gp</b></span><span>Containers <b>${boxes.length}</b></span>${sessions.length ? `<div class="dk-seg2 dk-lsess2" data-pk="lootf">${chip('all', 'Everything')}${chip('none', 'Not planned')}${sessions.map(s => chip(s.id, s.title)).join('')}</div>` : ''}</div>
+    <div class="dk-lboxes dk-linv">${left}${right}</div>
+    ${CTX.lootGive ? '' : '<p class="dk-hint dk-lnote">Handing loot to characters works from your party’s page.</p>'}
+    ${hb.trim() ? `<div class="dk-lhb">${hb}</div>` : ''}</section></div>`;
+}
+// ----- The party splits a container's loot themselves (a window on every player's sheet) -----
+// One thing per stack: a single item goes to one character; a stack (or each kind of coin) can be shared out in amounts.
+const COINN = { pp: 'platinum', gp: 'gold', ep: 'electrum', sp: 'silver', cp: 'copper' };
+function lootUnits(list) {
+  const out = []; list.forEach(e => { if (e.kind === 'coins') { COINK.forEach(k => { const v = Math.floor(N((e.coins || {})[k])); if (v > 0) out.push({ id: e.id + '-' + k, lid: e.id, name: e.name || 'Coins', sub: 'Coins', rarity: '', qty: v, cur: k, shares: {}, pay: JSON.stringify(['coins', {}]) }); }); return; }
+    const n = Math.max(1, Math.floor(N(e.qty) || 1)), pay = e.kind === 'item' ? ['item', { item: Object.assign({}, e.item, { qty: 1 }) }] : ['loot', { name: e.name, qty: 1, notes: e.note || '' }];
+    out.push({ id: e.id + '-0', lid: e.id, name: e.name, sub: e.cat || '', rarity: e.rarity || '', qty: n, cur: '', shares: {}, pay: JSON.stringify(pay) }); });
+  return out;
+}
+const lootStack = u => !!u.cur || N(u.qty) > 1;
+const lootShared = u => lootStack(u) ? Object.values(u.shares || {}).reduce((t, v) => t + (N(v) > 0 ? Math.floor(N(v)) : 0), 0) : (u.to ? 1 : 0);
+function lootSplitTxt(b) { const sp = LOOT.sp[b.id]; if (!sp || !sp.items) return 'Party is splitting it'; const its = sp.items, picked = its.filter(u => lootShared(u) > 0).length, ok = ((sp.meta && sp.meta.ok) || []).length; return `Party is splitting it · ${picked} of ${its.length} picked${ok ? ` · ${ok} agree${ok === 1 ? 's' : ''}` : ''}`; }
+function lootPicks(e) { const sp = LOOT.sp[lootBoxOf(e) ? e.box : 'unsorted']; if (!sp || !sp.items) return ''; const by = {}, nm = id => ((LOOT.chars || []).find(c => c.id === id) || {}).name || 'someone';
+  sp.items.filter(u => u.lid === e.id && !u.handed).forEach(u => { if (lootStack(u)) Object.entries(u.shares || {}).forEach(([id, v]) => { v = Math.floor(N(v)); if (v > 0) { const k = nm(id); by[k] = (by[k] ? by[k] + ', ' : '') + (u.cur ? v + ' ' + u.cur : '×' + v); } }); else if (u.to) { const k = u.toName || nm(u.to); by[k] = by[k] || ''; } });
+  const k = Object.keys(by); return k.length ? `<div class="dk-lpick">${k.map(n => `<span>→ ${esc(n)}${by[n] ? ' ' + esc(by[n]) : ''}</span>`).join('')}</div>` : ''; }
+function lootSplitOpen(b) {
+  if (!b || !CTX.lootGive || !CTX.lootGive.split) return; const list = lootIn(lootKey(b)); if (!list.length) return;
+  const units = lootUnits(list);
+  openModal(`<h2>Let the party split ${esc(b.name)}</h2><p>A window opens on every player’s sheet with ${units.length} thing${units.length === 1 ? '' : 's'} from it. They work out together who gets what — stacks and coins can be shared out in amounts — and once every player has agreed it’s handed out — you don’t have to do anything.</p><p class="dk-hint">What they hand out leaves your loot. Anything nobody picks stays here. You can stop it any time.</p>
+    <div class="dk-acts"><button class="dk-btn" data-act="close">Cancel</button><button class="dk-btn gold" id="dk-lspgo">Open it to the party</button></div>`);
+  $('#dk-lspgo').onclick = async () => { const go = $('#dk-lspgo'); go.disabled = true; go.textContent = 'Opening…';
+    try { await CTX.lootGive.split.open(b.id, b.name, units); b.split = true; await lootPut(b); closeModal(true); lootSplitWatch(b); paint(); toastInfo(`<b>${esc(b.name)}</b> is on the players’ sheets — they’ll pick who gets what.`); }
+    catch (x) { go.disabled = false; go.textContent = 'Try again'; toast({ title: 'Couldn’t open it to the party', det: esc(x.message || ''), cls: 'bad' }); } };
+}
+function lootSplitWatch(b) {
+  if (!CTX.lootGive || !CTX.lootGive.split || LOOT.sw[b.id]) return;
+  LOOT.sw[b.id] = CTX.lootGive.split.watch(b.id, (meta, items) => { LOOT.sp[b.id] = { meta, items };
+    // what's been handed out leaves the DM's loot (once)
+    items.filter(u => u.handed && !u.applied && !LOOT.appl.has(u.id)).forEach(u => { LOOT.appl.add(u.id); const e = lootById(u.lid);
+      const n = lootShared(u);
+      if (e && n > 0) { if (e.kind === 'coins') { const c = Object.assign({}, e.coins), k = u.cur || 'gp'; c[k] = Math.max(0, N(c[k]) - n); if (!c[k]) delete c[k]; e.coins = c; } else e.qty = Math.max(0, (N(e.qty) || 1) - n);
+        if (e.kind === 'coins' ? !Object.keys(e.coins).length : e.qty <= 0) { LOOT.list = LOOT.list.filter(z => z !== e); runOk(() => lootDel(e.id)); } else runOk(() => lootPut(e)); }
+      runOk(() => CTX.lootGive.split.applied(b.id, u.id)); });
+    if (meta && meta.open === false && items.every(u => !u.handed || u.applied || LOOT.appl.has(u.id))) { const n = items.filter(u => u.handed).length; lootSplitEnd(b, false); if (meta.handedBy) toastInfo(n ? `The party agreed on <b>${esc(b.name)}</b> — ${n} thing${n === 1 ? '' : 's'} handed out.` : `The party closed <b>${esc(b.name)}</b> without taking anything.`); }
+    else if (!meta && b.split) lootSplitEnd(b, false);
+    if (UI.tab === 'loot') paint(); });
+}
+async function lootSplitEnd(b, stop) {
+  if (LOOT.sw[b.id]) { LOOT.sw[b.id](); delete LOOT.sw[b.id]; } delete LOOT.sp[b.id]; b.split = false; paint();
+  try { if (stop) await CTX.lootGive.split.close(b.id); await CTX.lootGive.split.remove(b.id); } catch (x) { console.warn('split end', x); }
+  runOk(() => lootPut(b));
+}
+// Dragging a row into another container
+function lootWire() {
+  // Drag a row by its grip: the carried copy stays in the inventory's one column (it only moves up and down), the other
+  // rows make room, and it can go into any open container (or onto a closed one's header). Dropping it there moves it
+  // and keeps the order you left it in.
+  const root = $('.dk-lboxes'); if (!root || root._w) return; root._w = 1; let D = null;
+  const flip = (els, fn) => { const b = new Map(els.map(x => [x, x.getBoundingClientRect().top])); fn(); els.forEach(x => { const dy = b.get(x) - x.getBoundingClientRect().top; if (!dy) return; x.style.transition = 'none'; x.style.transform = `translateY(${dy}px)`; requestAnimationFrame(() => { x.style.transition = 'transform .16s ease'; x.style.transform = ''; }); }); };
+  root.addEventListener('pointerdown', e => { const g = e.target.closest && e.target.closest('.dk-lgrip'); if (!g || e.button > 0) return; const r = g.closest('.dk-lr'); if (!r) return; e.preventDefault();
+    const b = r.getBoundingClientRect(), gh = r.cloneNode(true); gh.classList.add('dk-lghost');
+    const cs = getComputedStyle(root); /* (the desk's colours live on the desk, not the page, so the carried copy takes them with it) */
+    Object.assign(gh.style, { position: 'fixed', left: b.left + 'px', top: b.top + 'px', width: b.width + 'px', margin: 0, zIndex: 80, pointerEvents: 'none', background: cs.getPropertyValue('--card2').trim() || '#20283a', borderColor: cs.getPropertyValue('--gold').trim() || '#c9962b', color: cs.getPropertyValue('--ink').trim() || cs.color, opacity: 1 }); document.body.appendChild(gh);
+    r.classList.add('dragging'); document.body.classList.add('dk-ldragging'); D = { r, gh, dy: e.clientY - b.top, y: e.clientY, from: r.closest('.dk-lbox').dataset.lbox || '', over: null, raf: 0 };
+    try { g.setPointerCapture(e.pointerId); } catch (x) {}
+    const step = () => { if (!D) return; D.raf = 0; const inv = root.getBoundingClientRect(), h = D.gh.offsetHeight, top = Math.max(inv.top, Math.min(inv.bottom - h, D.y - D.dy)); D.gh.style.top = top + 'px';
+      const mid = top + h / 2, secs = [...root.querySelectorAll(':scope > .dk-lbox')], sec = secs.find(x => { const bb = x.getBoundingClientRect(); return mid >= bb.top && mid <= bb.bottom; }) || (mid < (secs[0] || root).getBoundingClientRect().top ? secs[0] : secs[secs.length - 1]);
+      root.querySelectorAll('.dk-lbox.over').forEach(x => x !== sec && x.classList.remove('over')); D.over = null;
+      if (sec) { const list = sec.querySelector('.dk-llist');
+        if (!list) { sec.classList.add('over'); D.over = sec; }
+        else { sec.classList.remove('over'); const rows = [...list.querySelectorAll(':scope > .dk-lr')].filter(x => x !== D.r), tgt = rows.find(x => { const bb = x.getBoundingClientRect(); return mid < bb.top + bb.height / 2; });
+          const ok = tgt ? D.r.nextElementSibling !== tgt : (D.r.parentElement !== list || list.lastElementChild !== D.r);
+          if (ok) { const all = [...root.querySelectorAll('.dk-lr, .dk-lbox')].filter(x => x !== D.r); flip(all, () => { if (tgt) tgt.before(D.r); else list.appendChild(D.r); root.querySelectorAll('.dk-lempty').forEach(m => { m.hidden = !!m.parentElement.querySelector('.dk-lr'); }); }); } } }
+      // near the top or bottom of the window: scroll
+      const sc = root.closest('.dk-main') || document.scrollingElement, edge = 60; if (D.y < edge) sc.scrollBy(0, -12); else if (D.y > innerHeight - edge) sc.scrollBy(0, 12); if (D.y < edge || D.y > innerHeight - edge) D.raf = requestAnimationFrame(step); };
+    D.step = step; step(); });
+  root.addEventListener('pointermove', e => { if (!D) return; D.y = e.clientY; if (!D.raf) D.raf = requestAnimationFrame(D.step); });
+  // let go: the carried copy glides into its new spot (or onto the closed container it's going into), then the row is back
+  const end = e => { if (!D) return; const d = D; D = null; cancelAnimationFrame(d.raf); document.body.classList.remove('dk-ldragging');
+    const land = () => { d.gh.remove(); d.r.classList.remove('dragging'); root.querySelectorAll('.dk-lbox.over').forEach(x => x.classList.remove('over')); drop(e, d); };
+    if (e.type === 'pointercancel' || !document.contains(d.r) || matchMedia('(prefers-reduced-motion: reduce)').matches) return land();
+    const to = (d.over ? d.over.querySelector('.dk-lsh') || d.over : d.r).getBoundingClientRect(), gs = d.gh.style;
+    gs.transition = 'top .2s cubic-bezier(.2,.8,.3,1), box-shadow .2s, opacity .2s, transform .2s'; requestAnimationFrame(() => { gs.top = to.top + 'px'; gs.boxShadow = '0 0 0 rgba(0,0,0,0)'; if (d.over) { gs.opacity = '0'; gs.transform = 'scale(.97)'; } });
+    let done = false; const fin = () => { if (done) return; done = true; land(); }; d.gh.addEventListener('transitionend', ev => { if (ev.propertyName === 'top') fin(); }); setTimeout(fin, 320); };
+  const drop = (e, d) => {
+    if (e.type === 'pointercancel' || !document.contains(d.r)) return paint();
+    const it = lootById(d.r.dataset.lid); if (!it) return paint();
+    const sec = d.over || d.r.closest('.dk-lbox'), to = sec ? sec.dataset.lbox || '' : d.from, moved = (lootBoxOf(it) ? it.box : '') !== to; const ch = [];
+    if (moved) { it.box = to; ch.push(it); }
+    // the order: everything in that container as it now stands (when nothing's filtered out)
+    const filt = !!LOOT.q.trim() || LOOT.f !== 'all';
+    if (!d.over && !filt) [...sec.querySelectorAll('.dk-llist > .dk-lr')].forEach((x, k) => { const z = lootById(x.dataset.lid); if (z && z.ord !== k) { z.ord = k; if (!ch.includes(z)) ch.push(z); } });
+    else if (d.over) { const n = lootIn(to).filter(z => z !== it).reduce((m, z) => Math.max(m, z.ord == null ? -1 : z.ord), -1); it.ord = n + 1; }
+    paint(); ch.forEach(z => runOk(() => lootPut(z))); if (moved) toastInfo(`Moved <b>${esc(it.name)}</b> to ${esc(to ? (lootById(to) || {}).name || 'the container' : 'Unsorted')}.`); };
+  root.addEventListener('pointerup', end); root.addEventListener('pointercancel', end);
+}
+function lootBoxModal(b) {
+  openModal(`<h2>${b ? 'Container' : 'New container'}</h2><p class="dk-hint">A place to keep loot together — an encounter, a room, a chest, an area.</p>
+    <label><span class="dk-lbl">Name</span><input class="dk-f" id="dk-lbn" maxlength="80" value="${esc((b && b.name) || '')}" placeholder="e.g. Goblin cave, The dragon’s hoard"></label>
+    <label><span class="dk-lbl">Note <small>(only you see it)</small></span><input class="dk-f" id="dk-lbnote" maxlength="160" value="${esc((b && b.note) || '')}" placeholder="e.g. Behind the waterfall, trapped (DC 15)"></label>
+    <div class="dk-acts"><button class="dk-btn" data-act="close">Cancel</button><button class="dk-btn gold" id="dk-lbgo">${b ? 'Save' : 'Make container'}</button></div>`);
+  const go = () => { const name = String($('#dk-lbn').value || '').trim().slice(0, 80); if (!name) return toastInfo('Give it a name.'); const note = String($('#dk-lbnote').value || '').trim().slice(0, 160); closeModal(true);
+    if (b) { b.name = name; b.note = note; lootSave(b, 'the container'); } else runOk(() => lootAdd({ kind: 'box', name, note, qty: 0 })); };
+  $('#dk-lbgo').onclick = go; $('#dk-lbn').onkeydown = e => { if (e.key === 'Enter') go(); };
+}
+async function lootGiveAll(b) {
+  if (!CTX.lootGive || !b) return; const list = lootIn(lootKey(b)); if (!list.length) return;
+  let who = '', take = true;
+  const paintA = () => { const cs = LOOT.chars, box = $('#dk-lgaw'); if (!box) return;
+    box.innerHTML = `<p class="dk-hint">Everything in it goes to one character: ${esc(lootTot(list))}.</p>${cs == null ? '<p class="dk-hint">Loading the party…</p>' : !cs.length ? '<p class="dk-hint">There are no characters in this party yet.</p>' : `<span class="dk-lbl">To</span><div class="dk-lwho">${cs.map(c => `<button class="dk-lw${who === c.id ? ' on' : ''}" data-who="${esc(c.id)}" aria-pressed="${who === c.id}">${c.thumb ? `<img src="${esc(c.thumb)}" alt="">` : `<span class="dk-lwi">${esc((c.name || '?').slice(0, 1))}</span>`}<span><b>${esc(c.name)}</b>${c.player ? `<small>${esc(c.player)}</small>` : ''}</span></button>`).join('')}</div>`}
+      <label class="dk-chk"><input type="checkbox" id="dk-lgatake" ${take ? 'checked' : ''}> Empty the container afterwards</label><p class="dk-hint">They’re asked to accept each thing on their sheet.</p>
+      <div class="dk-acts"><button class="dk-btn" data-act="close">Cancel</button><button class="dk-btn gold" id="dk-lgago" ${who ? '' : 'disabled'}>${who ? 'Give everything to ' + esc(((cs || []).find(c => c.id === who) || {}).name || '') : 'Pick who gets it'}</button></div>`;
+    box.querySelectorAll('[data-who]').forEach(x => x.onclick = () => { who = x.dataset.who; paintA(); });
+    const tk = $('#dk-lgatake'); if (tk) tk.onchange = () => { take = tk.checked; };
+    const go = $('#dk-lgago'); if (go) go.onclick = async () => { go.disabled = true; go.textContent = 'Sending…'; let ok = 0; const sent = [];
+      for (const e of list) { const [kind, data] = e.kind === 'coins' ? ['coins', Object.assign({}, e.coins)] : e.kind === 'item' ? ['item', { item: Object.assign({}, e.item, { qty: N(e.qty) || 1 }) }] : ['loot', { name: e.name, qty: N(e.qty) || 1, notes: e.note || '' }];
+        try { await CTX.lootGive.give(who, kind, data); ok++; sent.push(e); } catch (x) { console.warn(x); } }
+      if (!ok) { go.disabled = false; go.textContent = 'Try again'; return toast({ title: 'Couldn’t send it', det: 'Check your connection.', cls: 'bad' }); }
+      closeModal(true); if (take) { LOOT.list = LOOT.list.filter(z => !sent.includes(z)); sent.forEach(e => runOk(() => lootDel(e.id))); } paint();
+      toastInfo(`Sent ${ok} thing${ok === 1 ? '' : 's'} from <b>${esc(b.name)}</b> to ${esc(((LOOT.chars || []).find(c => c.id === who) || {}).name || 'them')} — they’ll be asked to accept ${ok === 1 ? 'it' : 'them'}.`); };
+  };
+  openModal(`<h2>Give everything in ${esc(b.name)}</h2><div id="dk-lgaw"></div>`); paintA();
+  if (LOOT.chars == null) { try { LOOT.chars = (await CTX.lootGive.chars()).sort((a, c) => String(a.name).localeCompare(String(c.name))); } catch (x) { LOOT.chars = []; } paintA(); }
 }
 const lootById = id => (LOOT.list || []).find(e => e.id === id);
 async function lootSave(e, label) { paint(); try { await lootPut(e); } catch (x) { toast({ title: 'Couldn’t save ' + (label || 'that'), det: esc(x.message || ''), cls: 'bad' }); } }
 function lootCoinsModal(e) {
   const c = (e && e.coins) || {};
   openModal(`<h2>${e ? 'Edit coins' : 'Add coins'}</h2><div class="dk-lcoins">${COINK.map(k => `<label><span class="dk-lbl">${k}</span><input class="dk-f" type="number" min="0" inputmode="numeric" id="dk-lc-${k}" value="${N(c[k]) || ''}" placeholder="0"></label>`).join('')}</div>
-    <label><span class="dk-lbl">What is it?</span><input class="dk-f" id="dk-lc-n" maxlength="80" value="${esc((e && e.name) || '')}" placeholder="e.g. The bandit captain’s purse"></label>
+    <label><span class="dk-lbl">Name <small>(optional)</small></span><input class="dk-f" id="dk-lc-n" maxlength="80" value="${esc((e && e.name) || '')}" placeholder="e.g. The bandit captain’s purse"></label>
     <div class="dk-acts"><button class="dk-btn" data-act="close">Cancel</button><button class="dk-btn gold" id="dk-lc-go">${e ? 'Save' : 'Add to loot'}</button></div>`);
   $('#dk-lc-go').onclick = () => { const coins = {}; COINK.forEach(k => { const v = Math.max(0, Math.floor(N(($('#dk-lc-' + k) || {}).value))); if (v) coins[k] = v; }); if (!Object.keys(coins).length) return toastInfo('Add some coins first.');
     const name = String(($('#dk-lc-n') || {}).value || '').trim().slice(0, 80) || 'Coins'; closeModal(true);
@@ -4756,10 +4926,11 @@ function lootCatalog() {
         runOk(() => lootAdd({ kind: 'named', name: r.n, qty: 1, rarity: r.rar || '', cat: r.cat }).then(() => setTimeout(() => { if (b.isConnected) { b.disabled = false; b.querySelector('.dk-lci-add').textContent = 'Add another'; } }, 900))); }); };
     q.oninput = show; show(); });
 }
-function lootPaste() {
+function lootPaste(back) {
   openModal(`<h2>Paste an item</h2><p class="dk-hint">Paste a magic item from a book, PDF or D&amp;D Beyond — name, the type line, then its text. You can check and change it before it goes into your loot.</p>
     <textarea class="dk-f" id="dk-lpaste" rows="10" placeholder="Flame Tongue&#10;Weapon (any sword), rare (requires attunement)&#10;You can use a bonus action to speak this magic sword’s command word…"></textarea>
-    <div class="dk-acts"><button class="dk-btn" data-act="close">Cancel</button><button class="dk-btn gold" id="dk-lpgo">Read item</button></div>`, { wide: true });
+    <div class="dk-acts">${back ? '<button class="dk-btn" id="dk-lpback">Back</button>' : '<button class="dk-btn" data-act="close">Cancel</button>'}<button class="dk-btn gold" id="dk-lpgo">Read item</button></div>`, { wide: true });
+  if (back) $('#dk-lpback').onclick = () => lootBuild(null); setTimeout(() => { const t = $('#dk-lpaste'); if (t) t.focus(); }, 50);
   $('#dk-lpgo').onclick = () => { const r = ItemParse.parse($('#dk-lpaste').value, { weapons: T.WEAPONS || [], armor: T.ARMOR || [], spells: SPELLN() }); const v = r && shapeHB(r.spec); if (!v) return toastInfo('That didn’t look like an item — the first line should be its name.');
     closeModal(true); lootBuild(itemFromSpec(v), 'Check the pasted item'); };
 }
@@ -4775,11 +4946,11 @@ function lootAIModal() {
 // the sheet's item builder (desk_hbb.js), then into the loot
 function lootBuild(item, title) {
   if (typeof hbdOpen !== 'function') return toastInfo('The item builder didn’t load — reload the page.');
-  hbdOpen(item, { title: title || (item ? 'Edit homebrew item' : 'New homebrew item'), saveLabel: 'Add to loot', onSave: it => runOk(() => lootAddItem(it)) });
+  hbdOpen(item, { title: title || (item ? 'Edit homebrew item' : 'New homebrew item'), saveLabel: 'Add to loot', onSave: it => runOk(() => lootAddItem(it)), onPaste: () => lootPaste(true) });
 }
-async function lootGiveModal(e) {
+async function lootGiveModal(e, who) {
   if (!CTX.lootGive) return; const coins = e.kind === 'coins';
-  const F = { sel: new Set(), n: 1, take: true, split: true };
+  const F = { sel: new Set(who ? [who] : []), n: 1, take: true, split: true };
   const paintG = () => { const cs = LOOT.chars; const card = $('.dk-mcard'); if (!card || !$('#dk-lgw')) return;
     const max = coins ? 0 : (N(e.qty) || 1), many = F.sel.size;
     $('#dk-lgw').innerHTML = `${cs == null ? '<p class="dk-hint">Loading the party…</p>' : !cs.length ? '<p class="dk-hint">There are no characters in this party yet.</p>' : `<span class="dk-lbl">To</span><div class="dk-lwho">${cs.map(c => `<button class="dk-lw${F.sel.has(c.id) ? ' on' : ''}" data-who="${esc(c.id)}" aria-pressed="${F.sel.has(c.id)}">${c.thumb ? `<img src="${esc(c.thumb)}" alt="">` : `<span class="dk-lwi">${esc((c.name || '?').slice(0, 1))}</span>`}<span><b>${esc(c.name)}</b>${c.player ? `<small>${esc(c.player)}</small>` : ''}</span></button>`).join('')}</div>`}
@@ -4809,10 +4980,47 @@ async function lootGiveModal(e) {
   paintG();
   if (LOOT.chars == null) { try { LOOT.chars = (await CTX.lootGive.chars()).sort((a, b) => String(a.name).localeCompare(String(b.name))); } catch (x) { LOOT.chars = []; } paintG(); }
 }
+// Right-click (or long-press) a loot row or a category header: everything it can do, with icons
+function lootCtx(e) {
+  const t = e.target && e.target.closest; if (!t || !e.target.closest('.dk-loot2')) return false;
+  const it = (a, icon, txt, attrs, cls) => `<button data-act="${a}" ${attrs || ''}${cls ? ` class="${cls}"` : ''} role="menuitem">${CTXI[icon] || ''}<span>${txt}</span></button>`, lab = t2 => `<div class="dk-mlab">${esc(t2)}</div>`;
+  const row = e.target.closest('.dk-lr[data-lid]'), head = !row && e.target.closest('.dk-lsh');
+  let h = '';
+  if (row) { const x = lootById(row.dataset.lid); if (!x) return false; const a = `data-lid="${esc(x.id)}"`, here = lootBoxOf(x) ? x.box : '';
+    const dests = [['', 'Unsorted']].concat(lootBoxes().map(b => [b.id, b.name])).filter(([v]) => v !== here);
+    h = `<div class="dk-ctxh">${x.kind === 'coins' ? ICON.coins : ICON.chest}<b>${esc(x.name)}</b></div>`
+      + (x.kind === 'item' ? it('lootedit', 'rename', 'Edit item', a) : x.kind === 'coins' ? it('lootcoins', 'coins', 'Edit coins', a) : '') + it('lootnote', 'note', x.note ? 'Change the note' : 'Add a note', a)
+      + (CTX.lootGive ? lab('Give to') + (LOOT.chars || []).map(c => it('lootgiveto', 'give', esc(c.name), a + ` data-who="${esc(c.id)}"`)).join('') + it('lootgive', 'split', 'Several characters…', a) : '')
+      + (dests.length ? lab('Move to') + dests.map(([v, n]) => it('lootmove', 'move', esc(n), a + ` data-to="${esc(v)}"`)).join('') : '')
+      + lab('More') + (x.kind === 'item' && CTX.partyHB ? it('lootphb', 'pin', 'Add to the party’s homebrew', a) : '') + it('lootdup', 'copy', 'Duplicate', a) + it('lootdel', 'trash', 'Delete', a, 'red'); }
+  else if (head) { const sec = head.closest('.dk-lbox'), id = sec ? sec.dataset.lbox || '' : '', b = id ? lootById(id) : null, v = `data-v="${esc(id || 'unsorted')}"`, to = `data-to="${esc(id)}"`, n = lootIn(id).length, rec = b || lootById('unsorted');
+    h = `<div class="dk-ctxh">${ICON.chest}<b>${esc(b ? b.name : 'Unsorted')}</b></div>` + it('lootcat', 'add', 'Add an item here', to) + it('loothb', 'add', 'Add a homebrew item here', to) + it('lootcoins', 'coins', 'Add coins here', to)
+      + (CTX.lootGive && n ? (rec && rec.split ? it('lootsplitstop', 'remove', 'Stop the party’s split', v) : it('lootsplit', 'split', 'Let the party split it', v) + it('lootgiveall', 'give', 'Give all to one character', v)) : '')
+      + (b ? it('lootbox', 'rename', 'Rename or add a note', `data-lid="${esc(id)}"`) + it('lootboxdel', 'trash', 'Delete container', `data-lid="${esc(id)}"`, 'red') : ''); }
+  else return false;
+  e.preventDefault(); ctxOpen(h, e.clientX, e.clientY); return true;
+}
+// ⇄ → Give to: one of it straight to that character (asked how many when there are more)
+async function lootGiveTo(e, who) {
+  if (e.kind === 'coins' || (N(e.qty) || 1) > 1) return lootGiveModal(e, who);
+  const c = (LOOT.chars || []).find(x => x.id === who), [kind, data] = e.kind === 'item' ? ['item', { item: Object.assign({}, e.item, { qty: 1 }) }] : ['loot', { name: e.name, qty: 1, notes: e.note || '' }];
+  try { await CTX.lootGive.give(who, kind, data); } catch (x) { return toast({ title: 'Couldn’t send it', det: 'Check your connection.', cls: 'bad' }); }
+  LOOT.list = LOOT.list.filter(z => z !== e); paint(); runOk(() => lootDel(e.id));
+  toastInfo(`Sent <b>${esc(e.name)}</b> to ${esc((c && c.name) || 'them')} — they’ll be asked to accept it.`);
+}
 async function onLootAct(act, b) {
-  const e = b.dataset.lid ? lootById(b.dataset.lid) : null;
+  const e = b.dataset.lid ? lootById(b.dataset.lid) : null; if (b.dataset.to != null) LOOT.to = b.dataset.to;
   switch (act) {
     case 'lootf': LOOT.f = b.dataset.v; return paint();
+    case 'lootmove': if (!e) return; closeMenus(); e.box = b.dataset.to || ''; return lootSave(e, 'the move');
+    case 'lootgiveto': if (!e || !CTX.lootGive) return; closeMenus(); return lootGiveTo(e, b.dataset.who);
+    case 'lootcoin': { const key = b.dataset.key || '', k = b.dataset.k, cur = N(((lootPurse(key) || {}).coins || {})[k]); return lootCoinSet(key, k, cur + N(b.dataset.d)); }
+    case 'lootbox': return lootBoxModal(e && e.kind === 'box' ? e : null);
+    case 'lootboxdel': if (!e) return; { const n = lootIn(e.id).length; confirmBox(`Delete the container ${esc(e.name)}?${n ? ` Its ${n} thing${n === 1 ? '' : 's'} move${n === 1 ? 's' : ''} to Unsorted.` : ''}`, 'Delete', async () => { const inside = lootIn(e.id); LOOT.list = LOOT.list.filter(z => z !== e); inside.forEach(z => { z.box = ''; }); paint(); for (const z of inside) await lootPut(z); await lootDel(e.id); }, true); } return;
+    case 'lootshut': { UI.lootShut = UI.lootShut || {}; const k = b.dataset.v || '_'; UI.lootShut[k] = !UI.lootShut[k]; saveUI(); return paint(); }
+    case 'lootgiveall': return lootGiveAll(b.dataset.v === 'unsorted' ? lootLoose() : lootById(b.dataset.v));
+    case 'lootsplit': return lootSplitOpen(b.dataset.v === 'unsorted' ? lootLoose() : lootById(b.dataset.v));
+    case 'lootsplitstop': { const bx = lootById(b.dataset.v); if (!bx) return; confirmBox(`Stop splitting ${esc(bx.name)}? It disappears from the players’ sheets. Anything already handed out stays handed out.`, 'Stop', async () => { await lootSplitEnd(bx, true); }); return; }
     case 'lootcat': return lootCatalog();
     case 'loothb': return lootBuild(null);
     case 'lootpaste': return lootPaste();
@@ -4900,7 +5108,7 @@ function hbdPaint() {
   const box = document.getElementById('hbd'); if (!box || !HBD) return;
   const card = box.closest('.dk-mcard'), sc = card ? card.scrollTop : 0, o = HBD.opts;
   const adv = HBD.adv ? `<div class="hbb-adv">${hbdItemAdv()}<p class="dk-hint hbb-fhint">Numbers can be formulas: <code>prof</code>, <code>wis</code>, <code>level</code>, <code>1d6+prof</code>. Separate several entries with commas.</p></div>` : '';
-  box.innerHTML = `<div class="hbb-head"><span class="hbb-grow"></span><label class="hbb-switch" title="Show every option the sheet can automate"><input type="checkbox" data-hbdadv${HBD.adv ? ' checked' : ''}><span class="tr" aria-hidden="true"><i></i></span><span>Advanced</span></label></div>
+  box.innerHTML = `<div class="hbb-head">${HBD.opts.onPaste ? '<button type="button" class="dk-btn hbb-paste" data-hbdpaste title="Paste an item from a book, PDF or D&amp;D Beyond and it fills this in">Paste an item…</button>' : ''}<span class="hbb-grow"></span><label class="hbb-switch" title="Show every option the sheet can automate"><input type="checkbox" data-hbdadv${HBD.adv ? ' checked' : ''}><span class="tr" aria-hidden="true"><i></i></span><span>Advanced</span></label></div>
     <div class="hbb-body">${hbdItemBasic()}${adv}</div>
     <datalist id="hbd-spl">${hbdSpellNames().map(n => `<option value="${hbdEsc(n)}"></option>`).join('')}</datalist>
     <div class="dk-acts hbb-acts"><button class="dk-btn" data-act="close">Cancel</button><button class="dk-btn gold" data-hbdsave>${hbdEsc(o.saveLabel || (HBD.isNew ? 'Create item' : 'Save'))}</button></div>`;
@@ -5029,7 +5237,7 @@ document.addEventListener('change', e => { const t = e.target; if (!HBD || !t.cl
   if (t.dataset.hbd == null) return;
   hbdSet(HBD.d, t.dataset.hbd, t.type === 'checkbox' ? t.checked : t.value);
   if (t.tagName === 'SELECT' || t.type === 'checkbox' || /^_uses$/.test(t.dataset.hbd)) hbdPaint(); }, true);
-document.addEventListener('click', e => { if (!HBD) return; const b = e.target.closest && e.target.closest('#hbd [data-hbdseg], #hbd [data-hbdchip], #hbd [data-hbdsec], #hbd [data-hbdspdel], #hbd [data-hbdsave]'); if (!b) return;
+document.addEventListener('click', e => { if (!HBD) return; if (e.target.closest && e.target.closest('#hbd [data-hbdpaste]')) { const f = HBD.opts.onPaste; if (f) f(); return; } const b = e.target.closest && e.target.closest('#hbd [data-hbdseg], #hbd [data-hbdchip], #hbd [data-hbdsec], #hbd [data-hbdspdel], #hbd [data-hbdsave]'); if (!b) return;
   e.preventDefault(); e.stopPropagation();
   if (b.dataset.hbdseg) { hbdSet(HBD.d, b.dataset.hbdseg, b.dataset.v); return hbdPaint(); }
   if (b.dataset.hbdchip) { const p = b.dataset.hbdchip, v = b.dataset.v, have = hbdCSV(hbdV(p) || ''), on = have.some(x => x.toLowerCase() === v.toLowerCase()); hbdSet(HBD.d, p, (on ? have.filter(x => x.toLowerCase() !== v.toLowerCase()) : have.concat([v.toLowerCase()])).join(', ')); return hbdPaint(); }

@@ -1888,3 +1888,14 @@ html[data-pgtheme="light"] .dk-acct.lit::before, html[data-pgtheme="light"] .dk-
 .dk-lghost { background: var(--card2); color: var(--ink); border: 1px solid var(--gold); border-radius: 10px; box-shadow: 0 10px 28px rgba(0,0,0,.45); opacity: 1; cursor: grabbing; }
 body.dk-ldragging, body.dk-ldragging * { cursor: grabbing !important; user-select: none; }
 .dk-lr.dragging { opacity: .25; }
+
+/* token maker sliders: a slim track that fills in gold, and a round gold handle */
+.dk-tok-tool input[type=range] { -webkit-appearance: none; appearance: none; height: 22px; background: transparent; cursor: pointer; --p: 50%; outline: none; }
+.dk-tok-tool input[type=range]::-webkit-slider-runnable-track { height: 6px; border-radius: 999px; background: linear-gradient(to right, var(--gold) 0 var(--p), var(--line) var(--p) 100%); }
+.dk-tok-tool input[type=range]::-moz-range-track { height: 6px; border-radius: 999px; background: var(--line); }
+.dk-tok-tool input[type=range]::-moz-range-progress { height: 6px; border-radius: 999px; background: var(--gold); }
+.dk-tok-tool input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; margin-top: -6px; border-radius: 50%; background: var(--gold2); border: 2px solid var(--gold); box-shadow: 0 1px 4px rgba(0,0,0,.45); transition: transform .12s; }
+.dk-tok-tool input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--gold2); border: 2px solid var(--gold); box-shadow: 0 1px 4px rgba(0,0,0,.45); }
+.dk-tok-tool input[type=range]:hover::-webkit-slider-thumb, .dk-tok-tool input[type=range]:active::-webkit-slider-thumb { transform: scale(1.12); }
+.dk-tok-tool input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px rgba(201,150,43,.4); }
+.dk-tok-tool input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px rgba(201,150,43,.4); }

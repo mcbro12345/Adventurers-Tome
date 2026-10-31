@@ -2444,6 +2444,8 @@ function tkSync() {
   const cus = $('.dk-tkcus'), custom = !TKCOLS.some(([, c]) => c === TK.color); if (cus) { cus.classList.toggle('on', custom); cus.style.setProperty('--c', custom ? TK.color : 'transparent'); }
   $$('.dk-tok-tool [data-act=tkshape]').forEach(x => x.classList.toggle('on', x.dataset.v === TK.shape)); $$('.dk-tok-tool [data-act=tksize]').forEach(x => x.classList.toggle('on', +x.dataset.v === TK.size));
   const z = document.getElementById('dk-tkz'); if (z) z.value = TK.z; const o = document.getElementById('dk-tkbwo'); if (o) o.textContent = TK.bw ? Math.round(TK.bw * 10) / 10 + '%' : 'None';
+  // (the sliders fill in gold up to where they're set)
+  $$('.dk-tok-tool input[type=range]').forEach(r => { const a = +r.min || 0, b = +r.max || 100; r.style.setProperty('--p', ((+r.value - a) / (b - a || 1) * 100) + '%'); });
   const box = document.getElementById('dk-tkbox'); if (box) box.classList.toggle('sq', TK.shape === 'square');
   try { pills(); } catch (e) {} tkRedraw();
 }
@@ -2483,7 +2485,7 @@ function tkMount() {
   }
   tkRedraw();
 }
-function tkZoom(nz) { nz = Math.max(1, Math.min(5, nz)); TK.x *= nz / TK.z; TK.y *= nz / TK.z; TK.z = nz; const z = document.getElementById('dk-tkz'); if (z && +z.value !== nz) z.value = nz; tkRedraw(); }
+function tkZoom(nz) { nz = Math.max(1, Math.min(5, nz)); TK.x *= nz / TK.z; TK.y *= nz / TK.z; TK.z = nz; const z = document.getElementById('dk-tkz'); if (z && +z.value !== nz) z.value = nz; if (z) z.style.setProperty('--p', ((nz - 1) / 4 * 100) + '%'); tkRedraw(); }
 // ----- drawing -----
 function genHTML() {
   const sub = UI.gen === 'npc' ? 'npc' : 'enc';
