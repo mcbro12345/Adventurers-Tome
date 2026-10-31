@@ -2411,7 +2411,7 @@ function tokensHTML() {
     <section class="dk-card dk-tkctl">
       <div><span class="dk-lbl">Picture</span><div class="dk-tkrow"><button class="dk-btn" data-act="tkpick">${has ? 'Change picture' : 'Choose picture'}</button>${has ? '<button class="dk-btn" data-act="tkclear">Clear</button>' : ''}</div></div>
       <div><span class="dk-lbl">Border colour</span><div class="dk-tksws">${sw}<label class="dk-tksw dk-tkcus${custom ? ' on' : ''}" title="Any colour" style="--c:${custom ? TK.color : 'transparent'}"><input type="color" id="dk-tkcol" value="${TK.color}" aria-label="Any colour"></label></div></div>
-      <div><span class="dk-lbl">Border width</span><div class="dk-tkrow"><input type="range" id="dk-tkbw" min="0" max="14" step="0.5" value="${TK.bw}" style="--p:${TK.bw / 14 * 100}%" aria-label="Border width"><output id="dk-tkbwo">${TK.bw ? Math.round(TK.bw * 10) / 10 + '%' : 'None'}</output></div></div>
+      <div><span class="dk-lbl">Border width</span><div class="dk-tkrow"><input type="range" id="dk-tkbw" min="0" max="14" step="0.5" value="${TK.bw}" style="--p:${TK.bw / 14 * 100}%" aria-label="Border width"><output id="dk-tkbwo">${TK.bw ? TK.bw.toFixed(1) + '%' : 'None'}</output></div></div>
       <label class="dk-chk"><input type="checkbox" id="dk-tkshade" ${TK.shade ? 'checked' : ''}> Metal shine on the border</label>
       <div><span class="dk-lbl">Shape</span><div class="dk-seg2 dk-tkseg" data-pk="tkshape">${[['round', 'Round'], ['square', 'Square']].map(([k, n]) => `<button class="${TK.shape === k ? 'on' : ''}" data-act="tkshape" data-v="${k}">${n}</button>`).join('')}</div></div>
       <div><span class="dk-lbl">Download size</span><div class="dk-seg2 dk-tkseg" data-pk="tksize">${[256, 512, 1024].map(n => `<button class="${TK.size === n ? 'on' : ''}" data-act="tksize" data-v="${n}">${n}px</button>`).join('')}</div></div>
@@ -2443,7 +2443,7 @@ function tkSync() {
   $$('.dk-tok-tool [data-act=tkcol]').forEach(x => { const on = x.dataset.v === TK.color; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on); });
   const cus = $('.dk-tkcus'), custom = !TKCOLS.some(([, c]) => c === TK.color); if (cus) { cus.classList.toggle('on', custom); cus.style.setProperty('--c', custom ? TK.color : 'transparent'); }
   $$('.dk-tok-tool [data-act=tkshape]').forEach(x => x.classList.toggle('on', x.dataset.v === TK.shape)); $$('.dk-tok-tool [data-act=tksize]').forEach(x => x.classList.toggle('on', +x.dataset.v === TK.size));
-  const z = document.getElementById('dk-tkz'); if (z) z.value = TK.z; const o = document.getElementById('dk-tkbwo'); if (o) o.textContent = TK.bw ? Math.round(TK.bw * 10) / 10 + '%' : 'None';
+  const z = document.getElementById('dk-tkz'); if (z) z.value = TK.z; const o = document.getElementById('dk-tkbwo'); if (o) o.textContent = TK.bw ? TK.bw.toFixed(1) + '%' : 'None';
   // (the sliders fill in gold up to where they're set)
   $$('.dk-tok-tool input[type=range]').forEach(r => { const a = +r.min || 0, b = +r.max || 100; r.style.setProperty('--p', ((+r.value - a) / (b - a || 1) * 100) + '%'); });
   const box = document.getElementById('dk-tkbox'); if (box) box.classList.toggle('sq', TK.shape === 'square');

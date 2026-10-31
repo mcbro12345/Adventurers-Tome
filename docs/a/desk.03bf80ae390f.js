@@ -2679,18 +2679,18 @@ Return JSON with string fields: {"name","race","occupation","age","look","person
 }
 // ----- Tokens: a stand-alone token maker. Nothing is saved: pick a picture, frame it, pick a border, download. -----
 const TKCOLS = [['Gold', '#c9962b'], ['Silver', '#aab3bd'], ['Bronze', '#a0612f'], ['Crimson', '#a8262a'], ['Royal blue', '#2c5fa8'], ['Forest', '#2f7a43'], ['Violet', '#6d45a8'], ['Obsidian', '#26262b'], ['Bone', '#e9e2d0']];
-const TK = { im: null, name: 'token', z: 1, x: 0, y: 0, color: '#c9962b', bw: 6, shade: true, shape: 'round', size: 512 };
+const TK = { im: null, name: 'token', z: 1, x: 0, y: 0, color: '#c9962b', bw: 2.5, shade: true, shape: 'round', size: 512 };
 function tokensHTML() {
   const has = !!TK.im, sw = TKCOLS.map(([n, c]) => `<button class="dk-tksw${TK.color === c ? ' on' : ''}" data-act="tkcol" data-v="${c}" style="--c:${c}" title="${n}" aria-label="${n}" aria-pressed="${TK.color === c}"></button>`).join('');
   const custom = !TKCOLS.some(([, c]) => c === TK.color);
   return `<div class="dk-tok-tool"><section class="dk-card dk-tkstage"><h2>Token maker</h2>
-      <div class="dk-tkbox${has ? '' : ' empty'}" id="dk-tkbox">${has ? `<canvas id="dk-tkc" aria-label="Token preview. Drag to move the picture, scroll or pinch to zoom."></canvas>` : `<button class="dk-tkdrop" data-act="tkpick">${ICON.token}<b>Choose a picture</b><span>or drop one here</span></button>`}</div>
-      ${has ? `<div class="dk-tkzoom"><span class="dk-lbl">Zoom</span><input type="range" id="dk-tkz" min="1" max="5" step="0.01" value="${TK.z}" aria-label="Zoom"><button class="dk-btn sm" data-act="tkreset">Reset</button></div><p class="dk-hint">Drag the picture to move it. Scroll or pinch to zoom.</p>` : '<p class="dk-hint">Make a round token from any picture for your map or virtual tabletop. Nothing is uploaded or saved — it all happens in your browser.</p>'}
+      <div class="dk-tkbox${has ? '' : ' empty'}" id="dk-tkbox">${has ? `<canvas id="dk-tkc" aria-label="Token preview. Drag to move the picture, scroll or pinch to zoom."></canvas>` : `<button class="dk-tkdrop" data-act="tkpick"><span class="dk-tkdz-i" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg></span><b>Choose a picture</b><span>or drop one here</span></button>`}</div>
+      ${has ? `<div class="dk-tkzoom"><span class="dk-lbl">Zoom</span><input type="range" id="dk-tkz" min="1" max="5" step="0.01" value="${TK.z}" style="--p:${(TK.z - 1) / 4 * 100}%" aria-label="Zoom"><button class="dk-btn sm" data-act="tkreset">Reset</button></div><p class="dk-hint">Drag the picture to move it. Scroll or pinch to zoom.</p>` : '<p class="dk-hint">Make a round token from any picture for your map or virtual tabletop. Nothing is uploaded or saved — it all happens in your browser.</p>'}
       <input type="file" id="dk-tkfile" accept="image/*" hidden></section>
     <section class="dk-card dk-tkctl">
       <div><span class="dk-lbl">Picture</span><div class="dk-tkrow"><button class="dk-btn" data-act="tkpick">${has ? 'Change picture' : 'Choose picture'}</button>${has ? '<button class="dk-btn" data-act="tkclear">Clear</button>' : ''}</div></div>
       <div><span class="dk-lbl">Border colour</span><div class="dk-tksws">${sw}<label class="dk-tksw dk-tkcus${custom ? ' on' : ''}" title="Any colour" style="--c:${custom ? TK.color : 'transparent'}"><input type="color" id="dk-tkcol" value="${TK.color}" aria-label="Any colour"></label></div></div>
-      <div><span class="dk-lbl">Border width</span><div class="dk-tkrow"><input type="range" id="dk-tkbw" min="0" max="14" step="0.5" value="${TK.bw}" aria-label="Border width"><output id="dk-tkbwo">${TK.bw ? Math.round(TK.bw * 10) / 10 + '%' : 'None'}</output></div></div>
+      <div><span class="dk-lbl">Border width</span><div class="dk-tkrow"><input type="range" id="dk-tkbw" min="0" max="14" step="0.5" value="${TK.bw}" style="--p:${TK.bw / 14 * 100}%" aria-label="Border width"><output id="dk-tkbwo">${TK.bw ? TK.bw.toFixed(1) + '%' : 'None'}</output></div></div>
       <label class="dk-chk"><input type="checkbox" id="dk-tkshade" ${TK.shade ? 'checked' : ''}> Metal shine on the border</label>
       <div><span class="dk-lbl">Shape</span><div class="dk-seg2 dk-tkseg" data-pk="tkshape">${[['round', 'Round'], ['square', 'Square']].map(([k, n]) => `<button class="${TK.shape === k ? 'on' : ''}" data-act="tkshape" data-v="${k}">${n}</button>`).join('')}</div></div>
       <div><span class="dk-lbl">Download size</span><div class="dk-seg2 dk-tkseg" data-pk="tksize">${[256, 512, 1024].map(n => `<button class="${TK.size === n ? 'on' : ''}" data-act="tksize" data-v="${n}">${n}px</button>`).join('')}</div></div>
@@ -2722,7 +2722,9 @@ function tkSync() {
   $$('.dk-tok-tool [data-act=tkcol]').forEach(x => { const on = x.dataset.v === TK.color; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on); });
   const cus = $('.dk-tkcus'), custom = !TKCOLS.some(([, c]) => c === TK.color); if (cus) { cus.classList.toggle('on', custom); cus.style.setProperty('--c', custom ? TK.color : 'transparent'); }
   $$('.dk-tok-tool [data-act=tkshape]').forEach(x => x.classList.toggle('on', x.dataset.v === TK.shape)); $$('.dk-tok-tool [data-act=tksize]').forEach(x => x.classList.toggle('on', +x.dataset.v === TK.size));
-  const z = document.getElementById('dk-tkz'); if (z) z.value = TK.z; const o = document.getElementById('dk-tkbwo'); if (o) o.textContent = TK.bw ? Math.round(TK.bw * 10) / 10 + '%' : 'None';
+  const z = document.getElementById('dk-tkz'); if (z) z.value = TK.z; const o = document.getElementById('dk-tkbwo'); if (o) o.textContent = TK.bw ? TK.bw.toFixed(1) + '%' : 'None';
+  // (the sliders fill in gold up to where they're set)
+  $$('.dk-tok-tool input[type=range]').forEach(r => { const a = +r.min || 0, b = +r.max || 100; r.style.setProperty('--p', ((+r.value - a) / (b - a || 1) * 100) + '%'); });
   const box = document.getElementById('dk-tkbox'); if (box) box.classList.toggle('sq', TK.shape === 'square');
   try { pills(); } catch (e) {} tkRedraw();
 }
@@ -2762,7 +2764,7 @@ function tkMount() {
   }
   tkRedraw();
 }
-function tkZoom(nz) { nz = Math.max(1, Math.min(5, nz)); TK.x *= nz / TK.z; TK.y *= nz / TK.z; TK.z = nz; const z = document.getElementById('dk-tkz'); if (z && +z.value !== nz) z.value = nz; tkRedraw(); }
+function tkZoom(nz) { nz = Math.max(1, Math.min(5, nz)); TK.x *= nz / TK.z; TK.y *= nz / TK.z; TK.z = nz; const z = document.getElementById('dk-tkz'); if (z && +z.value !== nz) z.value = nz; if (z) z.style.setProperty('--p', ((nz - 1) / 4 * 100) + '%'); tkRedraw(); }
 // ----- drawing -----
 function genHTML() {
   const sub = UI.gen === 'npc' ? 'npc' : 'enc';
@@ -4780,7 +4782,7 @@ function lootHTML() {
   const left = LOOT.list == null ? '<p class="dk-hint">Loading…</p>' : lootSection(null), right = boxes.map(lootSection).join('');
   return `<div class="dk-loot2"><section class="dk-card dk-lpanel">
     <h2 class="dk-lph"><span class="dk-lpht">Loot</span><span class="dk-lbtns"><button class="dk-btn gold" data-act="lootcat" data-to="">+ Add item</button><button class="dk-btn" data-act="loothb" data-to="">+ Homebrew item</button><button class="dk-btn" data-act="lootcoins" data-to="">+ Coins</button><button class="dk-btn" data-act="lootbox">+ Container</button>
-      <span class="dk-menu"><button class="dk-btn" data-act="menu" aria-haspopup="menu">More</button><span class="dk-mlist" role="menu"><button data-act="lootpaste" data-to="">Paste an item’s text</button>${aiReady() ? '<button data-act="lootai" data-to="">Design an item with AI</button>' : ''}</span></span></span></h2>
+      ${aiReady() ? '<button class="dk-btn" data-act="lootai" data-to="">+ AI item</button>' : ''}</span></h2>
     <div class="dk-lsearch"><input class="dk-f dk-lq" id="dk-lq" type="search" placeholder="Search the loot…" aria-label="Search the loot" value="${esc(LOOT.q)}"></div>
     <div class="dk-lstats"><span>Items <b>${things.reduce((t, e) => t + (N(e.qty) || 1), 0)}</b></span><span>Coins <b>≈ ${Math.round(worth).toLocaleString()} gp</b></span><span>Containers <b>${boxes.length}</b></span>${sessions.length ? `<div class="dk-seg2 dk-lsess2" data-pk="lootf">${chip('all', 'Everything')}${chip('none', 'Not planned')}${sessions.map(s => chip(s.id, s.title)).join('')}</div>` : ''}</div>
     <div class="dk-lboxes dk-linv">${left}${right}</div>
