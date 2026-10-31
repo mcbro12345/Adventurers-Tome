@@ -9,6 +9,10 @@
 // Every way of leaving a page fades it out first, so the next page's loading screen fades in instead of popping.
 // Anything with a drag handle shows the grabbing hand from the moment it's pressed until it's let go, wherever the
 // pointer goes in between.
+// Opened from the icon on someone's home screen: the icon's address carries ?app=home (manifest start_url). It's
+// remembered for this visit (the address is tidied straight away) so the Users list can tell, even where the phone
+// opens the icon in a browser tab rather than as its own app.
+try { const q = new URLSearchParams(location.search); if (q.get('app') === 'home') { sessionStorage.setItem('pg-app', '1'); q.delete('app'); history.replaceState(history.state, '', location.pathname + (q.toString() ? '?' + q : '') + location.hash); } } catch (e) {}
 (() => { if (window.__pgGrab) return; window.__pgGrab = 1;
   const GRIP = '.hr-grip, .nw-grip, .tgrip, .idrag, .sdrag, .bdrag, .gdrag, .mgrip, .pbar .grip, .pgph-th, .pg-sb-th, [data-mgrip], body.editing .tabwrap';
   const off = () => { const c = document.documentElement.classList; if (c.contains('pg-grabbing')) c.remove('pg-grabbing'); }; // (only when it's there: rewriting the page's class on every release made iPhones treat taps as hovers)
@@ -1102,7 +1106,7 @@ function wireDie(root) {
       ME.ext = v; ME.extInst = inst; ME.extAt = Date.now(); UREF.update({ ext: v, extAt: ME.extAt }).catch(() => {}); if (inst) UREF.update({ extInst: inst }).catch(() => {}); /* (separately, so the version is kept even where the database doesn't take the other yet) */ };
     // Opened from an icon on their home screen (the site added as an app): noted per device, once a day; the first time on
     // each kind of device goes in the audit log.
-    try { const app = matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches || navigator.standalone === true;
+    try { let ses = false; try { ses = sessionStorage.getItem('pg-app') === '1'; } catch (e) {} const app = ses || matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches || navigator.standalone === true;
       if (app) { const k = pgIsPhone() ? 'pwaPhone' : 'pwaPc', was = Number(ME[k]) || 0;
         if (!was) pgLog('pwa_add', { detail: k === 'pwaPhone' ? 'on a phone or tablet' : 'on a computer' });
         if (Date.now() - was > 864e5) { ME[k] = Date.now(); UREF.update({ [k]: ME[k] }).catch(() => {}); } } } catch (e) {}
