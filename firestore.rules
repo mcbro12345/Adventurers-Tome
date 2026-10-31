@@ -86,7 +86,8 @@ service cloud.firestore {
       allow list: if admin();
       allow create: if admin() || (signedIn() && em == me() && request.resource.data.email == me()
         && request.resource.data.keys().hasOnly(['email', 'name', 'nameLower', 'keys', 'createdAt', 'seenAt', 'gpic']));
-      allow update: if admin() || (signedIn() && em == me() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenAt', 'seenFg', 'pic', 'picChar', 'picColor', 'picClear', 'picMode', 'gpic', 'name', 'nameLower', 'keys', 'msgSeen', 'noticeSeen', 'welcomeSeen', 'partyOrder', 'seenPc', 'seenPhone', 'ext', 'extAt', 'extInst', 'extNag'])
+      allow update: if admin() || (signedIn() && em == me() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenAt', 'seenFg', 'pic', 'picChar', 'picColor', 'picClear', 'picMode', 'gpic', 'name', 'nameLower', 'keys', 'msgSeen', 'noticeSeen', 'welcomeSeen', 'partyOrder', 'seenPc', 'seenPhone', 'ext', 'extAt', 'extInst', 'extNag', 'pwaPhone', 'pwaPc'])
+        && (!('pwaPhone' in request.resource.data) || request.resource.data.pwaPhone is number) && (!('pwaPc' in request.resource.data) || request.resource.data.pwaPc is number)
         && (!('extInst' in request.resource.data) || (request.resource.data.extInst is string && request.resource.data.extInst.size() <= 20))
         && (request.resource.data.get('extNag', 0) == 0 || request.resource.data.get('extNag', 0) == resource.data.get('extNag', 0))
         && (!('ext' in request.resource.data) || (request.resource.data.ext is string && request.resource.data.ext.size() <= 20))

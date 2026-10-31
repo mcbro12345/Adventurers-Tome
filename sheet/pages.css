@@ -3696,3 +3696,8 @@ html.mobile .rc-x svg { display: none; } html.mobile .rc-x::before { content: 'â
 @media (hover: hover) { .pgs-card .pg-out-yes.pgs-agreed:not(:disabled):hover { background: #278a4e; border-color: #278a4e; } }
 .adm-tag.ext-on.ext-dev { color: #d08a2a; background: rgba(214,140,40,.12); border-color: rgba(214,140,40,.4); }
 .adm-tag.ext-nag { color: #c9962b; background: rgba(201,150,43,.12); border-color: rgba(201,150,43,.4); white-space: nowrap; }
+
+/* Users: home screen column */
+.adm-tag.app-on { color: #4f8fe0; background: rgba(79,143,224,.12); border-color: rgba(79,143,224,.35); white-space: nowrap; }
+.us-t td.us-app { white-space: nowrap; }
+@container (max-width: 760px) { .us-t th:nth-child(7), .us-t td.us-app { display: none; } }
