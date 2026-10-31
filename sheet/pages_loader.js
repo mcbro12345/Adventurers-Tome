@@ -473,6 +473,12 @@ function pgAuthHandoff() { return new Promise(res => { if (!PG_BC) return res(fa
   const fin = v => { if (done) return; done = true; PG_BC.removeEventListener('message', on); res(v); };
   const on = e => { if (e.data && e.data.t === 'ack') fin(true); };
   PG_BC.addEventListener('message', on); PG_BC.postMessage({ t: 'signed-in' }); setTimeout(() => fin(false), 800); }); }
+// The lobby's pinned top on a phone: its divider and shadow show once the list has scrolled up under it.
+{ let q = 0; const stuck = () => { q = 0; const h = document.body && document.body.classList.contains('hubbody') && !document.body.classList.contains('adminbody') && document.querySelector('.hub-head'); if (h) h.classList.toggle('hd-stuck', (window.scrollY || 0) > 4); };
+  const soon = () => { if (!q) q = requestAnimationFrame(stuck); };
+  addEventListener('scroll', soon, { passive: true }); addEventListener('resize', soon);
+  // (the lobby redraws its top now and then; keep the state when it does — at most once a frame)
+  new MutationObserver(soon).observe(document.documentElement, { childList: true, subtree: true }); }
 // ================= Add to home screen =================
 // Android browsers offer their own install prompt, which is caught here so a button can open it later. iPhones have no
 // such prompt, so there the button shows the steps instead. Nothing shows once the site is running as an installed app.
@@ -483,7 +489,7 @@ const pgStandalone = () => { try { return matchMedia('(display-mode: standalone)
 const pgIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const pgMobile = () => pgIOS() || /Android|Mobile/i.test(navigator.userAgent);
 function a2hsHTML() { if (pgStandalone() || !pgMobile()) return '';
-  return `<p class="pg-a2hs"><a href="#a2hs"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M12 8v6M9 11h6"/></svg>Add to home screen</a></p>`; }
+  return `<p class="pg-a2hs"><a href="#a2hs"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M12 8v6M9 11h6"/></svg>Add to home screen</a><small class="pg-a2hs-why">Adventurer’s Tome is made to be used as an app from your home screen. It isn’t designed for a regular mobile browser, where some things won’t fit or work as well.</small></p>`; }
 function wireA2HS(root) { const el = root && root.querySelector('.pg-a2hs'); if (!el) return;
   // Already installed (Android can tell from the browser): don't offer it again.
   try { if (navigator.getInstalledRelatedApps) navigator.getInstalledRelatedApps().then(l => { if (l && l.length) el.remove(); }).catch(() => {}); } catch (e) {}
@@ -496,7 +502,7 @@ function a2hsSteps() {
   const steps = pgIOS() ? [`Tap the <b>Share</b> button ${share} in your browser's toolbar.`, 'Scroll down and tap <b>Add to Home Screen</b>.', 'Tap <b>Add</b>.']
     : [`Open your browser's menu ${dots}.`, 'Tap <b>Add to Home screen</b> or <b>Install app</b>.', 'Tap <b>Add</b> or <b>Install</b>.'];
   const m = document.createElement('div'); m.className = 'pg-out'; pgOutFade(m);
-  m.innerHTML = `<div class="pg-out-card pg-a2hs-card" role="dialog" aria-modal="true" aria-labelledby="pg-a2-h"><h2 id="pg-a2-h">Add to home screen</h2><p>Open Adventurer’s Tome like an app, full screen, from your home screen.</p><ol>${steps.map(s => `<li>${s}</li>`).join('')}</ol><div class="pg-out-row"><button class="pg-out-no">Got it</button></div></div>`;
+  m.innerHTML = `<div class="pg-out-card pg-a2hs-card" role="dialog" aria-modal="true" aria-labelledby="pg-a2-h"><h2 id="pg-a2-h">Add to home screen</h2><p>Adventurer’s Tome is made to be used as an app, full screen, from your home screen. It isn’t designed for a regular mobile browser: the browser’s bars take up room, and some things won’t fit or work as well there.</p><ol>${steps.map(s => `<li>${s}</li>`).join('')}</ol><div class="pg-out-row"><button class="pg-out-no">Got it</button></div></div>`;
   const close = () => { m.remove(); document.removeEventListener('keydown', key); }, key = e => { if (e.key === 'Escape') close(); };
   m.onclick = e => { if (e.target === m) close(); }; m.querySelector('.pg-out-no').onclick = close; document.addEventListener('keydown', key); document.body.appendChild(m); }
   // On a computer the sheet's own scrollbar is swapped for a slim one in the sheet's accent colour: drag it, click the
