@@ -4338,3 +4338,8 @@ html.mobile #page-features .fl-acts .btn.fxact { min-height: 32px; padding: 4px 
 #page-features .fl-foot { display: flex; justify-content: flex-end; margin-top: -6px; }
 #page-features .fl-foot .fl-edit { opacity: 1; visibility: visible; }
 #page-features .fl-in > .fl-foot:last-child { margin-bottom: -4px; }
+/* …tucked into the corner instead of taking a line of its own. */
+#page-features .fl-in { position: relative; }
+#page-features .fl-foot, #page-features .fl-in > .fl-foot:last-child { position: absolute; right: 8px; bottom: 6px; margin: 0; }
+#page-features .fl-in > :nth-last-child(2) { padding-right: 34px; }
+#page-features .frow:not(.open) .fl-foot { visibility: hidden; }
