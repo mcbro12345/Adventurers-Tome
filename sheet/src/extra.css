@@ -4264,8 +4264,10 @@ html.mobile #wizard .wz3 .wz-steps { background: none !important; box-shadow: no
 @media (hover: hover) { #page-features .fcard.frow:hover { background: color-mix(in srgb, var(--ink) 5.5%, transparent); } }
 #page-features .fcard.frow.open { background: var(--panel2); box-shadow: 0 0 0 1px color-mix(in srgb, var(--gold) 28%, transparent), 0 6px 18px rgba(0,0,0,.18); }
 #page-features .fcard.frow.editing { box-shadow: 0 0 0 2px var(--gold); }
-#page-features .fl-sum { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; gap: 10px; align-items: center; min-height: 46px; padding: 7px 12px; border-radius: 12px; cursor: pointer; }
-#page-features .fl-sum:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+#page-features .fl-sum { display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 0 12px 0 0; border-radius: 12px; }
+#page-features .fl-tog { flex: 1 1 auto; min-width: 0; align-self: stretch; display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 10px; align-items: center; padding: 7px 0 7px 12px; border: 0; border-radius: 12px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+#page-features .fl-tog:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+#page-features .fcard.frow.custom .fl-tog { box-shadow: inset 3px 0 0 color-mix(in srgb, var(--gold) 70%, transparent); }
 #page-features .fl-car { width: 7px; height: 7px; margin-left: 3px; border-right: 2px solid var(--soft); border-bottom: 2px solid var(--soft); border-radius: 0 0 2px 0; transform: rotate(-45deg); transition: transform .2s ease, border-color .2s ease; }
 #page-features .frow.open .fl-car { transform: rotate(45deg); border-color: var(--gold); }
 #page-features .fl-t { min-width: 0; display: flex; align-items: baseline; gap: 4px 10px; flex-wrap: wrap; }
