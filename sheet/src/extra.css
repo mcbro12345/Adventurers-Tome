@@ -3016,7 +3016,7 @@ html.mobile.hasbug .namebox { padding-right: 148px; }
 .hbb-seg:not(.pills) button + button { border-left: 1px solid var(--line2); }
 .hbb-seg.pills button { border: 1px solid var(--line2); border-radius: 999px; background: var(--field); padding: 3px 10px; }
 .hbb-seg button:hover { background: var(--gold-soft); }
-.hbb-seg button.on { background: var(--gold); color: var(--gold-ink); border-color: var(--gold); }
+.hbb-seg button.on, .hbb-seg button.on:hover { background: var(--gold); color: var(--on-gold, #1D2536); border-color: var(--gold); }
 .hbb-seg .ic { font-size: 14px; line-height: 1; }
 .hbb-seg.big button { padding: 5px 12px; }
 .hbb-card { border: 1px solid var(--line); border-radius: 10px; background: var(--panel2); padding: 8px 10px 10px; display: flex; flex-direction: column; gap: 8px; }

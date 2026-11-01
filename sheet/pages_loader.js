@@ -163,7 +163,10 @@ const PG_EXT = { seen: {} };
 const pgExtNum = v => { const a = String(v || '0').split('.').map(Number); return (a[0] || 0) * 1e4 + (a[1] || 0) * 100 + (a[2] || 0); };
 function pgExtCopies() { return Object.values(PG_EXT.seen).sort((a, b) => (b.inst === 'normal') - (a.inst === 'normal') || pgExtNum(b.v) - pgExtNum(a.v)); }
 addEventListener('message', e => { if (e.source !== window) return; const d = e.data; if (!d || d.__dnd20 !== 'hi' || d.dir !== 'toSheet' || d.version === 'mock') return;
-  const v = String(d.version || 'yes').slice(0, 20); PG_EXT.seen[v] = { v, inst: pgExtInst(d) }; });
+  const v = String(d.version || 'yes').slice(0, 20), inst = pgExtInst(d);
+  // (only one store copy can be installed, so a store copy answering with a new version has just updated: forget the old one)
+  if (inst === 'normal') Object.keys(PG_EXT.seen).forEach(k => { if (k !== v && PG_EXT.seen[k].inst === 'normal') delete PG_EXT.seen[k]; });
+  PG_EXT.seen[v] = { v, inst }; });
 function pgOnlineWhy(back, bg) { const p = location.pathname, q = location.search, t = String(document.title || '').replace(/\s*[—-]\s*Adventurer.s Tome\s*$/i, '').trim();
   const what = /^\/(c|character)\/|[?&]c=/.test(p + q) ? (t && !/adventurer/i.test(t) ? t + '’s sheet' : 'a character sheet')
     : /^\/party\/|[?&]party=/.test(p + q) ? (t && t !== 'Party' ? 'the ' + t + ' party page' : 'a party page')
@@ -2592,9 +2595,10 @@ function hub(fs, auth, G, ctx) {
   function newBtn() { const nb = root.querySelector('#hub-new'); if (!nb) return; const pty = view === 'parties', t = nb.querySelector('.hn-txt b');
     const to = pty ? 'New party' : 'Create character';
     // (the words morph from one to the other: the old ones blur and fade out, the new ones blur in, and the button eases to its new width)
-    if (t && t.textContent !== to) { const quiet = calm() || !t.textContent || !t.animate;
-      if (quiet) t.textContent = to;
-      else { const w0 = nb.getBoundingClientRect().width; if (t._mo) t._mo.cancel(); const out = t.animate([{ opacity: 1, filter: 'blur(0)', transform: 'none' }, { opacity: 0, filter: 'blur(4px)', transform: 'translateY(-3px)' }], { duration: 120, easing: 'ease-in', fill: 'forwards' }); t._mo = out;
+    // (compared with where it's heading, not what it shows mid-fade, so a quick back-and-forth still ends on the right words)
+    if (t && (t._to || t.textContent) !== to) { const quiet = calm() || !t.textContent || !t.animate; t._to = to;
+      if (quiet) { if (t._mo) { t._mo.cancel(); t._mo = null; } t.textContent = to; t.style.opacity = ''; }
+      else { const w0 = nb.getBoundingClientRect().width; if (t._mo) { t._mo.onfinish = null; t._mo.cancel(); } const out = t.animate([{ opacity: 1, filter: 'blur(0)', transform: 'none' }, { opacity: 0, filter: 'blur(4px)', transform: 'translateY(-3px)' }], { duration: 120, easing: 'ease-in', fill: 'forwards' }); t._mo = out;
         out.onfinish = () => { t.textContent = to; const w1 = nb.getBoundingClientRect().width;
           if (Math.abs(w1 - w0) > 1 && nb.animate) nb.animate([{ width: w0 + 'px' }, { width: w1 + 'px' }], { duration: 220, easing: 'cubic-bezier(.2,.8,.3,1)' });
           t._mo = t.animate([{ opacity: 0, filter: 'blur(4px)', transform: 'translateY(3px)' }, { opacity: 1, filter: 'blur(0)', transform: 'none' }], { duration: 200, easing: 'ease-out', fill: 'forwards' }); }; } }
@@ -4920,7 +4924,7 @@ function pgRevealPanels() { try { if (matchMedia('(prefers-reduced-motion: reduc
       `<b>Add the official one</b> from the Chrome Web Store: click <b>${esc(b.add)}</b>. It updates itself from then on.${b.extra ? ` <span class="pgx-hint">${b.extra}</span>` : ''}<div class="pgx-go"><a class="pg-out-yes pgx-btn" href="${STORE}" target="_blank" rel="noopener">Open the Chrome Web Store</a></div>`,
       'Come back and <b>reload this page</b>. If you use Roll20, reload your Roll20 tab too.'];
     const steps2 = two ? steps.filter((x, k) => k !== 1) : steps; /* (already has the official one) */
-    const m = document.createElement('div'); m.className = 'pg-out pg-devext'; if (typeof pgOutFade === 'function') pgOutFade(m); shown = m;
+    const m = document.createElement('div'); m.className = 'pg-out pg-devext'; if (typeof pgOutFade === 'function') pgOutFade(m); shown = m; shown._two = two;
     m.innerHTML = `<div class="pg-out-card pgx-card" role="dialog" aria-modal="true" aria-labelledby="pgx-h"><h2 id="pgx-h">${two ? 'Remove the old Roll20 extension' : 'Switch to the official Roll20 extension'}</h2>
       <p class="pgx-warn"><span aria-hidden="true">⚠</span><span>${two ? `You have <b>two copies</b> of the Roll20 extension installed: the official one, and an old <b>developer copy</b>${ver ? ` (v${esc(ver)})` : ''} that still answers — so rolls can post twice. Remove the developer copy (step 1). ` : `You’re using a <b>developer copy</b> of the Roll20 extension${ver ? ` (v${esc(ver)})` : ''}.`}${two ? '' : ' Developer copies don’t update themselves and can have bugs — please switch to the official store version. It’s the same extension and keeps itself up to date.'}</span></p>
       <p class="pgx-sub">In ${esc(b.name)}, it takes ${two ? 'a few seconds' : 'about a minute'}:</p><ol class="pgx-steps">${steps2.map(x => `<li>${x}</li>`).join('')}</ol>
@@ -4934,7 +4938,8 @@ function pgRevealPanels() { try { if (matchMedia('(prefers-reduced-motion: reduc
   addEventListener('message', e => { if (e.source !== window) return; const d = e.data; if (!d || d.__dnd20 !== 'hi' || d.dir !== 'toSheet' || d.version === 'mock') return;
     const inst = pgExtInst(d), cs = pgExtCopies(), two = cs.length > 1, old0 = two ? cs[cs.length - 1] : null;
     const dev = two || (inst ? inst === 'development' : (OLD_COPIES_ARE_DEV && older(d.version)));
-    if (dev) { const go = () => show(two ? old0.v : d.version, two); document.body ? setTimeout(go, 1200) : addEventListener('DOMContentLoaded', () => setTimeout(go, 1200)); }
+    // (decided when it shows, so a store copy that answers a moment after an old one still gets the two-copies warning)
+    if (dev) { const go = () => { const c2 = pgExtCopies(), t2 = c2.length > 1; if (!t2 && c2.length && c2[0].inst === 'normal') return; if (shown && t2 && !shown._two) close(false); show(t2 ? c2[c2.length - 1].v : d.version, t2); }; document.body ? setTimeout(go, 1200) : addEventListener('DOMContentLoaded', () => setTimeout(go, 1200)); }
     else if (shown && !two && (!NAG || inst === 'normal')) close(false); });
   // ask whichever copy is installed to say hi (it already does when the page opens, but this page may have missed it)
   const ask = () => window.postMessage({ __dnd20: 'hello', dir: 'toExt' }, '*'); if (document.readyState === 'loading') addEventListener('DOMContentLoaded', ask); else ask();
