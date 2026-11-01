@@ -4313,3 +4313,8 @@ html.mobile #page-features .fl-in { padding-left: 14px; }
 #page-features .fl-edit:focus-visible { opacity: 1; visibility: visible; outline: 2px solid var(--gold); outline-offset: 1px; }
 #page-features .fl-edit.on { background: var(--gold); color: var(--on-gold, #1D2536); }
 html.mobile #page-features .fl-edit { width: 34px; height: 34px; }
+/* Open text uses the row's full width. */
+#page-features .fl-in .fc-desc { max-width: none; }
+/* Keyboard focus rings the whole row rather than just its header. */
+#page-features .fl-tog:focus-visible { outline: none; }
+#page-features .fcard.frow:has(.fl-tog:focus-visible) { box-shadow: 0 0 0 2px color-mix(in srgb, var(--gold) 70%, transparent); }
