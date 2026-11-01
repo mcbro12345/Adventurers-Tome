@@ -153,7 +153,7 @@ open(os.path.join(OUT, '.nojekyll'), 'w').write('')
 import shutil
 for n in (32, 180, 192, 512): shutil.copy(os.path.join(D, 'icons', f'icon-{n}.png'), os.path.join(OUT, f'icon-{n}.png'))
 # Lets phones install the site as an app (Add to Home Screen): name, icons, and opening full screen.
-open(os.path.join(OUT, 'manifest.webmanifest'), 'w').write(json.dumps({'name': 'Adventurer’s Tome', 'short_name': 'Adventurer’s Tome', 'id': './', 'start_url': './', 'scope': './',
+open(os.path.join(OUT, 'manifest.webmanifest'), 'w').write(json.dumps({'name': 'Adventurer’s Tome', 'short_name': 'Adventurer’s Tome', 'id': './', 'start_url': './?app=home', 'scope': './',
   'display': 'standalone', 'background_color': '#0f1420', 'theme_color': '#0f1420', 'description': 'D&D 5e character sheets that do the math, track your resources and roll your dice.',
   'icons': [{'src': 'icon-192.png', 'sizes': '192x192', 'type': 'image/png'}, {'src': 'icon-512.png', 'sizes': '512x512', 'type': 'image/png'}],
   'related_applications': [{'platform': 'webapp', 'url': 'https://adventurers-tome.web.app/manifest.webmanifest'}]}, ensure_ascii=False, indent=1))

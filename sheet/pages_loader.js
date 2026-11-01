@@ -9,6 +9,10 @@
 // Every way of leaving a page fades it out first, so the next page's loading screen fades in instead of popping.
 // Anything with a drag handle shows the grabbing hand from the moment it's pressed until it's let go, wherever the
 // pointer goes in between.
+// Opened from the icon on someone's home screen: the icon's address carries ?app=home (manifest start_url). It's
+// remembered for this visit (the address is tidied straight away) so the Users list can tell, even where the phone
+// opens the icon in a browser tab rather than as its own app.
+try { const q = new URLSearchParams(location.search); if (q.get('app') === 'home') { sessionStorage.setItem('pg-app', '1'); q.delete('app'); history.replaceState(history.state, '', location.pathname + (q.toString() ? '?' + q : '') + location.hash); } } catch (e) {}
 (() => { if (window.__pgGrab) return; window.__pgGrab = 1;
   const GRIP = '.hr-grip, .nw-grip, .tgrip, .idrag, .sdrag, .bdrag, .gdrag, .mgrip, .pbar .grip, .pgph-th, .pg-sb-th, [data-mgrip], body.editing .tabwrap';
   const off = () => { const c = document.documentElement.classList; if (c.contains('pg-grabbing')) c.remove('pg-grabbing'); }; // (only when it's there: rewriting the page's class on every release made iPhones treat taps as hovers)
@@ -144,8 +148,22 @@ window.pgInviteImage = pgInviteImage;
 // 1.4.5+ says so itself. Copies from 1.4.2 on mark the page with their id and "|store" or "|local" (store copies carry an
 // update address the hand-loaded ones don't) — readable here in Chrome, Edge, Brave, Opera and Vivaldi. (Firefox copies
 // never carry that address, store or not, so there it only counts when the extension says so itself.) '' = can't tell.
+// The browser and system, in plain words, for the activity log (e.g. "Safari on an iPad", "Chrome on Windows").
+function pgDevName() { const ua = navigator.userAgent || '', t = (navigator.maxTouchPoints || 0) > 1;
+  const os = /iPhone/.test(ua) ? 'an iPhone' : /iPad/.test(ua) || (/Macintosh/.test(ua) && t) ? 'an iPad' : /Android/.test(ua) ? (/Mobile/.test(ua) ? 'an Android phone' : 'an Android tablet') : /Windows/.test(ua) ? 'Windows' + (t ? ' (touch screen)' : '') : /Macintosh/.test(ua) ? 'a Mac' : /CrOS/.test(ua) ? 'a Chromebook' : /Linux/.test(ua) ? 'Linux' : 'an unknown system';
+  const br = /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera' : /Firefox\/|FxiOS/.test(ua) ? 'Firefox' : /CriOS/.test(ua) ? 'Chrome' : /EdgiOS/.test(ua) ? 'Edge' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : 'a browser';
+  return br + ' on ' + os; }
 function pgExtInst(d) { if (d && d.install) return String(d.install).slice(0, 20); if (/Firefox\//.test(navigator.userAgent || '')) return '';
+  // (only copies from 1.4.2 on mark the page — an older copy answering alongside a newer one isn't what the mark describes)
+  const v = String((d && d.version) || '0').split('.').map(Number); if ((v[0] || 0) * 1e4 + (v[1] || 0) * 100 + (v[2] || 0) < 10402) return '';
   const a = document.documentElement.getAttribute('data-dnd20') || ''; return /\|store$/.test(a) ? 'normal' : /\|local$/.test(a) ? 'development' : ''; }
+// Every copy of the extension that answers this page. Copies before 1.4.2 answer even when another copy is installed, so
+// someone who added the store version without removing an old hand-loaded one shows up here as two copies.
+const PG_EXT = { seen: {} };
+const pgExtNum = v => { const a = String(v || '0').split('.').map(Number); return (a[0] || 0) * 1e4 + (a[1] || 0) * 100 + (a[2] || 0); };
+function pgExtCopies() { return Object.values(PG_EXT.seen).sort((a, b) => (b.inst === 'normal') - (a.inst === 'normal') || pgExtNum(b.v) - pgExtNum(a.v)); }
+addEventListener('message', e => { if (e.source !== window) return; const d = e.data; if (!d || d.__dnd20 !== 'hi' || d.dir !== 'toSheet' || d.version === 'mock') return;
+  const v = String(d.version || 'yes').slice(0, 20); PG_EXT.seen[v] = { v, inst: pgExtInst(d) }; });
 function pgOnlineWhy(back, bg) { const p = location.pathname, q = location.search, t = String(document.title || '').replace(/\s*[—-]\s*Adventurer.s Tome\s*$/i, '').trim();
   const what = /^\/(c|character)\/|[?&]c=/.test(p + q) ? (t && !/adventurer/i.test(t) ? t + '’s sheet' : 'a character sheet')
     : /^\/party\/|[?&]party=/.test(p + q) ? (t && t !== 'Party' ? 'the ' + t + ' party page' : 'a party page')
@@ -455,17 +473,23 @@ function pgAuthHandoff() { return new Promise(res => { if (!PG_BC) return res(fa
   const fin = v => { if (done) return; done = true; PG_BC.removeEventListener('message', on); res(v); };
   const on = e => { if (e.data && e.data.t === 'ack') fin(true); };
   PG_BC.addEventListener('message', on); PG_BC.postMessage({ t: 'signed-in' }); setTimeout(() => fin(false), 800); }); }
+// The lobby's pinned top on a phone: its divider and shadow show once the list has scrolled up under it.
+{ let q = 0; const stuck = () => { q = 0; const h = document.body && document.body.classList.contains('hubbody') && !document.body.classList.contains('adminbody') && document.querySelector('.hub-head'); if (h) h.classList.toggle('hd-stuck', (window.scrollY || 0) > 4); };
+  const soon = () => { if (!q) q = requestAnimationFrame(stuck); };
+  addEventListener('scroll', soon, { passive: true }); addEventListener('resize', soon);
+  // (the lobby redraws its top now and then; keep the state when it does — at most once a frame)
+  new MutationObserver(soon).observe(document.documentElement, { childList: true, subtree: true }); }
 // ================= Add to home screen =================
 // Android browsers offer their own install prompt, which is caught here so a button can open it later. iPhones have no
 // such prompt, so there the button shows the steps instead. Nothing shows once the site is running as an installed app.
 let PG_INSTALL = null;
 addEventListener('beforeinstallprompt', e => { e.preventDefault(); PG_INSTALL = e; document.querySelectorAll('.pg-a2hs').forEach(x => x.hidden = false); });
 addEventListener('appinstalled', () => { PG_INSTALL = null; try { localStorage.setItem('pg-installed', '1'); } catch (e) {} document.querySelectorAll('.pg-a2hs').forEach(x => x.remove()); });
-const pgStandalone = () => { try { return matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches || navigator.standalone === true; } catch (e) { return false; } };
+const pgStandalone = () => { try { return matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; /* (not 'fullscreen': that's also true for a browser window someone made full screen with F11) */ } catch (e) { return false; } };
 const pgIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const pgMobile = () => pgIOS() || /Android|Mobile/i.test(navigator.userAgent);
 function a2hsHTML() { if (pgStandalone() || !pgMobile()) return '';
-  return `<p class="pg-a2hs"><a href="#a2hs"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M12 8v6M9 11h6"/></svg>Add to home screen</a></p>`; }
+  return `<p class="pg-a2hs"><a href="#a2hs"><small class="pg-a2hs-why">Adventurer’s Tome is made to be used as an app from your home screen. It isn’t designed for a regular mobile browser, where some things won’t fit or work as well.<br>However, you can still use it in your browser.</small><span class="pg-a2hs-go"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M12 8v6M9 11h6"/></svg>Add to home screen</span></a></p>`; }
 function wireA2HS(root) { const el = root && root.querySelector('.pg-a2hs'); if (!el) return;
   // Already installed (Android can tell from the browser): don't offer it again.
   try { if (navigator.getInstalledRelatedApps) navigator.getInstalledRelatedApps().then(l => { if (l && l.length) el.remove(); }).catch(() => {}); } catch (e) {}
@@ -1079,16 +1103,34 @@ function wireDie(root) {
     window.pgFgAt = (ME && ME.seenFg) || 0;
     // The Roll20 companion extension says hello to sheet pages: note on their record that they have it (and which
     // version), at most once a day, so the admin Users list can show who's installed it. Nothing is sent to the extension.
-    addEventListener('message', e => { if (e.source !== window || !ME) return; const d = e.data; if (!d || d.__dnd20 !== 'hi' || d.dir !== 'toSheet') return;
-      const v = String(d.version || 'yes').slice(0, 20), inst = pgExtInst(d); if (v === 'mock') return;
+    let extT = 0; addEventListener('message', e => { if (e.source !== window || !ME) return; const d = e.data; if (!d || d.__dnd20 !== 'hi' || d.dir !== 'toSheet' || d.version === 'mock') return;
+      clearTimeout(extT); extT = setTimeout(extSeen, 1500); });
+    // (the store copy if there is one, else the newest; "two copies" when an old hand-loaded copy answers as well)
+    const extSeen = () => { const cs = pgExtCopies(); if (!cs.length || !ME) return; const v = cs[0].v, inst = cs.length > 1 ? 'two copies' : cs[0].inst;
       // an admin asked them to switch to the store copy, and they have: the prompt is done
       if (ME.extNag && inst === 'normal') { ME.extNag = 0; UREF.update({ extNag: 0 }).catch(() => {}); if (window.pgDevExtNag) window.pgDevExtNag(0); }
       if (ME.ext === v && (ME.extInst || '') === inst && Date.now() - (ME.extAt || 0) < 864e5) return;
       // the audit log: a first install, a new version, or a switch between a developer copy and the store one
-      const kind = i => i === 'development' ? 'developer copy' : i === 'normal' ? 'store version' : '', ver = x => /^[\d.]+$/.test(x) ? 'v' + x : '';
+      const kind = i => i === 'development' ? 'developer copy' : i === 'normal' ? 'store version' : i === 'two copies' ? 'with an old developer copy still installed' : '', ver = x => /^[\d.]+$/.test(x) ? 'v' + x : '';
       if (!ME.ext) pgLog('ext_install', { detail: [ver(v), kind(inst)].filter(Boolean).join(', ') });
       else if (ME.ext !== v || (inst && ME.extInst && ME.extInst !== inst)) pgLog('ext_update', { detail: `${ver(ME.ext) || 'an older version'}${ME.extInst && kind(ME.extInst) ? ' (' + kind(ME.extInst) + ')' : ''} → ${ver(v) || 'a new version'}${kind(inst) ? ' (' + kind(inst) + ')' : ''}` });
-      ME.ext = v; ME.extInst = inst; ME.extAt = Date.now(); UREF.update(Object.assign({ ext: v, extAt: ME.extAt }, inst ? { extInst: inst } : {})).catch(() => {}); });
+      ME.ext = v; ME.extInst = inst; ME.extAt = Date.now(); UREF.update({ ext: v, extAt: ME.extAt }).catch(() => {}); if (inst) UREF.update({ extInst: inst }).catch(() => {}); /* (separately, so the version is kept even where the database doesn't take the other yet) */ };
+    // Opened from an icon on their home screen (the site added as an app): noted per device, once a day; the first time on
+    // each kind of device goes in the audit log.
+    const appCheck = () => {
+    try { let ses = false; try { ses = sessionStorage.getItem('pg-app') === '1'; } catch (e) {} const appWin = ['standalone', 'minimal-ui', 'window-controls-overlay'].some(m => matchMedia('(display-mode: ' + m + ')').matches), app = ses || appWin || navigator.standalone === true; /* (an installed app's window reports one of these — Chrome and Edge 'standalone', others 'minimal-ui', apps that draw their own title bar 'window-controls-overlay'; a normal tab is 'browser') */ /* (not 'fullscreen': that's also true for a browser window someone made full screen with F11) */
+      if (app) { // phone or tablet: iPhone, Android, or an iPad — which asks for desktop sites and so says it's a Mac, but
+        // Macs have no touch screen, so "Mac" + touch = iPad. Windows and real Macs count as computers even with a touch screen.
+        const ua = navigator.userAgent || '', touch = /iPhone|iPad|iPod|Android/i.test(ua) || (/Macintosh/.test(ua) && (navigator.maxTouchPoints || 0) > 1) || (!/Windows|Macintosh|CrOS|Linux x86/.test(ua) && pgIsPhone());
+        const k = touch ? 'pwaPhone' : 'pwaPc', was = Number(ME[k]) || 0;
+        if (Date.now() - was > 864e5) { ME[k] = Date.now(); UREF.update({ [k]: ME[k] }).catch(() => {}); }
+        // (the activity log is set up a little further down this page's start-up, so it's written once that's ready)
+        if (!was) setTimeout(() => { if (window.pgLog) window.pgLog('pwa_add', { detail: (k === 'pwaPhone' ? 'on a phone or tablet' : 'installed as an app on a computer') + ' · ' + pgDevName() + ' · seen by: ' + [ses && 'the home-screen icon’s address', appWin && 'running in its own app window (' + ['standalone', 'minimal-ui', 'window-controls-overlay'].filter(m => matchMedia('(display-mode: ' + m + ')').matches).join(', ') + ')', navigator.standalone === true && 'iPhone/iPad home-screen app'].filter(Boolean).join(', ') }); }, 800); } } catch (e) { console.warn('home screen', e); } };
+    appCheck();
+    // (installing in Chrome or Edge moves the open page into its own window without reloading it: notice that too)
+    try { ['standalone', 'minimal-ui', 'window-controls-overlay'].forEach(m => matchMedia('(display-mode: ' + m + ')').addEventListener('change', e => { if (e.matches) appCheck(); })); } catch (e) {}
+    // (the extension may already have answered before this account was loaded — as on the lobby and admin pages — so catch up, or ask again)
+    if (pgExtCopies().length) extT = setTimeout(extSeen, 1500); else window.postMessage({ __dnd20: 'hello', dir: 'toExt' }, '*');
     // Only a page someone has actually looked at keeps them online. A page the browser loads out of sight (Chrome
     // preparing a page you might open from the address bar, Opera's Speed Dial refreshing its preview, a link opened in
     // a background tab) never counts, and a tab left in the background stops counting 15 minutes after it was last on
@@ -1948,12 +1990,12 @@ function signIn(auth, say, preview) {
     ['<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>', 'Rolls in Roll20', 'With the companion extension, rolls land in your game.'],
     ['<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/>', 'On your phone', 'Add it to your home screen and it opens like an app.']];
   const feats = `<section class="si2-feats">${FEAT.map(([ic, t, d]) => `<div class="si2-feat"><svg viewBox="0 0 24 24" aria-hidden="true">${ic}</svg><div><b>${t}</b><small>${d}</small></div></div>`).join('')}</section>`;
-  say(`<div class="pg-si2"><div class="pg-signin">${logoHTML()}<div class="pg-sdiv"></div><div class="si2-ctl"><h2>Sign in</h2>
+  say(`<div class="pg-si2">${a2hsHTML()}<div class="pg-signin">${logoHTML()}<div class="pg-sdiv"></div><div class="si2-ctl"><h2>Sign in</h2>
     <button class="btn gold big" id="si-g"><svg viewBox="0 0 48 48" width="18" height="18" style="vertical-align:-3px;margin-right:8px"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.6 5.9c4.4-4.1 7-10.1 7-17.6z"/><path fill="#FBBC05" d="M10.6 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.6-5.9c-2.1 1.4-4.9 2.3-8.3 2.3-6.2 0-11.5-4.1-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>Sign in with Google</button>
     <div class="pg-or">or</div>
     <form id="si-f" class="who-f"><input id="si-e" type="email" placeholder="Your email address" autocomplete="email" required><button class="btn">Email me a link</button></form>
     <p class="hub-hint" id="si-msg">No Google account? We'll email you a sign-in link.</p>${kickedMsg ? `<p class="pg-kicked">${escH(kickedMsg)}</p>` : ''}</div>
-    <div class="si2-help"><p class="pg-contact">Trouble signing in? <a href="${CONTACT}">Contact</a></p><p class="pg-legal"><a href="/privacy" target="_blank" rel="noopener">Privacy policy</a><span aria-hidden="true"> · </span><a href="/terms" target="_blank" rel="noopener">Terms</a><span aria-hidden="true"> · </span><a href="/accessibility" target="_blank" rel="noopener">Accessibility</a></p></div></div><div class="si2-vbox">${vid}</div>${tries}${feats}</div>${a2hsHTML()}`);
+    <div class="si2-help"><p class="pg-contact">Trouble signing in? <a href="${CONTACT}">Contact</a></p><p class="pg-legal"><a href="/privacy" target="_blank" rel="noopener">Privacy policy</a><span aria-hidden="true"> · </span><a href="/terms" target="_blank" rel="noopener">Terms</a><span aria-hidden="true"> · </span><a href="/accessibility" target="_blank" rel="noopener">Accessibility</a></p></div></div><div class="si2-vbox">${vid}</div>${tries}${feats}</div>`);
   // A preview (you're already signed in): a note across the top, and the sign-in controls do nothing.
   if (preview) { const ld = document.getElementById('pg-load'); ld.querySelectorAll('.si2-ctl button, .si2-ctl input').forEach(x => { x.disabled = true; x.title = 'You’re already signed in — this is a preview'; });
     const n = document.createElement('div'); n.className = 'si2-prev'; n.innerHTML = '<span>Front page preview — you’re signed in, so sign-in is off here.</span><a href="/">Back to the lobby</a>'; const pg = ld.querySelector('.pg-si2'); if (pg) pg.before(n); else ld.appendChild(n); }
@@ -2548,7 +2590,15 @@ function hub(fs, auth, G, ctx) {
   addEventListener('scroll', () => { root.querySelectorAll('.hub-pane').forEach(p => { if (p._y != null) p.style.transform = scrollY - p._y ? `translateY(${scrollY - p._y}px)` : ''; }); }, { passive: true });
   // The gold button beside the tabs makes whatever the tab lists: a character, or (on Parties) a party.
   function newBtn() { const nb = root.querySelector('#hub-new'); if (!nb) return; const pty = view === 'parties', t = nb.querySelector('.hn-txt b');
-    if (t) t.textContent = pty ? 'New party' : 'Create character'; nb.onclick = () => pty ? PMx().newParty() : createChar(); }
+    const to = pty ? 'New party' : 'Create character';
+    // (the words morph from one to the other: the old ones blur and fade out, the new ones blur in, and the button eases to its new width)
+    if (t && t.textContent !== to) { const quiet = calm() || !t.textContent || !t.animate;
+      if (quiet) t.textContent = to;
+      else { const w0 = nb.getBoundingClientRect().width; if (t._mo) t._mo.cancel(); const out = t.animate([{ opacity: 1, filter: 'blur(0)', transform: 'none' }, { opacity: 0, filter: 'blur(4px)', transform: 'translateY(-3px)' }], { duration: 120, easing: 'ease-in', fill: 'forwards' }); t._mo = out;
+        out.onfinish = () => { t.textContent = to; const w1 = nb.getBoundingClientRect().width;
+          if (Math.abs(w1 - w0) > 1 && nb.animate) nb.animate([{ width: w0 + 'px' }, { width: w1 + 'px' }], { duration: 220, easing: 'cubic-bezier(.2,.8,.3,1)' });
+          t._mo = t.animate([{ opacity: 0, filter: 'blur(4px)', transform: 'translateY(3px)' }, { opacity: 1, filter: 'blur(0)', transform: 'none' }], { duration: 200, easing: 'ease-out', fill: 'forwards' }); }; } }
+    nb.onclick = () => pty ? PMx().newParty() : createChar(); }
   function switchView(v) { if (v === view) return; settle(); setTimeout(newBtn, 0); const out0 = root.querySelector('.hub-pane.on'); VSCROLL[view] = scrollY; view = v; history.replaceState(null, '', view === 'mine' ? URLS.hub(G) : URLS[view](G));
     const tr = root.querySelector('.hub-track'); if (!tr) return draw();
     const inP = tr.querySelector(`.hub-pane[data-pane="${v}"]`);
@@ -2819,7 +2869,7 @@ function hub(fs, auth, G, ctx) {
       hidewel: ami('<path d="M20 6L9 17l-5-5"/>'), hidenotice: ami('<path d="M20 6L9 17l-5-5"/>'),
       quiet: ami('<path d="M5 12h14"/><path d="M12 5v14" opacity=".35"/><circle cx="12" cy="12" r="9"/>'),
       reload: ami('<path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/>'),
-      extnag: ami('<path d="M20 7l-8-4-8 4v10l8 4 8-4z"/><path d="M12 8v5"/><path d="M12 16.5v.01"/>'), extnagoff: ami('<path d="M20 7l-8-4-8 4v10l8 4 8-4z"/><path d="M8 12l3 3 5-6"/>'),
+      extnag: ami('<path d="M20 7l-8-4-8 4v10l8 4 8-4z"/><path d="M12 8v5"/><path d="M12 16.5v.01"/>'), appclear: ami('<rect x="7" y="2.5" width="10" height="19" rx="2.2"/><path d="M10 9l4 4M14 9l-4 4"/>'), extnagoff: ami('<path d="M20 7l-8-4-8 4v10l8 4 8-4z"/><path d="M8 12l3 3 5-6"/>'),
       rename: ami('<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/>'),
       pic: ami('<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/>'),
       newfor: ami('<path d="M12 5v14M5 12h14"/>'), add: ami('<path d="M12 5v14M5 12h14"/>'),
@@ -3071,9 +3121,10 @@ function hub(fs, auth, G, ctx) {
           ${fsel('uf-role', 'Role', [['', 'Anyone'], ['owner', 'Owner'], ['admin', 'Admins'], ['member', 'Members'], ['blocked', 'Blocked']], UF.role)}
           ${fsel('uf-act', 'Active', [['', 'Any time'], ['on', 'Online'], ['1', 'Today'], ['7', 'This week'], ['30', 'This month'], ['old', 'Not in 30+ days']], UF.act)}
           ${fsel('uf-join', 'Joined', [['', 'Any time'], ['7', 'Past week'], ['30', 'Past month']], UF.joined)}
-          ${fsel('uf-ext', 'Extension', [['yes', 'Installed'], ['no', 'Not installed']], UF.ext)}</div></div><div id="ad-ul"><div class="sk-auto" data-k="adm-users-t"></div></div>`;
+          ${fsel('uf-ext', 'Extension', [['yes', 'Installed'], ['no', 'Not installed']], UF.ext)}
+          ${fsel('uf-app', 'Home screen', [['yes', 'Added'], ['no', 'Not added']], UF.app)}</div></div><div id="ad-ul"><div class="sk-auto" data-k="adm-users-t"></div></div>`;
       const q = el.querySelector('#ad-uq'); let t = null; q.oninput = () => { clearTimeout(t); t = setTimeout(() => { UQ = q.value; paintUsers(); }, 150); }; if (!UQ && !TOUCH) q.focus();
-      [['uf-role', 'role'], ['uf-act', 'act'], ['uf-join', 'joined'], ['uf-ext', 'ext']].forEach(([id, k]) => { const sl = el.querySelector('#' + id); sl.onchange = () => { UF[k] = sl.value; paintUsers(); }; });
+      [['uf-role', 'role'], ['uf-act', 'act'], ['uf-join', 'joined'], ['uf-ext', 'ext'], ['uf-app', 'app']].forEach(([id, k]) => { const sl = el.querySelector('#' + id); sl.onchange = () => { UF[k] = sl.value; paintUsers(); }; });
       if (!ULIVE) ULIVE = usersCol.limit(1000).onSnapshot(qs => { UROWS = docs(qs); UROWS.forEach(u => { US[u.id] = u; remember(u.id, u); }); if (APEOPLE) APEOPLE = UROWS.slice().sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
         if (TAB === 'users') paintUsers(); if (TAB === 'new' && qs.docChanges().some(ch => ch.type !== 'modified')) newSoon(); }, x => { const l = B().querySelector('#ad-ul'); if (l) l.innerHTML = failMsg(x); });
       else paintUsers();
@@ -3089,7 +3140,8 @@ function hub(fs, auth, G, ctx) {
           && (!UF.role || roleKey(u) === UF.role || (UF.role === 'admin' && roleKey(u) === 'owner'))
           && (!UF.act || (UF.act === 'on' ? isOn(u) : UF.act === 'old' ? !(u.seenAt > dayN(30)) : u.seenAt > dayN(Number(UF.act))))
           && (!UF.joined || u.createdAt > dayN(Number(UF.joined)))
-          && (!UF.ext || (UF.ext === 'yes') === !!u.ext))
+          && (!UF.ext || (UF.ext === 'yes') === !!u.ext)
+          && (!UF.app || (UF.app === 'yes') === !!(u.pwaPhone || u.pwaPc)))
         .sort((a, b) => (isOn(b) - isOn(a)) || (isOn(a) ? onRank(a) - onRank(b) : ((b.seenAt || 0) - (a.seenAt || 0))) || String(a.name || a.id).localeCompare(String(b.name || b.id)));
       const cnt = B().querySelector('#ad-uq-n'); if (cnt) cnt.textContent = rows.length + ' of ' + UROWS.length + ' user' + (UROWS.length === 1 ? '' : 's') + (UROWS.filter(isOn).length ? ' · ' + UROWS.filter(isOn).length + ' online' : '');
       // Which kind of device they're on: a computer, a phone, or both at once (each beats its own time).
@@ -3098,11 +3150,15 @@ function hub(fs, auth, G, ctx) {
       const devs = u => { const now = Date.now(), pc = u.seenPc && now - u.seenPc < ONLINE, ph = u.seenPhone && now - u.seenPhone < ONLINE; return pc || ph ? [pc && [IC_PC, 'a computer'], ph && [IC_PH, 'a phone or tablet']].filter(Boolean) : null; };
       const devHTML = u => { const d = devs(u); return d ? `<span class="adm-devs">${d.map(x => x[0]).join('')}</span>` : ''; }, devTxt = u => { const d = devs(u); return d ? ' On ' + d.map(x => x[1]).join(' and ') + '.' : ''; };
       const seen = u => isOn(u) ? (u.seenFg && Date.now() - u.seenFg > ONLINE ? `<span class="adm-online bg" title="Idle: has Adventurer’s Tome open in a tab, but hasn’t had it on screen for a few minutes (another tab or app is in front, or the window is minimised). After 15 minutes like this they show as offline.${devTxt(u)}"><i></i><b>Idle</b>${devHTML(u)}</span>` : `<span class="adm-online" title="Has Adventurer’s Tome open and on screen right now.${devTxt(u)}"><i></i><b>Online</b>${devHTML(u)}</span>`) : u.seenAt ? esc(ago(u.seenAt)) : '<span class="adm-dim">—</span>';
-      const extCell = u => (u.ext ? `<span class="adm-tag ext-on${u.extInst === 'development' ? ' ext-dev' : ''}" title="Roll20 companion extension seen ${esc(ago(u.extAt || 0))}${u.extInst === 'development' ? ' — a developer copy (loaded by hand)' : u.extInst === 'normal' ? ' — from the store' : ''}">Installed${/^[\d.]+$/.test(u.ext) ? ' · v' + esc(u.ext) : ''}${u.extInst === 'development' ? ' · dev' : ''}</span>` : '<span class="adm-dim">—</span>') + (u.extNag ? ' <span class="adm-tag ext-nag" title="Asked to switch to the store version">Prompt on</span>' : '');
-      l.innerHTML = rows.length ? `<div class="adm-tw"><table class="adm-t us-t"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Joined</th><th>Last active</th><th>Extension</th><th></th><th></th></tr></thead><tbody>${capR('us', rows).map(u => { const [rl, rc] = u.banned ? ['Blocked', 'r-blk'] : roleOf(u.id), open = UOPEN.has(u.id);
-          return `<tr data-u="${esc(u.id)}"><td><span class="adm-who">${ava(u.name, u.id)}<span class="us-nm"><b>${esc(u.name || '—')}</b><small class="us-em">${esc(u.id)}</small></span></span></td><td class="adm-mail" title="${esc(u.id)}">${esc(u.id)}</td><td><span class="adm-tag ${rc}">${rl}</span></td><td>${when(u.createdAt)}</td><td>${seen(u)}</td><td>${extCell(u)}</td>
-            <td><button class="adm-btn sm" data-uc="${esc(u.id)}">Characters ${open ? '▾' : '▸'}</button></td><td class="adm-act">${kebab([['msg', 'Send a message…', u.id], ['welcome', 'Show welcome message again', u.id], ['renotice', 'Show the notice again', u.id], ['hidewel', 'Mark the welcome message seen', u.id], ['hidenotice', 'Mark the current notice seen', u.id], ['quiet', QUIET.has(u.id) ? 'Count in notice numbers' : 'Leave out of notice numbers', u.id], ['reload', 'Refresh their page', u.id], u.extNag ? ['extnagoff', 'Stop the extension switch prompt', u.id] : ['extnag', 'Ask them to switch to the store extension', u.id], ['rename', 'Rename…', u.id], ['pic', 'Change picture…', u.id], ['newfor', 'New character for them', u.id]].concat(IS_OWNER && !ownerEm(u.id) ? [ADMINS.includes(u.id) ? ['unadmin', 'Remove admin', u.id] : ['mkadmin', 'Make admin', u.id]] : [], ownerEm(u.id) || u.id === EMAIL ? [] : [['signout', 'Sign out everywhere', u.id]].concat(u.banned ? [['unblock', 'Unblock', u.id]] : [], [['delacct', 'Delete account…', u.id, 'danger']])))}</td></tr>
-            <tr class="adm-subrow" data-sub="${esc(u.id)}"${open ? '' : ' hidden'}><td colspan="8"></td></tr>`; }).join('')}</tbody></table></div>${moreR('us', rows)}`
+      // Home screen: they've opened the site from an icon on their home screen (it can't be told until they open it that way)
+      const appCell = u => { const ph = Number(u.pwaPhone) || 0, pc = Number(u.pwaPc) || 0; if (!ph && !pc) return '<span class="adm-dim">—</span>';
+        const where = ph && pc ? 'mobile + computer' : ph ? 'mobile' : 'computer', last = Math.max(ph, pc);
+        return `<span class="adm-tag app-on" title="${ph ? 'Opened from the icon on their phone or tablet’s home screen' : ''}${ph && pc ? '; ' : ''}${pc ? 'Installed as an app on a computer (Chrome or Edge “Install app”) and opened from it' : ''} — last ${esc(ago(last))}">Added · ${esc(where)}</span>`; };
+      const extCell = u => (u.ext ? `<span class="adm-tag ext-on${u.extInst === 'development' || u.extInst === 'two copies' ? ' ext-dev' : ''}" title="Roll20 companion extension seen ${esc(ago(u.extAt || 0))}${u.extInst === 'development' ? ' — a developer copy (loaded by hand)' : u.extInst === 'normal' ? ' — from the store' : u.extInst === 'two copies' ? ' — the store version, plus an old hand-loaded copy that still answers (rolls can post twice)' : ''}">Installed${/^[\d.]+$/.test(u.ext) ? ' · v' + esc(u.ext) : ''}${u.extInst === 'development' ? ' · dev' : u.extInst === 'two copies' ? ' · + old copy' : ''}</span>` : '<span class="adm-dim">—</span>') + (u.extNag ? ' <span class="adm-tag ext-nag" title="Asked to switch to the store version">Prompt on</span>' : '');
+      l.innerHTML = rows.length ? `<div class="adm-tw"><table class="adm-t us-t"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Joined</th><th>Last active</th><th>Extension</th><th>Home screen</th><th></th><th></th></tr></thead><tbody>${capR('us', rows).map(u => { const [rl, rc] = u.banned ? ['Blocked', 'r-blk'] : roleOf(u.id), open = UOPEN.has(u.id);
+          return `<tr data-u="${esc(u.id)}"><td><span class="adm-who">${ava(u.name, u.id)}<span class="us-nm"><b>${esc(u.name || '—')}</b><small class="us-em">${esc(u.id)}</small></span></span></td><td class="adm-mail" title="${esc(u.id)}">${esc(u.id)}</td><td><span class="adm-tag ${rc}">${rl}</span></td><td>${when(u.createdAt)}</td><td>${seen(u)}</td><td>${extCell(u)}</td><td class="us-app">${appCell(u)}</td>
+            <td><button class="adm-btn sm" data-uc="${esc(u.id)}">Characters ${open ? '▾' : '▸'}</button></td><td class="adm-act">${kebab([['msg', 'Send a message…', u.id], ['welcome', 'Show welcome message again', u.id], ['renotice', 'Show the notice again', u.id], ['hidewel', 'Mark the welcome message seen', u.id], ['hidenotice', 'Mark the current notice seen', u.id], ['quiet', QUIET.has(u.id) ? 'Count in notice numbers' : 'Leave out of notice numbers', u.id], ['reload', 'Refresh their page', u.id], u.extNag ? ['extnagoff', 'Stop the extension switch prompt', u.id] : ['extnag', 'Ask them to switch to the store extension', u.id], ...((u.pwaPhone || u.pwaPc) ? [['appclear', 'Clear Home screen', u.id]] : []), ['rename', 'Rename…', u.id], ['pic', 'Change picture…', u.id], ['newfor', 'New character for them', u.id]].concat(IS_OWNER && !ownerEm(u.id) ? [ADMINS.includes(u.id) ? ['unadmin', 'Remove admin', u.id] : ['mkadmin', 'Make admin', u.id]] : [], ownerEm(u.id) || u.id === EMAIL ? [] : [['signout', 'Sign out everywhere', u.id]].concat(u.banned ? [['unblock', 'Unblock', u.id]] : [], [['delacct', 'Delete account…', u.id, 'danger']])))}</td></tr>
+            <tr class="adm-subrow" data-sub="${esc(u.id)}"${open ? '' : ' hidden'}><td colspan="9"></td></tr>`; }).join('')}</tbody></table></div>${moreR('us', rows)}`
         : `<p class="adm-empty">${UROWS.length ? 'Nobody matches these filters.' : 'No accounts yet.'}</p>`;
       const fill = async (em, cell, fresh) => { const show = cs => { cell.innerHTML = ctable(cs, false) + `<button class="adm-btn sm" data-newfor="${esc(em)}">＋ New character for ${esc(nameOf(em))}</button>`; wire(cell, () => fill(em, cell, true)); };
         if (UCH[em] && !fresh) return show(UCH[em]); cell.innerHTML = '<div class="sk-auto" data-k="adm-chars-t" data-n="2"></div>';
@@ -3150,6 +3206,8 @@ function hub(fs, auth, G, ctx) {
         if (act === 'hidenotice') { const n = await cfgCol.doc('notice').get().then(d => d.exists ? d.data() : null, () => null); if (!n || !n.id) { toast('There’s no notice out right now.'); return; }
           await ref.update({ noticeSeen: n.id }); pgLog('notice_mark_seen', { target: em, tName: nm, detail: n.text }); toast(nm + ' is marked as having seen the current notice. (“Show the notice again” undoes it.)'); return; }
         // the "switch to the official Roll20 extension" window, sent by hand: it shows on their pages (once a day if they put it off) until they're on the store copy or it's stopped here
+        // forget that they've added the site to their home screen (it's noted again the next time they open it from the icon)
+        if (act === 'appclear') { await ref.update({ pwaPhone: FV.delete(), pwaPc: FV.delete() }); delete u.pwaPhone; delete u.pwaPc; pgLog('user_appclear', { target: em, tName: nm }); toast('Cleared Home screen for ' + nm + '.'); done(); return; }
         if (act === 'extnag' || act === 'extnagoff') { const on = act === 'extnag'; await ref.update({ extNag: on ? Date.now() : 0 }); u.extNag = on ? Date.now() : 0; pgLog(on ? 'user_extnag' : 'user_extnag_off', { target: em, tName: nm });
           toast(on ? nm + ' will be asked to switch to the store version of the Roll20 extension' + (u.seenAt && Date.now() - u.seenAt < 4 * 60000 ? ' — it pops up now.' : ' next time they open the site.') : 'Stopped the extension prompt for ' + nm + '.'); done(); return; }
         if (act === 'reload') { await ref.update({ reloadAt: Date.now() }); toast(nm + '’s open pages will refresh now.'); pgLog('user_reload', { target: em, tName: nm }); return; }
@@ -3184,8 +3242,8 @@ function hub(fs, auth, G, ctx) {
     const ACTS = { signin: 'Signed in', account: 'Created their account', signout: 'Signed out', open: 'Opened', create: 'Created', edit: 'Edited', delete: 'Deleted', give: 'Gave away', remove: 'Removed from the lists',
       share: 'Shared', unshare: 'Stopped sharing', access: 'Changed access to', leave: 'Gave up access to', picture: 'Changed their picture',
       audit_clear: 'Cleared the audit log', rename_user: 'Renamed', admin_add: 'Made an admin:', admin_remove: 'Removed admin:', user_picture: 'Changed the picture of', user_signout: 'Signed out everywhere:', user_block: 'Blocked', user_unblock: 'Unblocked', user_delete: 'Deleted the account of', message: 'Sent a message to', notice: 'Sent a notice to', news_post: 'Posted to What’s new:', news_edit: 'Edited a What’s new update:', news_remove: 'Removed a What’s new update:', news_rot: 'Changed the What’s new rotation:', notice_revoke: 'Revoked the notice to', notice_revoke_one: 'Kept the notice from', notice_restore_one: 'Gave the notice back to', welcome_revoke_one: 'Kept the welcome message from', welcome_restore_one: 'Gave the welcome message back to', notice_mark_seen: 'Marked the notice seen for', welcome_mark_seen: 'Marked the welcome message seen for', notice_edit: 'Edited the notice to', notice_resend: 'Re-sent the notice to', welcome: 'Saved the welcome message for', welcome_off: 'Turned off the welcome message for', welcome_reset: 'Reset the welcome message for', user_reload: 'Refreshed the pages of', online: 'Came online', offline: 'Went offline',
-      party_create: 'Created the party', party_codm: 'Changed the co-DMs of', party_delete: 'Deleted the party', party_chat_clear: 'Cleared the chat of', party_add: 'Added a character to', party_npc: 'Added an NPC to', desk_open: 'Opened the DM’s Desk', party_hb: 'Added a homebrew item to', party_join: 'Joined the party', party_leave: 'Left the party', party_remove: 'Took a character out of', party_invite: 'Invited someone to', party_send: 'Used party actions in', party_access: 'Changed their access to', party_dm: 'Handed over', ext_install: 'Installed the Roll20 extension', ext_update: 'Updated the Roll20 extension', user_extnag: 'Asked to switch to the store Roll20 extension:', user_extnag_off: 'Stopped the extension prompt for' };
-    const AGROUPS = [['Signing in', ['signin', 'online', 'offline', 'account', 'signout']], ['Parties', ['party_create', 'party_delete', 'party_add', 'party_npc', 'party_join', 'party_leave', 'party_remove', 'party_invite', 'party_send', 'party_access', 'party_dm', 'party_codm', 'party_chat_clear', 'desk_open', 'party_hb']], ['Characters', ['open', 'create', 'edit', 'delete', 'give', 'remove']], ['Sharing', ['share', 'unshare', 'access', 'leave']], ['Pictures', ['picture', 'user_picture']], ['Roll20 extension', ['ext_install', 'ext_update']], ['Admin', ['audit_clear', 'rename_user', 'admin_add', 'admin_remove', 'user_signout', 'user_block', 'user_unblock', 'user_delete', 'message', 'notice', 'notice_resend', 'notice_revoke', 'notice_revoke_one', 'notice_restore_one', 'notice_mark_seen', 'notice_edit', 'welcome', 'welcome_off', 'welcome_reset', 'welcome_revoke_one', 'welcome_restore_one', 'welcome_mark_seen', 'news_post', 'news_edit', 'news_remove', 'news_rot', 'user_reload', 'user_extnag', 'user_extnag_off']]];
+      party_create: 'Created the party', party_codm: 'Changed the co-DMs of', party_delete: 'Deleted the party', party_chat_clear: 'Cleared the chat of', party_add: 'Added a character to', party_npc: 'Added an NPC to', desk_open: 'Opened the DM’s Desk', party_hb: 'Added a homebrew item to', party_join: 'Joined the party', party_leave: 'Left the party', party_remove: 'Took a character out of', party_invite: 'Invited someone to', party_send: 'Used party actions in', party_access: 'Changed their access to', party_dm: 'Handed over', ext_install: 'Installed the Roll20 extension', pwa_add: 'Added Adventurer’s Tome to their home screen', ext_update: 'Updated the Roll20 extension', user_extnag: 'Asked to switch to the store Roll20 extension:', user_extnag_off: 'Stopped the extension prompt for', user_appclear: 'Cleared Home screen for' };
+    const AGROUPS = [['Signing in', ['signin', 'online', 'offline', 'account', 'signout']], ['Parties', ['party_create', 'party_delete', 'party_add', 'party_npc', 'party_join', 'party_leave', 'party_remove', 'party_invite', 'party_send', 'party_access', 'party_dm', 'party_codm', 'party_chat_clear', 'desk_open', 'party_hb']], ['Characters', ['open', 'create', 'edit', 'delete', 'give', 'remove']], ['Sharing', ['share', 'unshare', 'access', 'leave']], ['Pictures', ['picture', 'user_picture']], ['Roll20 extension', ['ext_install', 'ext_update']], ['Home screen', ['pwa_add']], ['Admin', ['audit_clear', 'rename_user', 'admin_add', 'admin_remove', 'user_signout', 'user_block', 'user_unblock', 'user_delete', 'message', 'notice', 'notice_resend', 'notice_revoke', 'notice_revoke_one', 'notice_restore_one', 'notice_mark_seen', 'notice_edit', 'welcome', 'welcome_off', 'welcome_reset', 'welcome_revoke_one', 'welcome_restore_one', 'welcome_mark_seen', 'news_post', 'news_edit', 'news_remove', 'news_rot', 'user_reload', 'user_extnag', 'user_extnag_off', 'user_appclear']]];
     const CHAR_ACTS = new Set(['open', 'create', 'edit', 'delete', 'give', 'remove', 'share', 'unshare', 'access', 'leave']);
     let AF = { who: [], act: [], q: '', from: '', to: '', range: '' }, AROWS, AOPEN = {} = [], ALAST = null, AFULL = false, APEOPLE = null;
     const auditCol = fs.collection('audit');
@@ -4850,7 +4908,7 @@ function pgRevealPanels() { try { if (matchMedia('(prefers-reduced-motion: reduc
     if (/Vivaldi/.test(ua)) return { name: 'Vivaldi', url: 'vivaldi://extensions', add: 'Add to Chrome' };
     return { name: 'Chrome', url: 'chrome://extensions', add: 'Add to Chrome' }; };
   let shown = null;
-  function show(ver) {
+  function show(ver, two) {
     let snz = 0; try { snz = Number(localStorage.getItem(SNOOZE)) || 0; } catch (e) {} if (Date.now() < snz || shown || document.querySelector('.pg-devext')) return;
     const b = browser(), copy = (u) => `<button type="button" class="pgx-url" data-copy="${esc(u)}" title="Copy — browsers only open this page when you paste it into the address bar"><code>${esc(u)}</code><span aria-hidden="true">⧉</span></button>`;
     const steps = b.ff ? [
@@ -4861,10 +4919,11 @@ function pgRevealPanels() { try { if (matchMedia('(prefers-reduced-motion: reduc
       `<b>Remove the developer copy.</b> Open ${copy(b.url)} (click to copy it, then paste it into the address bar). Find <b>Adventurer’s Tome ↔ Roll20</b> and click <b>Remove</b>. You can turn <b>Developer mode</b> off afterwards.`,
       `<b>Add the official one</b> from the Chrome Web Store: click <b>${esc(b.add)}</b>. It updates itself from then on.${b.extra ? ` <span class="pgx-hint">${b.extra}</span>` : ''}<div class="pgx-go"><a class="pg-out-yes pgx-btn" href="${STORE}" target="_blank" rel="noopener">Open the Chrome Web Store</a></div>`,
       'Come back and <b>reload this page</b>. If you use Roll20, reload your Roll20 tab too.'];
+    const steps2 = two ? steps.filter((x, k) => k !== 1) : steps; /* (already has the official one) */
     const m = document.createElement('div'); m.className = 'pg-out pg-devext'; if (typeof pgOutFade === 'function') pgOutFade(m); shown = m;
-    m.innerHTML = `<div class="pg-out-card pgx-card" role="dialog" aria-modal="true" aria-labelledby="pgx-h"><h2 id="pgx-h">Switch to the official Roll20 extension</h2>
-      <p class="pgx-warn"><span aria-hidden="true">⚠</span><span>You’re using a <b>developer copy</b> of the Roll20 extension${ver ? ` (v${esc(ver)})` : ''}. Developer copies don’t update themselves and can have bugs — please switch to the official store version. It’s the same extension and keeps itself up to date.</span></p>
-      <p class="pgx-sub">In ${esc(b.name)}, it takes about a minute:</p><ol class="pgx-steps">${steps.map(x => `<li>${x}</li>`).join('')}</ol>
+    m.innerHTML = `<div class="pg-out-card pgx-card" role="dialog" aria-modal="true" aria-labelledby="pgx-h"><h2 id="pgx-h">${two ? 'Remove the old Roll20 extension' : 'Switch to the official Roll20 extension'}</h2>
+      <p class="pgx-warn"><span aria-hidden="true">⚠</span><span>${two ? `You have <b>two copies</b> of the Roll20 extension installed: the official one, and an old <b>developer copy</b>${ver ? ` (v${esc(ver)})` : ''} that still answers — so rolls can post twice. Remove the developer copy (step 1). ` : `You’re using a <b>developer copy</b> of the Roll20 extension${ver ? ` (v${esc(ver)})` : ''}.`}${two ? '' : ' Developer copies don’t update themselves and can have bugs — please switch to the official store version. It’s the same extension and keeps itself up to date.'}</span></p>
+      <p class="pgx-sub">In ${esc(b.name)}, it takes ${two ? 'a few seconds' : 'about a minute'}:</p><ol class="pgx-steps">${steps2.map(x => `<li>${x}</li>`).join('')}</ol>
       <div class="pg-out-row"><button type="button" class="pg-out-no" data-k="later">Remind me tomorrow</button><button type="button" class="pg-out-yes" data-k="reload">I’ve switched — reload</button></div></div>`;
     m.addEventListener('click', e => { const t = e.target.closest('button'); if (!t) { if (e.target === m) close(true); return; }
       if (t.dataset.copy) { const u = t.dataset.copy; (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject()).then(() => { t.classList.add('ok'); const c = t.querySelector('span'); if (c) c.textContent = '✓ Copied'; setTimeout(() => { t.classList.remove('ok'); if (c) c.textContent = '⧉'; }, 1800); }, () => { const r = document.createRange(); r.selectNodeContents(t.querySelector('code')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }); return; }
@@ -4873,9 +4932,10 @@ function pgRevealPanels() { try { if (matchMedia('(prefers-reduced-motion: reduc
   }
   function close(snooze) { if (snooze) try { localStorage.setItem(SNOOZE, String(Date.now() + 864e5)); } catch (e) {} if (shown) { shown.remove(); shown = null; } }
   addEventListener('message', e => { if (e.source !== window) return; const d = e.data; if (!d || d.__dnd20 !== 'hi' || d.dir !== 'toSheet' || d.version === 'mock') return;
-    const inst = pgExtInst(d), dev = inst ? inst === 'development' : (OLD_COPIES_ARE_DEV && older(d.version));
-    if (dev) { const go = () => show(d.version); document.body ? setTimeout(go, 1200) : addEventListener('DOMContentLoaded', () => setTimeout(go, 1200)); }
-    else if (shown && (!NAG || inst === 'normal')) close(false); });
+    const inst = pgExtInst(d), cs = pgExtCopies(), two = cs.length > 1, old0 = two ? cs[cs.length - 1] : null;
+    const dev = two || (inst ? inst === 'development' : (OLD_COPIES_ARE_DEV && older(d.version)));
+    if (dev) { const go = () => show(two ? old0.v : d.version, two); document.body ? setTimeout(go, 1200) : addEventListener('DOMContentLoaded', () => setTimeout(go, 1200)); }
+    else if (shown && !two && (!NAG || inst === 'normal')) close(false); });
   // ask whichever copy is installed to say hi (it already does when the page opens, but this page may have missed it)
   const ask = () => window.postMessage({ __dnd20: 'hello', dir: 'toExt' }, '*'); if (document.readyState === 'loading') addEventListener('DOMContentLoaded', ask); else ask();
   // an admin sent it by hand (Admin → Users): shown whether or not the extension says how it was installed

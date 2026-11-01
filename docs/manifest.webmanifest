@@ -2,7 +2,7 @@
  "name": "Adventurer’s Tome",
  "short_name": "Adventurer’s Tome",
  "id": "./",
- "start_url": "./",
+ "start_url": "./?app=home",
  "scope": "./",
  "display": "standalone",
  "background_color": "#0f1420",
