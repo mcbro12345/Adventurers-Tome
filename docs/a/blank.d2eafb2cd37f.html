@@ -3700,7 +3700,7 @@ html.mobile.hasbug .namebox { padding-right: 148px; }
 .hbb-seg:not(.pills) button + button { border-left: 1px solid var(--line2); }
 .hbb-seg.pills button { border: 1px solid var(--line2); border-radius: 999px; background: var(--field); padding: 3px 10px; }
 @media (hover:hover){:where(html:not(.mobile)) .hbb-seg button:hover{ background: var(--gold-soft); }}
-.hbb-seg button.on { background: var(--gold); color: var(--gold-ink); border-color: var(--gold); }
+.hbb-seg button.on{ background: var(--gold); color: var(--on-gold, #1D2536); border-color: var(--gold); }@media (hover:hover){:where(html:not(.mobile)) .hbb-seg button.on:hover{ background: var(--gold); color: var(--on-gold, #1D2536); border-color: var(--gold); }}
 .hbb-seg .ic { font-size: 14px; line-height: 1; }
 .hbb-seg.big button { padding: 5px 12px; }
 .hbb-card { border: 1px solid var(--line); border-radius: 10px; background: var(--panel2); padding: 8px 10px 10px; display: flex; flex-direction: column; gap: 8px; }
@@ -4948,8 +4948,10 @@ html.mobile #wizard .wz3 .wz-steps { background: none !important; box-shadow: no
 @media (hover: hover) { @media (hover:hover){:where(html:not(.mobile)) #page-features .fcard.frow:hover{ background: color-mix(in srgb, var(--ink) 5.5%, transparent); }} }
 #page-features .fcard.frow.open { background: var(--panel2); box-shadow: 0 0 0 1px color-mix(in srgb, var(--gold) 28%, transparent), 0 6px 18px rgba(0,0,0,.18); }
 #page-features .fcard.frow.editing { box-shadow: 0 0 0 2px var(--gold); }
-#page-features .fl-sum { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; gap: 10px; align-items: center; min-height: 46px; padding: 7px 12px; border-radius: 12px; cursor: pointer; }
-#page-features .fl-sum:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+#page-features .fl-sum { display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 0 12px 0 0; border-radius: 12px; }
+#page-features .fl-tog { flex: 1 1 auto; min-width: 0; align-self: stretch; display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 10px; align-items: center; padding: 7px 0 7px 12px; border: 0; border-radius: 12px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+#page-features .fl-tog:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+#page-features .fcard.frow.custom .fl-tog { box-shadow: inset 3px 0 0 color-mix(in srgb, var(--gold) 70%, transparent); }
 #page-features .fl-car { width: 7px; height: 7px; margin-left: 3px; border-right: 2px solid var(--soft); border-bottom: 2px solid var(--soft); border-radius: 0 0 2px 0; transform: rotate(-45deg); transition: transform .2s ease, border-color .2s ease; }
 #page-features .frow.open .fl-car { transform: rotate(45deg); border-color: var(--gold); }
 #page-features .fl-t { min-width: 0; display: flex; align-items: baseline; gap: 4px 10px; flex-wrap: wrap; }
@@ -4969,6 +4971,37 @@ html.mobile #page-features .fl-in { padding-left: 14px; }
 @media (prefers-reduced-motion: reduce) { #page-features .fl-body, #page-features .fl-car, #page-features .fcard.frow { transition: none; } }
 #page-features .fl-s { transition: opacity .18s ease; }
 #page-features .frow.open .fl-s { opacity: 0; }
+/* Buttons inside an open row sit on the row's own colour, so give them a fill and edge of their own. */
+#page-features .fl-in .btn:not(.gold):not(.red) { background: var(--field); border: 1px solid var(--line); color: var(--ink); }
+@media (hover: hover) { @media (hover:hover){:where(html:not(.mobile)) #page-features .fl-in .btn:not(.gold):not(.red):hover{ border-color: var(--gold); }} }
+/* The row's header is a control: double-clicking it shouldn't select its words. */
+#page-features .fl-sum { -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+/* Condition chips: the ⓘ sits right after the word (just the chip's own gap between them). */
+.cchip > .notetip { margin-left: 0; }
+#page-features .fl-r { flex: none; } #page-features .fl-r .pips { flex-wrap: nowrap; white-space: nowrap; }
+/* Open feature: a quiet meta line, the text, then its actions as accent chips. Editing is a pencil at the row's right end. */
+#page-features .fl-in { gap: 10px; }
+#page-features .fl-in > :first-child { padding-top: 12px; border-top: 1px solid color-mix(in srgb, var(--ink) 8%, transparent); }
+#page-features .fl-meta { display: flex; flex-wrap: wrap; gap: 2px 0; font-size: .74rem; font-weight: 600; letter-spacing: .02em; color: var(--soft); }
+#page-features .fl-meta span + span::before { content: "·"; margin: 0 7px; opacity: .6; }
+#page-features .fl-in .fc-desc { font-size: .9rem; line-height: 1.6; }
+#page-features .fl-in .fc-uses .hint { font-size: .8rem; }
+#page-features .fl-in .fxacts { gap: 6px; margin-top: 0; }
+#page-features .fl-in .fxacts .btn.fxact { background: color-mix(in srgb, var(--gold) 14%, transparent); border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent); color: var(--ink); border-radius: 999px; padding: 4px 14px; font-weight: 650; }
+@media (hover: hover) { @media (hover:hover){:where(html:not(.mobile)) #page-features .fl-in .fxacts .btn.fxact:hover{ background: color-mix(in srgb, var(--gold) 26%, transparent); border-color: var(--gold); }} }
+#page-features .fl-in .fxacts .btn.fxact small { opacity: .75; font-weight: 600; }
+#page-features .fl-in > :last-child { margin-bottom: 2px; }
+#page-features .fl-edit { flex: none; width: 30px; height: 30px; display: inline-grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--soft); cursor: pointer; opacity: 0; visibility: hidden; transition: opacity .15s ease, background-color .15s ease, color .15s ease; }
+#page-features .frow.open .fl-edit, #page-features .frow.editing .fl-edit { opacity: 1; visibility: visible; }
+@media (hover: hover) { @media (hover:hover){:where(html:not(.mobile)) #page-features .frow:hover .fl-edit{ opacity: 1; visibility: visible; }} @media (hover:hover){:where(html:not(.mobile)) #page-features .fl-edit:hover{ background: color-mix(in srgb, var(--ink) 9%, transparent); color: var(--ink); }} }
+#page-features .fl-edit:focus-visible { opacity: 1; visibility: visible; outline: 2px solid var(--gold); outline-offset: 1px; }
+#page-features .fl-edit.on { background: var(--gold); color: var(--on-gold, #1D2536); }
+html.mobile #page-features .fl-edit { width: 34px; height: 34px; }
+/* Open text uses the row's full width. */
+#page-features .fl-in .fc-desc { max-width: none; }
+/* Keyboard focus rings the whole row rather than just its header. */
+#page-features .fl-tog:focus-visible { outline: none; }
+#page-features .fcard.frow:has(.fl-tog:focus-visible) { box-shadow: 0 0 0 2px color-mix(in srgb, var(--gold) 70%, transparent); }
 
 </style>
 </head>
@@ -14907,14 +14940,15 @@ function renderFeatures() {
     const tags = [f.source, f.hb && f.hb.on ? riderTrigText(f.hb) : '', f.col ? (f.col === 'bonus' ? 'Bonus action' : f.col === 'move' ? 'Free' : f.col[0].toUpperCase() + f.col.slice(1)) : '', max != null ? `${max}× per ${resetOf(f) === 'short' ? 'short rest' : resetOf(f) === 'long' ? 'long rest' : 'never'}` : '', dcl, fx.cost ? 'Costs ' + fxCostText(fx.cost) : '', fx.onlyRaging ? 'While raging' : ''].filter(Boolean);
     const canUse = !fxIsResource(f) && (fx.cost || fx.use || fx.target || fx.roll);
     // Ledger row: one line (name, short summary, uses, Use) that opens to the full text, tags and editing.
-    const ok = 'fopen:' + (f.key || f.name), open = !!(ed || UI.open[ok]);
+    const ok = 'fopen:' + (f.key || f.name); if (ed) UI.open[ok] = true; // a row being edited stays open after Done
+    const open = !!UI.open[ok];
     const sum = String(f.desc || '').replace(/<[^>]+>/g, '').trim() || String(fullOfFeat(f) || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160);
     return `<div class="fcard frow${f.auto ? '' : ' custom'}${ed ? ' editing' : ''}${open ? ' open' : ''}">
-      <div class="fl-sum" data-act="ftog" data-key="${esc(ok)}" role="button" tabindex="0" aria-expanded="${open}"><i class="fl-car" aria-hidden="true"></i>
-        <span class="fl-t"><b class="fc-name">${esc(f.name)}</b>${sc.map(([n, v]) => `<span class="fscale" title="${esc(n)}">${esc(v)}</span>`).join('')}<i class="fl-s">${esc(sum)}</i></span>
-        <span class="fl-r">${max != null && !f.pool ? `<span class="pips" data-calc-html="featpips:${i}"></span>` : ''}${max != null && !f.pool && !fxIsResource(f) ? `<button class="btn sm gold" data-act="usefeat" data-i="${i}" ${left || fx.slotRestore ? '' : 'disabled'}>${f.roll || fx.roll ? 'Use & roll' : 'Use'}</button>` : f.roll ? `<button class="btn sm gold" data-act="usefeat" data-i="${i}">Roll</button>` : canUse ? `<button class="btn sm gold" data-act="usefeat" data-i="${i}">${fx.useLabel || (fx.roll ? 'Use & roll' : 'Use')}</button>` : ''}</span></div>
-      <div class="fl-body"><div class="fl-in">
-        <div class="fc-tags">${tags.map(t => `<span class="ftag">${esc(t)}</span>`).join('')}${sc.length > 1 || (sc[0] && sc[0][0].toLowerCase() !== f.name.toLowerCase()) ? sc.map(([n, v]) => `<span class="ftag">${esc(n)}: ${esc(v)}</span>`).join('') : ''}</div>
+      <div class="fl-sum"><button type="button" class="fl-tog" data-act="ftog" data-key="${esc(ok)}" aria-expanded="${open}"><i class="fl-car" aria-hidden="true"></i>
+        <span class="fl-t"><b class="fc-name">${esc(f.name)}</b>${sc.map(([n, v]) => `<span class="fscale" title="${esc(n)}">${esc(v)}</span>`).join('')}<i class="fl-s">${esc(sum)}</i></span></button>
+        <span class="fl-r">${max != null && !f.pool ? `<span class="pips" data-calc-html="featpips:${i}"></span>` : ''}${max != null && !f.pool && !fxIsResource(f) ? `<button class="btn sm gold" data-act="usefeat" data-i="${i}" ${left || fx.slotRestore ? '' : 'disabled'}>${f.roll || fx.roll ? 'Use & roll' : 'Use'}</button>` : f.roll ? `<button class="btn sm gold" data-act="usefeat" data-i="${i}">Roll</button>` : canUse ? `<button class="btn sm gold" data-act="usefeat" data-i="${i}">${fx.useLabel || (fx.roll ? 'Use & roll' : 'Use')}</button>` : ''}<button type="button" class="fl-edit${ed ? ' on' : ''}" data-act="toggle" data-key="fedit:${i}" title="${ed ? 'Done editing' : 'Edit this feature'}" aria-label="${ed ? 'Done editing' : 'Edit ' + esc(f.name)}">${ed ? '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>' : '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg>'}</button></span></div>
+      <div class="fl-body"${open ? '' : ' inert'}><div class="fl-in">
+        <div class="fl-meta">${tags.map(t => `<span>${esc(t)}</span>`).join('')}${sc.length > 1 || (sc[0] && sc[0][0].toLowerCase() !== f.name.toLowerCase()) ? sc.map(([n, v]) => `<span>${esc(n)}: ${esc(v)}</span>`).join('') : ''}</div>
         ${f.key === 'warlock:uaravenqueen:Sentinel Raven' ? ravenChk() : ''}
         ${max != null ? `<div class="fc-uses">${f.pool ? `<span class="pips" data-calc-html="featpips:${i}"></span>` : `<span class="hint">${left} of ${max} left · refills on ${resetOf(f) === 'short' ? 'a short or long rest' : resetOf(f) === 'long' ? 'a long rest' : 'nothing'}</span>`}</div>` : ''}
         ${ed ? `<div class="fc-form">${fld('Name', inp(`features.${i}.name`, { label: 'Feature name' }))}
@@ -14926,7 +14960,6 @@ function renderFeatures() {
           <div class="row"><span class="hint">Uses accept formulas like <code>1+cha</code>, <code>prof</code> or <code>5*level</code>.</span><span class="grow"></span>${f.kind === 'feat' ? `<button class="btn sm red" data-act="delfeatn" data-n="${esc(String(f.key).slice(5))}">Remove feat</button>` : ''}${f.auto ? `<button class="btn sm ghost" data-act="featreset" data-i="${i}">Restore original</button>` : `<button class="btn sm red" data-act="del" data-list="features" data-i="${i}">Delete</button>`}</div></div>`
         : `<div class="fc-desc">${fullHTML(fullOfFeat(f))}</div>`}${fx.acts && !ed ? `<div class="fxacts">${fxActsHTML(f, i)}</div>` : ''}
         ${featSpellsHTML(f, i, ed)}
-        <div class="fl-foot"><button class="btn sm ghost fc-edit${ed ? ' on' : ''}" data-act="toggle" data-key="fedit:${i}">${ed ? 'Done editing' : 'Edit'}</button></div>
       </div></div>
     </div>`;
   };
@@ -15910,7 +15943,7 @@ function mainClick(e) {
     case 'del': delItem(b.dataset.list, i); break;
     case 'up': { const L = getP(b.dataset.list); if (i > 0) { [L[i - 1], L[i]] = [L[i], L[i - 1]]; save(); render(); } break; }
     // Features tab rows open and close in place (no redraw), so they can slide open.
-    case 'ftog': { const k = b.dataset.key, v = !UI.open[k]; UI.open[k] = v; saveUI(); const row = b.closest('.frow'); if (row) { row.classList.toggle('open', v); b.setAttribute('aria-expanded', v); } return; }
+    case 'ftog': { const k = b.dataset.key, row = b.closest('.frow'), v = row ? !row.classList.contains('open') : !UI.open[k]; UI.open[k] = v; saveUI(); if (row) { row.classList.toggle('open', v); b.setAttribute('aria-expanded', v); const bd = row.querySelector('.fl-body'); if (bd) bd.inert = !v; } return; }
     case 'toggle': {
       UI.open[b.dataset.key] = !UI.open[b.dataset.key]; saveUI(); pendingLabel = null;
       // Feature cards share rows: opening one card's text opens the others in the same row too (and closing closes them).
@@ -17938,8 +17971,6 @@ function openExtFx() {
   if ($('#condmodal.extfxm') && $('#modal').classList.contains('open')) $('#modal-body').innerHTML = html; else openModal(html);
 }
 
-// Features tab rows: Enter or Space opens and closes them like a button.
-document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('fl-sum')) { e.preventDefault(); e.target.click(); } });
 
 
 // ---------- Fields that grow to fit their text ----------
