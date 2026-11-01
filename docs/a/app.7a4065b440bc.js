@@ -2804,22 +2804,29 @@ function renderFeatures() {
     const fx = fxOf(f), dcl = fxDCLine(fx, f);
     const tags = [f.source, f.hb && f.hb.on ? riderTrigText(f.hb) : '', f.col ? (f.col === 'bonus' ? 'Bonus action' : f.col === 'move' ? 'Free' : f.col[0].toUpperCase() + f.col.slice(1)) : '', max != null ? `${max}× per ${resetOf(f) === 'short' ? 'short rest' : resetOf(f) === 'long' ? 'long rest' : 'never'}` : '', dcl, fx.cost ? 'Costs ' + fxCostText(fx.cost) : '', fx.onlyRaging ? 'While raging' : ''].filter(Boolean);
     const canUse = !fxIsResource(f) && (fx.cost || fx.use || fx.target || fx.roll);
-    return `<div class="fcard${f.auto ? '' : ' custom'}${ed ? ' editing' : ''}">
-      <div class="fc-head"><b class="fc-name">${esc(f.name)}</b>${sc.map(([n, v]) => `<span class="fscale" title="${esc(n)}">${esc(v)}</span>`).join('')}<span class="grow"></span>
-        ${max != null && !f.pool && !fxIsResource(f) ? `<button class="btn sm gold" data-act="usefeat" data-i="${i}" ${left || fx.slotRestore ? '' : 'disabled'}>${f.roll || fx.roll ? 'Use & roll' : 'Use'}</button>` : f.roll ? `<button class="btn sm gold" data-act="usefeat" data-i="${i}">Roll</button>` : canUse ? `<button class="btn sm gold" data-act="usefeat" data-i="${i}">${fx.useLabel || (fx.roll ? 'Use & roll' : 'Use')}</button>` : ''}
-        <button class="icon-btn fc-edit${ed ? ' on' : ''}" data-act="toggle" data-key="fedit:${i}" title="${ed ? 'Done editing' : 'Edit this feature'}" aria-label="Edit">${ed ? '✓' : '✎'}</button></div>
-      <div class="fc-tags">${tags.map(t => `<span class="ftag">${esc(t)}</span>`).join('')}${sc.length > 1 || (sc[0] && sc[0][0].toLowerCase() !== f.name.toLowerCase()) ? sc.map(([n, v]) => `<span class="ftag">${esc(n)}: ${esc(v)}</span>`).join('') : ''}</div>
-      ${f.key === 'warlock:uaravenqueen:Sentinel Raven' ? ravenChk() : ''}
-      ${max != null ? `<div class="fc-uses"><span class="pips" data-calc-html="featpips:${i}"></span>${f.pool ? '' : `<span class="hint">${left} of ${max} left</span>`}</div>` : ''}
-      ${ed ? `<div class="fc-form">${fld('Name', inp(`features.${i}.name`, { label: 'Feature name' }))}
+    // Ledger row: one line (name, short summary, uses, Use) that opens to the full text, tags and editing.
+    const ok = 'fopen:' + (f.key || f.name); if (ed) UI.open[ok] = true; // a row being edited stays open after Done
+    const open = !!UI.open[ok];
+    const sum = String(f.desc || '').replace(/<[^>]+>/g, '').trim() || String(fullOfFeat(f) || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160);
+    return `<div class="fcard frow${f.auto ? '' : ' custom'}${ed ? ' editing' : ''}${open ? ' open' : ''}">
+      <div class="fl-sum"><button type="button" class="fl-tog" data-act="ftog" data-key="${esc(ok)}" aria-expanded="${open}"><i class="fl-car" aria-hidden="true"></i>
+        <span class="fl-t"><b class="fc-name">${esc(f.name)}</b>${sc.map(([n, v]) => `<span class="fscale" title="${esc(n)}">${esc(v)}</span>`).join('')}<i class="fl-s">${esc(sum)}</i></span></button>
+        <span class="fl-r">${fx.acts && !ed ? `<span class="fxacts fl-acts">${fxActsHTML(f, i)}</span>` : ''}${max != null && !f.pool ? `<span class="pips" data-calc-html="featpips:${i}"></span>` : ''}${max != null && !f.pool && !fxIsResource(f) ? `<button class="btn sm gold" data-act="usefeat" data-i="${i}" ${left || fx.slotRestore ? '' : 'disabled'}>${f.roll || fx.roll ? 'Use & roll' : 'Use'}</button>` : f.roll ? `<button class="btn sm gold" data-act="usefeat" data-i="${i}">Roll</button>` : canUse ? `<button class="btn sm gold" data-act="usefeat" data-i="${i}">${fx.useLabel || (fx.roll ? 'Use & roll' : 'Use')}</button>` : ''}</span></div>
+      <div class="fl-body"${open ? '' : ' inert'}><div class="fl-in">
+        <div class="fl-meta">${tags.map(t => `<span>${esc(t)}</span>`).join('')}${sc.length > 1 || (sc[0] && sc[0][0].toLowerCase() !== f.name.toLowerCase()) ? sc.map(([n, v]) => `<span>${esc(n)}: ${esc(v)}</span>`).join('') : ''}</div>
+        ${f.key === 'warlock:uaravenqueen:Sentinel Raven' ? ravenChk() : ''}
+        ${max != null ? `<div class="fc-uses">${f.pool ? `<span class="pips" data-calc-html="featpips:${i}"></span>` : `<span class="hint">${left} of ${max} left · refills on ${resetOf(f) === 'short' ? 'a short or long rest' : resetOf(f) === 'long' ? 'a long rest' : 'nothing'}</span>`}</div>` : ''}
+        ${ed ? `<div class="fc-form">${fld('Name', inp(`features.${i}.name`, { label: 'Feature name' }))}
           <div class="row">${fld('Uses', inp(`features.${i}.max`, { ph: 'unlimited', label: 'Max uses formula', title: 'A number or formula: 1+cha, prof, 5*level, paladin' }))}${fld('Refills on', sel(`features.${i}.reset`, [['short', 'Short rest'], ['long', 'Long rest'], ['none', 'Never']]))}
           ${fld('Used as', sel(`features.${i}.col`, [['', '—'], ['action', 'Action'], ['bonus', 'Bonus action'], ['reaction', 'Reaction']]))}<label class="checkline">${chk(`features.${i}.pool`)} Points pool</label></div>
           ${fld('Short summary (shown on the Combat tab)', ta(`features.${i}.desc`, { rows: 3, label: 'Description' }))}
           ${fld('Your own wording (replaces the full description when filled in)', ta(`features.${i}.full`, { rows: 5, label: 'Your own wording', ph: fullDefaultFeat(f) ? 'Optional — leave blank to use the built-in description' : 'Optional — the full description' }))}
           ${hbbOpenRow('feat', i, f.hb, f)}
           <div class="row"><span class="hint">Uses accept formulas like <code>1+cha</code>, <code>prof</code> or <code>5*level</code>.</span><span class="grow"></span>${f.kind === 'feat' ? `<button class="btn sm red" data-act="delfeatn" data-n="${esc(String(f.key).slice(5))}">Remove feat</button>` : ''}${f.auto ? `<button class="btn sm ghost" data-act="featreset" data-i="${i}">Restore original</button>` : `<button class="btn sm red" data-act="del" data-list="features" data-i="${i}">Delete</button>`}</div></div>`
-        : (fullOfFeat(f).length > 280 ? `<div class="fc-desc fc-full${UI.open['ffull:' + i] ? ' open' : ''}" data-act="toggle" data-key="ffull:${i}" title="Click to ${UI.open['ffull:' + i] ? 'collapse' : 'read all'}">${fullHTML(fullOfFeat(f))}</div>` : `<div class="fc-desc">${fullHTML(fullOfFeat(f))}</div>`)}${fx.acts && !ed ? `<div class="fxacts">${fxActsHTML(f, i)}</div>` : ''}
-      ${featSpellsHTML(f, i, ed)}
+        : `<div class="fc-desc">${fullHTML(fullOfFeat(f))}</div>`}
+        ${featSpellsHTML(f, i, ed)}
+        <div class="fl-foot"><button type="button" class="fl-edit${ed ? ' on' : ''}" data-act="toggle" data-key="fedit:${i}" title="${ed ? 'Done editing' : 'Edit this feature'}" aria-label="${ed ? 'Done editing' : 'Edit ' + esc(f.name)}">${ed ? '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>' : '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg>'}</button></div>
+      </div></div>
     </div>`;
   };
   const head = g => {
@@ -2848,7 +2855,7 @@ function renderFeatures() {
   <div class="panel" ${PID('featlist')}><h2><span class="grow">Features &amp; Traits</span><span class="hint lvhint" style="text-transform:none;letter-spacing:0">Total level ${totalLevel()} · proficiency ${fmt(PB())}</span><button class="btn sm" data-act="hbnew" data-k="feat">+ Homebrew feature</button></h2>
     <div class="filters" style="margin-top:0"><input class="f featq" id="featQ" placeholder="Search features…" value="${esc(UI.featQ || '')}" aria-label="Search features"><button class="chip${ff === 'all' ? ' on' : ''}" data-act="featfilter" data-f="all">All</button>${groups.filter(g => g !== 'feat' || S.features.some(f => featGroup(f) === 'feat')).map(g => `<button class="chip${ff === g ? ' on' : ''}" data-act="featfilter" data-f="${g}">${esc(gname(g))}</button>`).join('')}</div>
     ${sections || '<p class="hint">No features match.</p>'}
-    <p class="hint">Features from your class, race, background and feats are added and updated automatically as you level. Tap ✎ on a card to change it.</p></div>`;
+    <p class="hint">Features from your class, race, background and feats are added and updated automatically as you level. Tap a feature to read it in full or edit it.</p></div>`;
 }
 // ---------- Inventory ----------
 const attuneMax = () => { const a = clsLv('artificer'); return a >= 18 ? 6 : a >= 14 ? 5 : a >= 10 ? 4 : 3; };
@@ -3801,6 +3808,8 @@ function mainClick(e) {
     case 'add': addItem(b.dataset.list); break;
     case 'del': delItem(b.dataset.list, i); break;
     case 'up': { const L = getP(b.dataset.list); if (i > 0) { [L[i - 1], L[i]] = [L[i], L[i - 1]]; save(); render(); } break; }
+    // Features tab rows open and close in place (no redraw), so they can slide open.
+    case 'ftog': { const k = b.dataset.key, row = b.closest('.frow'), v = row ? !row.classList.contains('open') : !UI.open[k]; UI.open[k] = v; saveUI(); if (row) { row.classList.toggle('open', v); b.setAttribute('aria-expanded', v); const bd = row.querySelector('.fl-body'); if (bd) bd.inert = !v; } return; }
     case 'toggle': {
       UI.open[b.dataset.key] = !UI.open[b.dataset.key]; saveUI(); pendingLabel = null;
       // Feature cards share rows: opening one card's text opens the others in the same row too (and closing closes them).
@@ -5827,6 +5836,7 @@ function openExtFx() {
   </div>`;
   if ($('#condmodal.extfxm') && $('#modal').classList.contains('open')) $('#modal-body').innerHTML = html; else openModal(html);
 }
+
 
 
 // ---------- Fields that grow to fit their text ----------
