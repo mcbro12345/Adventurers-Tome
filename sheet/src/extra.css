@@ -4332,3 +4332,4 @@ html:not(.mobile) .modal.wide:has(> .castopts):not(:has(.settabs)) { width: fit-
 html.mobile #page-features .fl-sum:has(.fl-acts) { flex-wrap: wrap; padding-bottom: 8px; }
 html.mobile #page-features .fl-sum:has(.fl-acts) .fl-r { flex: 1 1 100%; flex-wrap: wrap; justify-content: flex-start; padding-left: 38px; }
 html.mobile #page-features .fl-sum:has(.fl-acts) .fl-acts { justify-content: flex-start; flex: 1 1 auto; }
+html.mobile #page-features .fl-acts .btn.fxact { min-height: 32px; padding: 4px 12px; }
