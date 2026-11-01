@@ -156,11 +156,50 @@ const hkey = () => keyFor(S.id || 'blank') + ':history';
 const TRACK = k => !['savedAt', 'spellFilter', 'macroSeen', 'ptyLog', 'ptyNews'].includes(k);
 let HIST = [], REDO = [], LAST = null, pendingLabel = null;
 function snapAll() { const o = {}; for (const k in S) if (TRACK(k)) o[k] = JSON.stringify(S[k]); return o; }
+// What a change was, in words, read from what's different (for changes made without a name of their own — the undo
+// history and the site's activity log show it instead of just "Change").
+const CH_NAMES = { hp: 'HP', currency: 'coins', inventory: 'inventory', spells: 'spells', slotsUsed: 'spell slots', pactUsed: 'pact slots', hdUsed: 'hit dice', death: 'death saves', conditions: 'conditions', exhaustion: 'exhaustion', effects: 'effects', concentration: 'concentration', abilities: 'ability scores', saves: 'saving throws', skills: 'skills', features: 'features', feats: 'feats', classes: 'classes', notes: 'notes', backstory: 'backstory', allies: 'allies', lore: 'lore', traits: 'personality', appearance: 'appearance', attacks: 'attacks', combat: 'actions', turn: 'turn', companions: 'companions', settings: 'settings', layout: 'layout', theme: 'colours', portrait: 'picture', name: 'name', player: 'player name', alignment: 'alignment', xp: 'XP', faith: 'faith', tools: 'tools', langs: 'languages', profs: 'proficiencies', bags: 'containers', quotes: 'quotes', rumors: 'rumours', people: 'people', goals: 'goals', goal: 'goal', customItems: 'custom items', acOverride: 'AC', speedOverride: 'speed', race: 'race', background: 'background', rollAdv: 'advantage', condTurns: 'condition timers', riders: 'riders', form: 'form', picks: 'choices', featChoices: 'feat choices', slotsOverride: 'spell slot totals' };
+function changeWords(changed, cur) {
+  const out = [], P = j => { try { return j == null ? undefined : JSON.parse(j); } catch (e) { return undefined; } }, nm = x => x == null ? '' : typeof x === 'string' ? x : String(x.name || x.dname || x.title || x.label || x.text || x.key || '').slice(0, 60);
+  const num = v => (v === '' || v == null) ? 0 : Number(v) || 0, arrow = (a, b) => `${a} → ${b}`;
+  const list = (a, b, what) => { a = Array.isArray(a) ? a : []; b = Array.isArray(b) ? b : []; const an = a.map(nm), bn = b.map(nm), r = [];
+    bn.forEach((n, i) => { if (n && !an.includes(n)) r.push('added ' + n); });
+    an.forEach(n => { if (n && !bn.includes(n)) r.push('removed ' + n); });
+    if (!r.length) b.forEach(x => { const n = nm(x), o = a.find(y => nm(y) === n); if (!n || !o || JSON.stringify(o) === JSON.stringify(x)) return;
+      const d = [];
+      if (x && o && typeof x === 'object') { if (num(o.qty) !== num(x.qty) && (o.qty != null || x.qty != null)) d.push('×' + arrow(num(o.qty) || 1, num(x.qty) || 1));
+        if (!!o.equipped !== !!x.equipped) d.push(x.equipped ? 'equipped' : 'unequipped'); if (!!o.attuned !== !!x.attuned) d.push(x.attuned ? 'attuned' : 'unattuned');
+        if (!!o.prepared !== !!x.prepared) d.push(x.prepared ? 'prepared' : 'unprepared');
+        if (o.charges && x.charges && num(o.charges.used) !== num(x.charges.used)) d.push('charges used ' + arrow(num(o.charges.used), num(x.charges.used)));
+        if (o.used != null && num(o.used) !== num(x.used)) d.push('used ' + arrow(num(o.used), num(x.used))); }
+      r.push(n + (d.length ? ' ' + d.join(', ') : ' changed')); });
+    return r.length ? r.slice(0, 3).join(', ') + (r.length > 3 ? ` (+${r.length - 3} more)` : '') : what + ' changed'; };
+  for (const k of Object.keys(changed)) { const a = P(changed[k]), b = P(cur[k]); let w = '';
+    if (k === 'hp' && a && b) { const r = []; if (num(a.cur) !== num(b.cur)) r.push('HP ' + arrow(num(a.cur), num(b.cur))); if (num(a.temp) !== num(b.temp)) r.push('temp HP ' + arrow(num(a.temp), num(b.temp))); if (num(a.base) !== num(b.base) || num(a.adj) !== num(b.adj)) r.push('max HP changed'); w = r.join(', '); }
+    else if (k === 'currency' && a && b) { const CN = { pp: 'platinum', gp: 'gold', ep: 'electrum', sp: 'silver', cp: 'copper' }; w = ['pp', 'gp', 'ep', 'sp', 'cp'].filter(c => num(a[c]) !== num(b[c])).map(c => CN[c] + ' ' + arrow(num(a[c]), num(b[c]))).join(', '); }
+    else if (k === 'slotsUsed' && Array.isArray(a) && Array.isArray(b)) w = b.map((v, i) => num(v) !== num(a[i]) ? (num(v) > num(a[i]) ? `used a level ${i + 1} slot` : `got back a level ${i + 1} slot`) : '').filter(Boolean).join(', ');
+    else if (k === 'pactUsed') w = num(b) > num(a) ? 'used a pact slot' : 'got back a pact slot';
+    else if (k === 'death' && a && b) w = 'death saves ' + arrow(`${num(a.s)}✓ ${num(a.f)}✗`, `${num(b.s)}✓ ${num(b.f)}✗`);
+    else if (k === 'exhaustion') w = 'exhaustion ' + arrow(num(a), num(b));
+    else if (k === 'concentration') w = b ? 'concentrating on ' + nm(b) : 'stopped concentrating' + (a ? ' on ' + nm(a) : '');
+    else if (k === 'abilities' && a && b) w = Object.keys(b).filter(x => num(a[x]) !== num(b[x])).map(x => x.toUpperCase() + ' ' + arrow(num(a[x]), num(b[x]))).join(', ');
+    else if (k === 'saves' && a && b) w = Object.keys(b).filter(x => !!a[x] !== !!b[x]).map(x => (b[x] ? 'proficient in ' : 'not proficient in ') + x.toUpperCase() + ' saves').join(', ');
+    else if (k === 'skills' && Array.isArray(a) && Array.isArray(b)) w = b.map((x, i) => { const o = a[i] || {}; return num(o.prof) !== num(x.prof) ? (num(x.prof) >= 2 ? 'expertise in ' : num(x.prof) ? 'proficient in ' : 'not proficient in ') + x.name : num(o.misc) !== num(x.misc) ? x.name + ' bonus ' + arrow(num(o.misc), num(x.misc)) : ''; }).filter(Boolean).join(', ');
+    else if (k === 'classes' && Array.isArray(a) && Array.isArray(b)) { const lv = c => `${c.name || c.key || 'class'} ${c.level || ''}`.trim(); w = JSON.stringify(a.map(lv)) !== JSON.stringify(b.map(lv)) ? arrow(a.map(lv).join(' / ') || 'none', b.map(lv).join(' / ')) : 'class details changed'; }
+    else if (k === 'hdUsed') w = 'hit dice used changed';
+    else if (k === 'turn' && a && b) { const r = []; if (num(a.round) !== num(b.round)) r.push('round ' + arrow(num(a.round), num(b.round))); const ua = a.used || {}, ub = b.used || {}; Object.keys(Object.assign({}, ua, ub)).forEach(x => { if (!!ua[x] !== !!ub[x]) r.push((ub[x] ? 'used ' : 'got back ') + (x === 'action' ? 'the action' : x === 'bonus' ? 'the bonus action' : x === 'reaction' ? 'the reaction' : x)); }); if (num(a.moved) !== num(b.moved)) r.push('moved ' + arrow(num(a.moved), num(b.moved)) + ' ft'); w = r.join(', ') || 'turn tracker changed'; }
+    else if (Array.isArray(a) || Array.isArray(b)) w = (CH_NAMES[k] ? CH_NAMES[k][0].toUpperCase() + CH_NAMES[k].slice(1) + ': ' : '') + list(a, b, CH_NAMES[k] || k);
+    else if (typeof b === 'string' || typeof a === 'string') { const t = CH_NAMES[k] || k; w = String(b || '').length < 40 && String(a || '').length < 40 ? `${t}: ${arrow(a || '—', b || '—')}` : 'edited ' + t; }
+    else if (typeof b === 'number' || typeof a === 'number') w = (CH_NAMES[k] || k) + ' ' + arrow(num(a), num(b));
+    else w = (CH_NAMES[k] || k) + ' changed';
+    if (w) out.push(w); }
+  const t = out.join('; '); return t ? t[0].toUpperCase() + t.slice(1, 300) : 'Change';
+}
 function commit() {
-  const label = pendingLabel || 'Change', merge = label.startsWith('Edit: ');
-  pendingLabel = null;
   const cur = snapAll(), changed = {};
   new Set([...Object.keys(cur), ...Object.keys(LAST || {})]).forEach(k => { if (cur[k] !== (LAST || {})[k]) changed[k] = (LAST || {})[k] === undefined ? null : LAST[k]; });
+  let label = pendingLabel || ''; pendingLabel = null; if (!label) { try { label = changeWords(changed, cur); } catch (e) { label = 'Change'; } }
+  const merge = label.startsWith('Edit: ');
   LAST = cur;
   if (!Object.keys(changed).length || !S.created) return;
   const now = Date.now(), top = HIST[HIST.length - 1];
@@ -1603,6 +1642,7 @@ const critDice = e => { e = String(e || ''); if (ST('critRule') !== 'max') retur
 const diceTimes = (e, k) => String(e || '').replace(/(\d*)d(\d+)/gi, (m, n, sd) => ((N(n) || 1) * k) + 'd' + sd);
 
 // ---------- Toasts & modal ----------
+window.sheetToast = (...a) => toast(...a); // (the site's own code on a sheet page shows its notes the same way)
 function toast(html, cls = '', ms = 4500, action) {
   // Rolling in Roll20 yourself: a result card becomes "roll these dice" (the sheet still did everything else).
   if (SKIPPED.length && /^\s*<(b class="total"|div class="rc-multi")/.test(html)) {
@@ -2764,22 +2804,28 @@ function renderFeatures() {
     const fx = fxOf(f), dcl = fxDCLine(fx, f);
     const tags = [f.source, f.hb && f.hb.on ? riderTrigText(f.hb) : '', f.col ? (f.col === 'bonus' ? 'Bonus action' : f.col === 'move' ? 'Free' : f.col[0].toUpperCase() + f.col.slice(1)) : '', max != null ? `${max}× per ${resetOf(f) === 'short' ? 'short rest' : resetOf(f) === 'long' ? 'long rest' : 'never'}` : '', dcl, fx.cost ? 'Costs ' + fxCostText(fx.cost) : '', fx.onlyRaging ? 'While raging' : ''].filter(Boolean);
     const canUse = !fxIsResource(f) && (fx.cost || fx.use || fx.target || fx.roll);
-    return `<div class="fcard${f.auto ? '' : ' custom'}${ed ? ' editing' : ''}">
-      <div class="fc-head"><b class="fc-name">${esc(f.name)}</b>${sc.map(([n, v]) => `<span class="fscale" title="${esc(n)}">${esc(v)}</span>`).join('')}<span class="grow"></span>
-        ${max != null && !f.pool && !fxIsResource(f) ? `<button class="btn sm gold" data-act="usefeat" data-i="${i}" ${left || fx.slotRestore ? '' : 'disabled'}>${f.roll || fx.roll ? 'Use & roll' : 'Use'}</button>` : f.roll ? `<button class="btn sm gold" data-act="usefeat" data-i="${i}">Roll</button>` : canUse ? `<button class="btn sm gold" data-act="usefeat" data-i="${i}">${fx.useLabel || (fx.roll ? 'Use & roll' : 'Use')}</button>` : ''}
-        <button class="icon-btn fc-edit${ed ? ' on' : ''}" data-act="toggle" data-key="fedit:${i}" title="${ed ? 'Done editing' : 'Edit this feature'}" aria-label="Edit">${ed ? '✓' : '✎'}</button></div>
-      <div class="fc-tags">${tags.map(t => `<span class="ftag">${esc(t)}</span>`).join('')}${sc.length > 1 || (sc[0] && sc[0][0].toLowerCase() !== f.name.toLowerCase()) ? sc.map(([n, v]) => `<span class="ftag">${esc(n)}: ${esc(v)}</span>`).join('') : ''}</div>
-      ${f.key === 'warlock:uaravenqueen:Sentinel Raven' ? ravenChk() : ''}
-      ${max != null ? `<div class="fc-uses"><span class="pips" data-calc-html="featpips:${i}"></span>${f.pool ? '' : `<span class="hint">${left} of ${max} left</span>`}</div>` : ''}
-      ${ed ? `<div class="fc-form">${fld('Name', inp(`features.${i}.name`, { label: 'Feature name' }))}
+    // Ledger row: one line (name, short summary, uses, Use) that opens to the full text, tags and editing.
+    const ok = 'fopen:' + (f.key || f.name); if (ed) UI.open[ok] = true; // a row being edited stays open after Done
+    const open = !!UI.open[ok];
+    const sum = String(f.desc || '').replace(/<[^>]+>/g, '').trim() || String(fullOfFeat(f) || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160);
+    return `<div class="fcard frow${f.auto ? '' : ' custom'}${ed ? ' editing' : ''}${open ? ' open' : ''}">
+      <div class="fl-sum"><button type="button" class="fl-tog" data-act="ftog" data-key="${esc(ok)}" aria-expanded="${open}"><i class="fl-car" aria-hidden="true"></i>
+        <span class="fl-t"><b class="fc-name">${esc(f.name)}</b>${sc.map(([n, v]) => `<span class="fscale" title="${esc(n)}">${esc(v)}</span>`).join('')}<i class="fl-s">${esc(sum)}</i></span></button>
+        <span class="fl-r">${max != null && !f.pool ? `<span class="pips" data-calc-html="featpips:${i}"></span>` : ''}${max != null && !f.pool && !fxIsResource(f) ? `<button class="btn sm gold" data-act="usefeat" data-i="${i}" ${left || fx.slotRestore ? '' : 'disabled'}>${f.roll || fx.roll ? 'Use & roll' : 'Use'}</button>` : f.roll ? `<button class="btn sm gold" data-act="usefeat" data-i="${i}">Roll</button>` : canUse ? `<button class="btn sm gold" data-act="usefeat" data-i="${i}">${fx.useLabel || (fx.roll ? 'Use & roll' : 'Use')}</button>` : ''}<button type="button" class="fl-edit${ed ? ' on' : ''}" data-act="toggle" data-key="fedit:${i}" title="${ed ? 'Done editing' : 'Edit this feature'}" aria-label="${ed ? 'Done editing' : 'Edit ' + esc(f.name)}">${ed ? '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>' : '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg>'}</button></span></div>
+      <div class="fl-body"${open ? '' : ' inert'}><div class="fl-in">
+        <div class="fl-meta">${tags.map(t => `<span>${esc(t)}</span>`).join('')}${sc.length > 1 || (sc[0] && sc[0][0].toLowerCase() !== f.name.toLowerCase()) ? sc.map(([n, v]) => `<span>${esc(n)}: ${esc(v)}</span>`).join('') : ''}</div>
+        ${f.key === 'warlock:uaravenqueen:Sentinel Raven' ? ravenChk() : ''}
+        ${max != null ? `<div class="fc-uses">${f.pool ? `<span class="pips" data-calc-html="featpips:${i}"></span>` : `<span class="hint">${left} of ${max} left · refills on ${resetOf(f) === 'short' ? 'a short or long rest' : resetOf(f) === 'long' ? 'a long rest' : 'nothing'}</span>`}</div>` : ''}
+        ${ed ? `<div class="fc-form">${fld('Name', inp(`features.${i}.name`, { label: 'Feature name' }))}
           <div class="row">${fld('Uses', inp(`features.${i}.max`, { ph: 'unlimited', label: 'Max uses formula', title: 'A number or formula: 1+cha, prof, 5*level, paladin' }))}${fld('Refills on', sel(`features.${i}.reset`, [['short', 'Short rest'], ['long', 'Long rest'], ['none', 'Never']]))}
           ${fld('Used as', sel(`features.${i}.col`, [['', '—'], ['action', 'Action'], ['bonus', 'Bonus action'], ['reaction', 'Reaction']]))}<label class="checkline">${chk(`features.${i}.pool`)} Points pool</label></div>
           ${fld('Short summary (shown on the Combat tab)', ta(`features.${i}.desc`, { rows: 3, label: 'Description' }))}
           ${fld('Your own wording (replaces the full description when filled in)', ta(`features.${i}.full`, { rows: 5, label: 'Your own wording', ph: fullDefaultFeat(f) ? 'Optional — leave blank to use the built-in description' : 'Optional — the full description' }))}
           ${hbbOpenRow('feat', i, f.hb, f)}
           <div class="row"><span class="hint">Uses accept formulas like <code>1+cha</code>, <code>prof</code> or <code>5*level</code>.</span><span class="grow"></span>${f.kind === 'feat' ? `<button class="btn sm red" data-act="delfeatn" data-n="${esc(String(f.key).slice(5))}">Remove feat</button>` : ''}${f.auto ? `<button class="btn sm ghost" data-act="featreset" data-i="${i}">Restore original</button>` : `<button class="btn sm red" data-act="del" data-list="features" data-i="${i}">Delete</button>`}</div></div>`
-        : (fullOfFeat(f).length > 280 ? `<div class="fc-desc fc-full${UI.open['ffull:' + i] ? ' open' : ''}" data-act="toggle" data-key="ffull:${i}" title="Click to ${UI.open['ffull:' + i] ? 'collapse' : 'read all'}">${fullHTML(fullOfFeat(f))}</div>` : `<div class="fc-desc">${fullHTML(fullOfFeat(f))}</div>`)}${fx.acts && !ed ? `<div class="fxacts">${fxActsHTML(f, i)}</div>` : ''}
-      ${featSpellsHTML(f, i, ed)}
+        : `<div class="fc-desc">${fullHTML(fullOfFeat(f))}</div>`}${fx.acts && !ed ? `<div class="fxacts">${fxActsHTML(f, i)}</div>` : ''}
+        ${featSpellsHTML(f, i, ed)}
+      </div></div>
     </div>`;
   };
   const head = g => {
@@ -2808,7 +2854,7 @@ function renderFeatures() {
   <div class="panel" ${PID('featlist')}><h2><span class="grow">Features &amp; Traits</span><span class="hint lvhint" style="text-transform:none;letter-spacing:0">Total level ${totalLevel()} · proficiency ${fmt(PB())}</span><button class="btn sm" data-act="hbnew" data-k="feat">+ Homebrew feature</button></h2>
     <div class="filters" style="margin-top:0"><input class="f featq" id="featQ" placeholder="Search features…" value="${esc(UI.featQ || '')}" aria-label="Search features"><button class="chip${ff === 'all' ? ' on' : ''}" data-act="featfilter" data-f="all">All</button>${groups.filter(g => g !== 'feat' || S.features.some(f => featGroup(f) === 'feat')).map(g => `<button class="chip${ff === g ? ' on' : ''}" data-act="featfilter" data-f="${g}">${esc(gname(g))}</button>`).join('')}</div>
     ${sections || '<p class="hint">No features match.</p>'}
-    <p class="hint">Features from your class, race, background and feats are added and updated automatically as you level. Tap ✎ on a card to change it.</p></div>`;
+    <p class="hint">Features from your class, race, background and feats are added and updated automatically as you level. Tap a feature to read it in full or edit it.</p></div>`;
 }
 // ---------- Inventory ----------
 const attuneMax = () => { const a = clsLv('artificer'); return a >= 18 ? 6 : a >= 14 ? 5 : a >= 10 ? 4 : 3; };
@@ -3761,6 +3807,8 @@ function mainClick(e) {
     case 'add': addItem(b.dataset.list); break;
     case 'del': delItem(b.dataset.list, i); break;
     case 'up': { const L = getP(b.dataset.list); if (i > 0) { [L[i - 1], L[i]] = [L[i], L[i - 1]]; save(); render(); } break; }
+    // Features tab rows open and close in place (no redraw), so they can slide open.
+    case 'ftog': { const k = b.dataset.key, row = b.closest('.frow'), v = row ? !row.classList.contains('open') : !UI.open[k]; UI.open[k] = v; saveUI(); if (row) { row.classList.toggle('open', v); b.setAttribute('aria-expanded', v); const bd = row.querySelector('.fl-body'); if (bd) bd.inert = !v; } return; }
     case 'toggle': {
       UI.open[b.dataset.key] = !UI.open[b.dataset.key]; saveUI(); pendingLabel = null;
       // Feature cards share rows: opening one card's text opens the others in the same row too (and closing closes them).
@@ -5787,6 +5835,7 @@ function openExtFx() {
   </div>`;
   if ($('#condmodal.extfxm') && $('#modal').classList.contains('open')) $('#modal-body').innerHTML = html; else openModal(html);
 }
+
 
 
 // ---------- Fields that grow to fit their text ----------
@@ -9895,7 +9944,7 @@ function renderParty() {
       return `<div class="ptya"><b>${esc(a.name)}</b><span class="hint">${esc(ptyFormula(a.def.label || '') || a.def.text || '')}</span><div class="ptya-who">${ms.map(m => `<label class="checkline"><input type="checkbox" data-aura="${esc(a.name)}" data-id="${esc(m.id)}"${on.includes(m.id) ? ' checked' : ''}> ${esc(m.name)}</label>`).join('')}</div></div>`; }).join('')}</div>` : '';
   const logP = `<div class="panel ptylogp"><h2>Party log</h2>${(S.ptyLog || []).length ? `<div class="ptylog">${S.ptyLog.slice(0, 30).map(l => `<div class="ptyl ${esc(l.dir)}"><span class="ptyl-d" aria-label="${l.dir === 'in' ? 'Received' : 'Sent'}">${l.dir === 'in' ? '↓' : '↑'}</span><span class="ptyl-t">${esc(l.text)}<small>${l.dir === 'in' ? 'from ' : 'to '}${esc(l.who)} · ${esc(ptyAgo(l.at))}</small></span></div>`).join('')}</div>` : '<p class="hint" style="margin:0">What you send and receive shows up here.</p>'}</div>`;
   const ch = PTYX().chat, chatP = ch && ch.on() ? (UI.chatPop ? `<div class="panel ptychat ptychat-popped"><h2>Party chat</h2><div class="ptychat-lock"><span aria-hidden="true">⧉</span><p>The chat is popped out in its own window.</p><button class="btn sm" data-pa="chatdock">Bring it back here</button></div></div>` : `<div class="panel ptychat"><h2><span class="grow">Party chat</span><button class="icon-btn ptychat-popbtn" data-pa="chatpop" title="Open the chat in its own window (stays open on every tab)" aria-label="Open the chat in its own window"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-8 8"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg></button></h2>${ptyChatInner()}</div>`)
-    : !P.loading ? `<div class="panel ptychat ptychat-off"><h2>Party chat</h2><div class="ptychat-lock"><span aria-hidden="true">🔒</span><p>${PTYX().owner() !== PTYX().email ? `Only ${esc(S.player || 'this character’s player')} can see and send this character’s party chat.` : 'Party chat is just for the players — as the DM, you can’t see it.'}</p></div></div>` : '';
+    : !P.loading ? `<div class="panel ptychat ptychat-off"><h2>Party chat</h2><div class="ptychat-lock"><span aria-hidden="true"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span><p>${PTYX().owner() !== PTYX().email ? `Only ${esc(S.player || 'this character’s player')} can see and send this character’s party chat.` : 'Party chat is just for the players — as the DM, you can’t see it.'}</p></div></div>` : '';
   // Party chat sits to the right of everything else (below it on a phone).
   pg.innerHTML = `<div class="ptytab">${head}<div class="ptymain${chatP ? ' haschat' : ''}"><div class="ptyleft">${cards}<div class="ptyfoot${aurasP ? '' : ' one'}">${aurasP}${logP}</div></div>${chatP}</div></div>`;
   if (!UI.chatPop) ptyChatWire(); else ptyChatWin();
@@ -10389,6 +10438,8 @@ function ptyBusy() { const a = document.activeElement; return $('#wizard').class
 const ptyFreeKind = k => ['note', 'end', 'reply'].includes(k);
 function ptyTrusted(m) { const P = PTYX(), I = P && P.info(); if (ptyFreeKind(m.kind) && !(m.data && m.data.reason)) return true; if (!m.by) return false;
   if (m.data && m.data.ask) return false; // sent from the party page: always asked, even from the DM
+  // loot the whole party agreed to split (each player said OK on their own sheet): it just arrives
+  if (m.data && m.data.split && ['item', 'loot', 'coins'].includes(m.kind)) return true;
   // only the DM, or this character's own player (their own characters) — not whoever happens to have the sheet open
   return !!I && (m.by === I.dm || (I.mgrs || []).includes(m.by) || m.by === (P.owner && P.owner())); }
 function ptyInFlush() { const I = PTYX() && PTYX().info(); if (!S.created || ptyBusy() || !I || I.loading) { clearTimeout(ptyInFlush._t); ptyInFlush._t = setTimeout(ptyInFlush, 800); return; }
@@ -10939,18 +10990,18 @@ function hbbItemAdv() {
   let h = '';
   if (t === 'weapon') h += bSec('wpn', '⚔', 'Weapon details', hbbSum([['_mag', d._mag ? '+' + d._mag + ' magic' : ''], ['_props', d._props], ['_loading', 'loading']]),
     bF('Magic bonus (to hit and damage)', bSeg('_mag', [['', 'None'], ['1', '+1'], ['2', '+2'], ['3', '+3']])) + bF('Properties', bChips('_props', ['Finesse', 'Light', 'Heavy', 'Two-handed', 'Thrown', 'Reach', 'Versatile', 'Special'])) + bRow(bF('Category', bSeg('_cat', [['simple', 'Simple'], ['martial', 'Martial']])), d._kind === 'ranged' ? bChk('_loading', 'Loading', 'Only one shot per action, bonus action or reaction') : ''));
-  h += bSec('prot', '🛡', 'Protection', hbbSum([[P + 'resist', 'Resist ' + (hbbV(P + 'resist') || '')], [P + 'immune', 'Immune ' + (hbbV(P + 'immune') || '')], [P + 'vuln', 'Vulnerable ' + (hbbV(P + 'vuln') || '')], [P + 'condImmune'], [P + 'ac', 'AC +' + hbbV(P + 'ac')], [P + 'saveAll', 'Saves +' + hbbV(P + 'saveAll')]]) || 'Resistances, immunities, AC',
+  h += bSec('prot', '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/></svg>', 'Protection', hbbSum([[P + 'resist', 'Resist ' + (hbbV(P + 'resist') || '')], [P + 'immune', 'Immune ' + (hbbV(P + 'immune') || '')], [P + 'vuln', 'Vulnerable ' + (hbbV(P + 'vuln') || '')], [P + 'condImmune'], [P + 'ac', 'AC +' + hbbV(P + 'ac')], [P + 'saveAll', 'Saves +' + hbbV(P + 'saveAll')]]) || 'Resistances, immunities, AC',
     bF('Resistant to', bChips(P + 'resist', DND.damageTypes)) + bF('Immune to', bChips(P + 'immune', DND.damageTypes)) + bF('Vulnerable to', bChips(P + 'vuln', DND.damageTypes)) + bF('Can’t be', bChips(P + 'condImmune', HBB_CONDS)) + bRow(bF('AC bonus', bIn(P + 'ac', { ph: '1' })), bF('Bonus to all saves', bIn(P + 'saveAll', { ph: '1' }))));
   h += bSec('move', '🪽', 'Movement & senses', hbbSum([[P + 'speed', '+' + hbbV(P + 'speed') + ' ft'], [P + 'fly', 'Fly'], [P + 'swim', 'Swim'], [P + 'climb', 'Climb'], [P + 'sense']]) || 'Speed, flying, darkvision',
     bRow(bF('Extra speed (ft)', bIn(P + 'speed', { ph: '10' })), bF('Fly (ft)', bIn(P + 'fly', { ph: '30 or walk' })), bF('Swim (ft)', bIn(P + 'swim', { ph: 'walk' })), bF('Climb (ft)', bIn(P + 'climb', { ph: 'walk' }))) + bF('Senses', bIn(P + 'sense', { ph: 'Darkvision 60 ft' })));
   h += bSec('bon', '✚', 'Bonuses', hbbSum([[P + 'skillBonus'], [P + 'init', 'Initiative +' + hbbV(P + 'init')], [P + 'initAdv', 'Adv. on initiative'], [P + 'maxHp', 'Max HP +' + hbbV(P + 'maxHp')], [P + 'adv', 'Advantage notes']]) || 'Skills, initiative, max HP',
     bF('Skill bonuses', bIn(P + 'skillBonus', { ph: 'Stealth +2, Perception +1' })) + bRow(bF('Initiative bonus', bIn(P + 'init', { ph: '2 or wis' })), bF('Max HP bonus', bIn(P + 'maxHp', { ph: 'level' }))) + bChk(P + 'initAdv', 'Advantage on initiative') + bF('Advantage on (a reminder)', bIn(P + 'adv', { ph: 'Saves against being frightened; …' })));
-  h += bSec('use', '⚡', 'When you use it', hbbSum([[P + 'roll', 'Rolls ' + hbbV(P + 'roll')], [P + 'heal', 'Heals ' + hbbV(P + 'heal')], [P + 'temp', 'Temp HP'], [P + 'saveAb', 'Save'], [P + 'dash', 'Dash'], [P + 'refuel', 'Recovers a slot'], [P + 'costFrom', 'Costs']]) || 'Rolls, healing, saves',
+  h += bSec('use', '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>', 'When you use it', hbbSum([[P + 'roll', 'Rolls ' + hbbV(P + 'roll')], [P + 'heal', 'Heals ' + hbbV(P + 'heal')], [P + 'temp', 'Temp HP'], [P + 'saveAb', 'Save'], [P + 'dash', 'Dash'], [P + 'refuel', 'Recovers a slot'], [P + 'costFrom', 'Costs']]) || 'Rolls, healing, saves',
     bRow(bF('Roll', bIn(P + 'roll', { ph: '2d6+wis' })), bF('What the roll is', bIn(P + 'rollNote', { ph: 'fire damage' }))) + bRow(bChk(P + 'healRoll', 'The roll heals me'), bChk(P + 'selfDmg', 'The roll hurts me')) +
     bRow(bF('Targets make a save', bSel(P + 'saveAb', hbbAbOpts, { label: 'Save ability' })), bF('Save DC', bIn(P + 'dc', { ph: '15, or spell' }))) +
     bRow(bF('Heal yourself', bIn(P + 'heal', { ph: '2d4+2' })), bF('Temp HP', bIn(P + 'temp', { ph: '1d10' }))) +
     bRow(bF('Spends', bSel(P + 'costFrom', [['', 'Nothing']].concat(res), { label: 'Spends' })), hbbV(P + 'costFrom') ? bF('How many', bIn(P + 'costN', { num: 1, ph: '1' })) : '', bF('Recovers a spell slot up to', bIn(P + 'refuel', { num: 1, ph: 'level' }))) + bChk(P + 'dash', 'Lets you Dash', 'Adds your speed to this turn’s movement'));
-  h += bSec('eff', '✨', 'Starts an effect', hbbV(P + 'effName') ? hbbV(P + 'effName') : 'A buff that lasts a while', hbbEffFields(P));
+  h += bSec('eff', '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 15l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7z"/></svg>', 'Starts an effect', hbbV(P + 'effName') ? hbbV(P + 'effName') : 'A buff that lasts a while', hbbEffFields(P));
   if (comps.length) h += bSec('sum', '🐾', 'Summons a creature', hbbV(P + 'summon') || 'A companion', bF('Summons', bSel(P + 'summon', [['', '—']].concat(comps.map(c => [c, c])), { label: 'Summons' })));
   h += bSec('sp', '📜', 'Spells it lets you cast', (d.spells || []).join(', ') || 'None', hbbSpellList() + bRow(bChk('spellOnce', 'Leveled spells once per long rest'), bChk('spellAtWill', 'At will (no slot)')) + bF('Cast with', bSel(P + 'spellAb', [['', 'Your spellcasting'], ...AB.map(a => [a, ABN[a]])], { label: 'Cast with' })));
   if (t !== 'weapon') h += bSec('atk', '🗡', 'Gives you an attack', hbbV(P + 'atkName') || 'A special attack', hbbAtkFields(P));
@@ -11010,7 +11061,7 @@ function hbbFeatBasic() {
   const d = HBB.d;
   let h = bF('Name', bIn('name', { ph: 'e.g. Stormborn Fury', cls: 'hbb-name', label: 'Feature name' }));
   h += bF('Using it takes', bSeg('col', hbbUseCols('Nothing — it’s passive, or adds to something else'), { wrap: true }), !d.col && !hbbV('hb.on') ? 'It won’t get its own button in Combat. Pick an action type to use it from Combat, or make it add to another ability below (like Divine Smite).' : '');
-  if (d.col && !HBB.adv) h += `<div class="hbb-card"><div class="hbb-ct">⚡ When you use it</div>` + bRow(bF('Roll', bIn('hb.roll', { ph: '2d6+wis' }), 'Dice or a formula'), bF('What the roll is', bIn('hb.rollNote', { ph: 'radiant damage' }))) + bRow(bF('Targets make a save', bSel('hb.saveAb', hbbAbOpts, { label: 'Save ability' })), hbbV('hb.saveAb') ? bF('Save DC', bIn('hb.dc', { ph: 'spell, or 8+prof+wis' })) : '') + `<p class="hint">More (healing, temp HP, effects, costs) under <b>Advanced</b>.</p></div>`;
+  if (d.col && !HBB.adv) h += `<div class="hbb-card"><div class="hbb-ct"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg> When you use it</div>` + bRow(bF('Roll', bIn('hb.roll', { ph: '2d6+wis' }), 'Dice or a formula'), bF('What the roll is', bIn('hb.rollNote', { ph: 'radiant damage' }))) + bRow(bF('Targets make a save', bSel('hb.saveAb', hbbAbOpts, { label: 'Save ability' })), hbbV('hb.saveAb') ? bF('Save DC', bIn('hb.dc', { ph: 'spell, or 8+prof+wis' })) : '') + `<p class="hint">More (healing, temp HP, effects, costs) under <b>Advanced</b>.</p></div>`;
   h += `<div class="hbb-card"><div class="hbb-ct">↻ Uses</div>` + bF('How often can you use it?', bSeg('_limited', [['', 'As often as I like'], ['1', 'A limited number of times']]));
   if (d._limited) h += bRow(bF('Times', bIn('max', { ph: '1, prof, 1+cha…', label: 'How many times' }), 'A number, or a formula like <code>prof</code> or <code>1+wis</code>'), bF('Comes back on', bSeg('reset', [['short', 'Short rest'], ['long', 'Long rest'], ['none', 'Never']], { wrap: true })));
   h += `</div>`;
@@ -11022,13 +11073,13 @@ function hbbFeatAdv() {
   const d = HBB.d, P = 'hb.', comps = typeof COMP_RULES === 'object' ? Object.keys(COMP_RULES) : [];
   const res = S.features.filter(f => f !== S.features[HBB.idx] && featMax(f) != null).map(f => [f.dname || f.name, f.dname || f.name]);
   let h = '';
-  h += bSec('use', '⚡', 'When you use it', hbbSum([[P + 'roll', 'Rolls ' + hbbV(P + 'roll')], [P + 'heal', 'Heals'], [P + 'temp', 'Temp HP'], [P + 'saveAb', 'Save'], [P + 'dash', 'Dash'], [P + 'costFrom', 'Costs']]) || 'Rolls, healing, saves, costs',
+  h += bSec('use', '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>', 'When you use it', hbbSum([[P + 'roll', 'Rolls ' + hbbV(P + 'roll')], [P + 'heal', 'Heals'], [P + 'temp', 'Temp HP'], [P + 'saveAb', 'Save'], [P + 'dash', 'Dash'], [P + 'costFrom', 'Costs']]) || 'Rolls, healing, saves, costs',
     bRow(bF('Roll', bIn(P + 'roll', { ph: '2d6+wis' })), bF('What the roll is', bIn(P + 'rollNote', { ph: 'radiant damage' }))) + bRow(bChk(P + 'healRoll', 'The roll heals me'), bChk(P + 'selfDmg', 'The roll hurts me')) +
     bRow(bF('Targets make a save', bSel(P + 'saveAb', hbbAbOpts, { label: 'Save ability' })), bF('Save DC', bIn(P + 'dc', { ph: 'spell, or 8+prof+wis' }))) +
     bRow(bF('Heal yourself', bIn(P + 'heal', { ph: '1d8+level' })), bF('Temp HP', bIn(P + 'temp', { ph: 'cha+level' }))) +
     bRow(bF('Also spends', bSel(P + 'costFrom', [['', 'Nothing']].concat(res), { label: 'Also spends' })), hbbV(P + 'costFrom') ? bF('How many', bIn(P + 'costN', { num: 1, ph: '1' })) : '') + bChk(P + 'dash', 'Lets you Dash') + bF('Message when used', bIn(P + 'text', { ph: 'A reminder of what happens' })));
-  h += bSec('eff', '✨', 'Starts an effect', hbbV(P + 'effName') || 'A buff that lasts a while', hbbEffFields(P));
-  h += bSec('always', '🛡', 'Always on', hbbSum([[P + 'resist', 'Resist ' + (hbbV(P + 'resist') || '')], [P + 'immune', 'Immune'], [P + 'ac', 'AC'], [P + 'speed', 'Speed'], [P + 'fly', 'Fly'], [P + 'sense'], [P + 'skillBonus'], [P + 'maxHp', 'Max HP']]) || 'Resistances, speeds, bonuses',
+  h += bSec('eff', '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 15l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7z"/></svg>', 'Starts an effect', hbbV(P + 'effName') || 'A buff that lasts a while', hbbEffFields(P));
+  h += bSec('always', '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/></svg>', 'Always on', hbbSum([[P + 'resist', 'Resist ' + (hbbV(P + 'resist') || '')], [P + 'immune', 'Immune'], [P + 'ac', 'AC'], [P + 'speed', 'Speed'], [P + 'fly', 'Fly'], [P + 'sense'], [P + 'skillBonus'], [P + 'maxHp', 'Max HP']]) || 'Resistances, speeds, bonuses',
     bF('Resistant to', bChips(P + 'resist', DND.damageTypes)) + bF('Immune to', bChips(P + 'immune', DND.damageTypes)) + bF('Vulnerable to', bChips(P + 'vuln', DND.damageTypes)) + bF('Can’t be', bChips(P + 'condImmune', HBB_CONDS)) +
     bRow(bF('AC bonus', bIn(P + 'ac', { ph: '1' })), bF('Extra speed', bIn(P + 'speed', { ph: '10' })), bF('Fly', bIn(P + 'fly', { ph: 'walk' })), bF('Swim', bIn(P + 'swim', { ph: 'walk' })), bF('Climb', bIn(P + 'climb', { ph: 'walk' }))) +
     bRow(bF('Senses', bIn(P + 'sense', { ph: 'Darkvision 60 ft' })), bF('Skill bonuses', bIn(P + 'skillBonus', { ph: 'Insight +2' }))) + bRow(bF('Saves bonus', bIn(P + 'saveAll', { ph: '1' })), bF('Initiative bonus', bIn(P + 'init', { ph: 'wis' })), bF('Max HP bonus', bIn(P + 'maxHp', { ph: 'level' }))) +

@@ -13,7 +13,7 @@
     document.documentElement.setAttribute('data-theme', t);
   })();
 </script>
-<link rel="stylesheet" href="a/sheet.adc3a2f18cba.css">
+<link rel="stylesheet" href="a/sheet.4754f8172e4c.css">
 <link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" type="image/png" sizes="195x195" href="speed-dial-195.png"><link rel="icon" type="image/png" sizes="512x512" href="icon-512.png"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="icon" type="image/png" sizes="32x32" href="icon-32.png"><meta name="apple-mobile-web-app-title" content="Adventurer’s Tome"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta property="og:type" content="video.other"><meta property="og:site_name" content="adventurers-tome.web.app"><meta property="og:title" content="Adventurer’s Tome"><meta property="og:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta property="og:url" content="https://adventurers-tome.web.app/"><meta property="og:image" content="https://adventurers-tome.web.app/og-tour.png?v=5"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1280"><meta property="og:image:height" content="720"><meta property="og:image:alt" content="Adventurer’s Tome: D&amp;D 5e sheets that do the math"><meta property="og:image" content="https://adventurers-tome.web.app/speed-dial.png?v=1"><link rel="image_src" href="/speed-dial.png?v=1"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1024"><meta property="og:image:height" content="640"><meta property="og:image:alt" content="Adventurer’s Tome"><meta property="og:video" content="https://www.youtube.com/embed/wR1JulNVoDE"><meta property="og:video:url" content="https://www.youtube.com/embed/wR1JulNVoDE"><meta property="og:video:secure_url" content="https://www.youtube.com/embed/wR1JulNVoDE"><meta property="og:video:type" content="text/html"><meta property="og:video:width" content="1280"><meta property="og:video:height" content="720"><link rel="alternate" type="application/json+oembed" href="https://adventurers-tome.web.app/oembed.json?v=6" title="Adventurer’s Tome"><meta name="twitter:card" content="player"><meta name="twitter:player" content="https://www.youtube.com/embed/wR1JulNVoDE"><meta name="twitter:player:width" content="1280"><meta name="twitter:player:height" content="720"><meta name="twitter:title" content="Adventurer’s Tome"><meta name="twitter:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta name="twitter:image" content="https://adventurers-tome.web.app/og-tour.png?v=5"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.webmanifest"><script>var t="dark";try{if(localStorage.getItem("pg-theme")==="light")t="light"}catch(e){}document.documentElement.setAttribute("data-pgtheme",t)</script><style>/* Loading screen: dark navy with a slowly spinning d20 (light parchment only behind the sign-in card in light mode) */
 html.pg-loading, html.pg-loading body { background: #0f1420; }
@@ -3938,6 +3938,14 @@ body.hubbody:not(.adminbody) #hub:not(.hd2) .hub-head.hd-stuck::after { opacity:
 /* the New character / New party words can move while they morph */
 body.hubbody .hub-new .hn-txt b { display: inline-block; white-space: nowrap; }
 body.hubbody .hub-new { overflow: hidden; }
+
+/* unslop: the wordmark in one solid gold instead of gradient-filled text */
+.hl-t { background: none !important; -webkit-background-clip: border-box !important; background-clip: border-box !important; color: #d9a93f !important; -webkit-text-fill-color: #d9a93f !important; }
+@media (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) .hl-t { color: #8a6420 !important; -webkit-text-fill-color: #8a6420 !important; } }
+ :where(html[data-pgtheme="light"]) .hl-t { color: #8a6420 !important; -webkit-text-fill-color: #8a6420 !important; } 
+
+/* The admin sidebar is always navy, so its wordmark keeps the bright gold in light mode too. */
+body.adminbody .adm-brand .hl-t { color: #d9a93f !important; -webkit-text-fill-color: #d9a93f !important; }
 </style>
 </head>
 <body>
@@ -4200,7 +4208,10 @@ const PG_EXT = { seen: {} };
 const pgExtNum = v => { const a = String(v || '0').split('.').map(Number); return (a[0] || 0) * 1e4 + (a[1] || 0) * 100 + (a[2] || 0); };
 function pgExtCopies() { return Object.values(PG_EXT.seen).sort((a, b) => (b.inst === 'normal') - (a.inst === 'normal') || pgExtNum(b.v) - pgExtNum(a.v)); }
 addEventListener('message', e => { if (e.source !== window) return; const d = e.data; if (!d || d.__dnd20 !== 'hi' || d.dir !== 'toSheet' || d.version === 'mock') return;
-  const v = String(d.version || 'yes').slice(0, 20); PG_EXT.seen[v] = { v, inst: pgExtInst(d) }; });
+  const v = String(d.version || 'yes').slice(0, 20), inst = pgExtInst(d);
+  // (only one store copy can be installed, so a store copy answering with a new version has just updated: forget the old one)
+  if (inst === 'normal') Object.keys(PG_EXT.seen).forEach(k => { if (k !== v && PG_EXT.seen[k].inst === 'normal') delete PG_EXT.seen[k]; });
+  PG_EXT.seen[v] = { v, inst }; });
 function pgOnlineWhy(back, bg) { const p = location.pathname, q = location.search, t = String(document.title || '').replace(/\s*[—-]\s*Adventurer.s Tome\s*$/i, '').trim();
   const what = /^\/(c|character)\/|[?&]c=/.test(p + q) ? (t && !/adventurer/i.test(t) ? t + '’s sheet' : 'a character sheet')
     : /^\/party\/|[?&]party=/.test(p + q) ? (t && t !== 'Party' ? 'the ' + t + ' party page' : 'a party page')
@@ -4888,7 +4899,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261101160522', ASSETS = {"data": "a/data.e8173a24cd9b.js", "app": "a/app.5357e015575b.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.8451c03bd757.html", "desk": "a/desk.ab6b05dfed51.js", "deskcss": "a/deskcss.407b744be102.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261101164914', ASSETS = {"data": "a/data.e8173a24cd9b.js", "app": "a/app.e0e12c3f1888.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.a3617d5429f4.html", "desk": "a/desk.f9a8ca1ca7cd.js", "deskcss": "a/deskcss.cc6e6bb4676a.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   // The test site says so on every page (and in the tab's title), so it's never mistaken for the real one.
   if (CFG.test) { window.PG_TEST = true; const mark = () => { if (!document.body || document.getElementById('pg-testmark')) return; const t = document.createElement('div'); t.id = 'pg-testmark'; t.textContent = 'Test site'; t.title = 'This is the test copy of Adventurer’s Tome. Changes here don’t touch the real site.'; document.body.appendChild(t);
       if (!/^\[Test\] /.test(document.title)) document.title = '[Test] ' + document.title; };
@@ -5320,7 +5331,7 @@ function wireDie(root) {
       <div class="pg-bug-l pg-bug-att">Attachments <span class="pg-bug-opt">optional</span>
         <div class="pg-bug-fl"></div>
         <button type="button" class="pg-bug-add"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5l-8.6 8.6a5.5 5.5 0 0 1-7.8-7.8l8.6-8.6a3.7 3.7 0 0 1 5.2 5.2l-8.6 8.6a1.8 1.8 0 0 1-2.6-2.6l8-8"/></svg>Attach a screenshot or file</button><input type="file" class="pg-bug-in" multiple hidden>
-        <small class="pg-bug-hint">${matchMedia('(hover: hover)').matches ? `Took a screenshot? Press <kbd>${/Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl'}</kbd>+<kbd>V</kbd> to paste it in. You can also drop files here. ` : ''}Up to ${BUG_MAX}.</small></div>
+        <small class="pg-bug-hint">${matchMedia('(hover: hover)').matches ? `Took a screenshot? Press <kbd>${/Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl'}</kbd>+<kbd>V</kbd> to paste it in. You can also drop files here. ` : ''}<span style="white-space:nowrap">Up to ${BUG_MAX}.</span></small></div>
       <div class="pg-out-row"><button class="pg-out-no">Cancel</button><button class="pg-out-yes" disabled>Send</button></div></div>`;
     const close = () => { m.remove(); document.removeEventListener('keydown', key); }, key = e => { if (e.key === 'Escape') close(); };
     const sm = m.querySelector('.pg-bug-s'), ds = m.querySelector('.pg-bug-d'), ok = m.querySelector('.pg-out-yes');
@@ -6629,9 +6640,10 @@ function hub(fs, auth, G, ctx) {
   function newBtn() { const nb = root.querySelector('#hub-new'); if (!nb) return; const pty = view === 'parties', t = nb.querySelector('.hn-txt b');
     const to = pty ? 'New party' : 'Create character';
     // (the words morph from one to the other: the old ones blur and fade out, the new ones blur in, and the button eases to its new width)
-    if (t && t.textContent !== to) { const quiet = calm() || !t.textContent || !t.animate;
-      if (quiet) t.textContent = to;
-      else { const w0 = nb.getBoundingClientRect().width; if (t._mo) t._mo.cancel(); const out = t.animate([{ opacity: 1, filter: 'blur(0)', transform: 'none' }, { opacity: 0, filter: 'blur(4px)', transform: 'translateY(-3px)' }], { duration: 120, easing: 'ease-in', fill: 'forwards' }); t._mo = out;
+    // (compared with where it's heading, not what it shows mid-fade, so a quick back-and-forth still ends on the right words)
+    if (t && (t._to || t.textContent) !== to) { const quiet = calm() || !t.textContent || !t.animate; t._to = to;
+      if (quiet) { if (t._mo) { t._mo.cancel(); t._mo = null; } t.textContent = to; t.style.opacity = ''; }
+      else { const w0 = nb.getBoundingClientRect().width; if (t._mo) { t._mo.onfinish = null; t._mo.cancel(); } const out = t.animate([{ opacity: 1, filter: 'blur(0)', transform: 'none' }, { opacity: 0, filter: 'blur(4px)', transform: 'translateY(-3px)' }], { duration: 120, easing: 'ease-in', fill: 'forwards' }); t._mo = out;
         out.onfinish = () => { t.textContent = to; const w1 = nb.getBoundingClientRect().width;
           if (Math.abs(w1 - w0) > 1 && nb.animate) nb.animate([{ width: w0 + 'px' }, { width: w1 + 'px' }], { duration: 220, easing: 'cubic-bezier(.2,.8,.3,1)' });
           t._mo = t.animate([{ opacity: 0, filter: 'blur(4px)', transform: 'translateY(3px)' }, { opacity: 1, filter: 'blur(0)', transform: 'none' }], { duration: 200, easing: 'ease-out', fill: 'forwards' }); }; } }
@@ -8957,7 +8969,7 @@ function pgRevealPanels() { try { if (matchMedia('(prefers-reduced-motion: reduc
       `<b>Add the official one</b> from the Chrome Web Store: click <b>${esc(b.add)}</b>. It updates itself from then on.${b.extra ? ` <span class="pgx-hint">${b.extra}</span>` : ''}<div class="pgx-go"><a class="pg-out-yes pgx-btn" href="${STORE}" target="_blank" rel="noopener">Open the Chrome Web Store</a></div>`,
       'Come back and <b>reload this page</b>. If you use Roll20, reload your Roll20 tab too.'];
     const steps2 = two ? steps.filter((x, k) => k !== 1) : steps; /* (already has the official one) */
-    const m = document.createElement('div'); m.className = 'pg-out pg-devext'; if (typeof pgOutFade === 'function') pgOutFade(m); shown = m;
+    const m = document.createElement('div'); m.className = 'pg-out pg-devext'; if (typeof pgOutFade === 'function') pgOutFade(m); shown = m; shown._two = two;
     m.innerHTML = `<div class="pg-out-card pgx-card" role="dialog" aria-modal="true" aria-labelledby="pgx-h"><h2 id="pgx-h">${two ? 'Remove the old Roll20 extension' : 'Switch to the official Roll20 extension'}</h2>
       <p class="pgx-warn"><span aria-hidden="true">⚠</span><span>${two ? `You have <b>two copies</b> of the Roll20 extension installed: the official one, and an old <b>developer copy</b>${ver ? ` (v${esc(ver)})` : ''} that still answers — so rolls can post twice. Remove the developer copy (step 1). ` : `You’re using a <b>developer copy</b> of the Roll20 extension${ver ? ` (v${esc(ver)})` : ''}.`}${two ? '' : ' Developer copies don’t update themselves and can have bugs — please switch to the official store version. It’s the same extension and keeps itself up to date.'}</span></p>
       <p class="pgx-sub">In ${esc(b.name)}, it takes ${two ? 'a few seconds' : 'about a minute'}:</p><ol class="pgx-steps">${steps2.map(x => `<li>${x}</li>`).join('')}</ol>
@@ -8971,7 +8983,8 @@ function pgRevealPanels() { try { if (matchMedia('(prefers-reduced-motion: reduc
   addEventListener('message', e => { if (e.source !== window) return; const d = e.data; if (!d || d.__dnd20 !== 'hi' || d.dir !== 'toSheet' || d.version === 'mock') return;
     const inst = pgExtInst(d), cs = pgExtCopies(), two = cs.length > 1, old0 = two ? cs[cs.length - 1] : null;
     const dev = two || (inst ? inst === 'development' : (OLD_COPIES_ARE_DEV && older(d.version)));
-    if (dev) { const go = () => show(two ? old0.v : d.version, two); document.body ? setTimeout(go, 1200) : addEventListener('DOMContentLoaded', () => setTimeout(go, 1200)); }
+    // (decided when it shows, so a store copy that answers a moment after an old one still gets the two-copies warning)
+    if (dev) { const go = () => { const c2 = pgExtCopies(), t2 = c2.length > 1; if (!t2 && c2.length && c2[0].inst === 'normal') return; if (shown && t2 && !shown._two) close(false); show(t2 ? c2[c2.length - 1].v : d.version, t2); }; document.body ? setTimeout(go, 1200) : addEventListener('DOMContentLoaded', () => setTimeout(go, 1200)); }
     else if (shown && !two && (!NAG || inst === 'normal')) close(false); });
   // ask whichever copy is installed to say hi (it already does when the page opens, but this page may have missed it)
   const ask = () => window.postMessage({ __dnd20: 'hello', dir: 'toExt' }, '*'); if (document.readyState === 'loading') addEventListener('DOMContentLoaded', ask); else ask();
