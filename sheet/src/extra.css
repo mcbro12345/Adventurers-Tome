@@ -47,12 +47,17 @@
 .sumcell { font-size: .82rem; color: var(--soft); min-width: 220px; max-width: 360px; }
 .sp-sum { font-size: .8rem; color: var(--soft); margin-top: 2px; }
 .always.known { background: transparent; border-color: var(--line); color: var(--soft); }
-.castopts { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; margin-top: 6px; }
-.castopt { border: 1px solid var(--gold); background: var(--gold-soft); color: var(--ink); border-radius: 9px; padding: 9px 10px; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; }
-.castopt span { font-size: .74rem; color: var(--soft); }
-.castopt:hover:not([disabled]) { background: var(--gold); }
-.castopt[disabled] { opacity: .4; cursor: not-allowed; }
-.castopt.ghost { background: transparent; border-color: var(--line); }
+.castopts { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; margin-top: 10px; }
+.castopt { position: relative; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 3px; min-height: 54px; padding: 11px 36px 11px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel2); color: var(--ink); text-align: left; cursor: pointer; transition: border-color .15s ease, background-color .15s ease; }
+.castopt b { font-size: .92rem; font-weight: 650; line-height: 1.25; }
+.castopt span { font-size: .76rem; line-height: 1.4; color: var(--soft); }
+.castopt::after { content: ""; position: absolute; right: 15px; top: 50%; width: 7px; height: 7px; border-top: 2px solid currentColor; border-right: 2px solid currentColor; transform: translateY(-50%) rotate(45deg); opacity: .28; transition: opacity .15s ease, right .15s ease; }
+.castopt:hover:not([disabled]) { border-color: var(--gold); background: var(--gold-soft); }
+.castopt:hover:not([disabled])::after { opacity: 1; right: 12px; color: var(--gold-ink); }
+.castopt:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.castopt[disabled] { opacity: .45; cursor: not-allowed; }
+.castopt[disabled]::after { display: none; }
+.castopt.ghost { background: transparent; border-style: dashed; }
 .checkline.big { font-size: .95rem; font-weight: 600; margin: 4px 0 8px; }
 /* Features */
 .clsrow { border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; margin-bottom: 8px; background: var(--panel2); }
@@ -346,7 +351,7 @@ html.mobile .rest-actions { grid-template-columns: 1fr 1fr; }
 html.mobile .pbar { flex-wrap: wrap; }
 html.mobile .flow { columns: 1; }
 
-.btn.gold, .tbtn.gold, .lvbtn, .tabcount, .tbtn.on, .pbar button.on, .lvtabs b, .castopt:hover:not([disabled]) { color: var(--on-gold, #1D2536); }
+.btn.gold, .tbtn.gold, .lvbtn, .tabcount, .tbtn.on, .pbar button.on, .lvtabs b { color: var(--on-gold, #1D2536); }
 .qrow textarea.f, .goal textarea.f { flex: 1; resize: none; min-height: 0; }
 /* Ability blocks with the score big and the modifier small */
 .ab.swap { display: flex; flex-direction: column; align-items: center; }
@@ -363,7 +368,7 @@ html.mobile .xprow { justify-content: space-between; }
 html.mobile .ident-grid .fld { flex: 1 1 140px; }
 
 .btn .hdleft { color: inherit; opacity: .85; font-weight: 600; margin-left: 4px; }
-.btn.gold .hint, .castopt span { color: inherit; opacity: .8; }
+.btn.gold .hint { color: inherit; opacity: .8; }
 
 /* ===== Round 4 ===== */
 /* Header */
@@ -1141,8 +1146,8 @@ html.mobile .advtile .advopt { height: 40px; font-size: .9rem; }
 .econ .readied { border: 1px solid var(--gold); background: var(--gold-soft); border-radius: 10px; padding: 8px 10px; margin-bottom: 8px; }
 .econ .readied .opt-head { gap: 6px; }
 .econ .readied.gone { opacity: .6; }
-#modal-body .castopt.on { outline: 2px solid var(--gold); background: var(--gold); color: #1d2536; }
-#modal-body .castopt.on span { color: #1d2536; }
+#modal-body .castopt.on { border-color: var(--gold); background: var(--gold-soft); box-shadow: inset 3px 0 0 var(--gold); }
+#modal-body .castopt.on::after { opacity: 1; right: 15px; width: 5px; height: 10px; border-top: 0; border-bottom: 2px solid var(--gold-ink); border-right-color: var(--gold-ink); transform: translateY(-60%) rotate(45deg); }
 
 /* Nat 1 Roll house rule */
 .rc-n1 { display: inline-block; margin: 3px 0; padding: 2px 8px; border-radius: 6px; background: rgba(200,60,60,.18); color: var(--ink); font-size: .85rem; }
