@@ -3729,3 +3729,10 @@ body.hubbody:not(.adminbody) #hub:not(.hd2) .hub-head.hd-stuck::after { opacity:
 /* the New character / New party words can move while they morph */
 body.hubbody .hub-new .hn-txt b { display: inline-block; white-space: nowrap; }
 body.hubbody .hub-new { overflow: hidden; }
+
+/* unslop: the wordmark in one solid gold instead of gradient-filled text */
+.hl-t { background: none !important; -webkit-background-clip: border-box !important; background-clip: border-box !important; color: #d9a93f !important; -webkit-text-fill-color: #d9a93f !important; }
+@media (prefers-color-scheme: light) { .hl-t { color: #8a6420 !important; -webkit-text-fill-color: #8a6420 !important; } }
+
+/* The admin sidebar is always navy, so its wordmark keeps the bright gold in light mode too. */
+body.adminbody .adm-brand .hl-t { color: #d9a93f !important; -webkit-text-fill-color: #d9a93f !important; }

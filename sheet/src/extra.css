@@ -47,12 +47,18 @@
 .sumcell { font-size: .82rem; color: var(--soft); min-width: 220px; max-width: 360px; }
 .sp-sum { font-size: .8rem; color: var(--soft); margin-top: 2px; }
 .always.known { background: transparent; border-color: var(--line); color: var(--soft); }
-.castopts { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; margin-top: 6px; }
-.castopt { border: 1px solid var(--gold); background: var(--gold-soft); color: var(--ink); border-radius: 9px; padding: 9px 10px; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; }
-.castopt span { font-size: .74rem; color: var(--soft); }
-.castopt:hover:not([disabled]) { background: var(--gold); }
-.castopt[disabled] { opacity: .4; cursor: not-allowed; }
-.castopt.ghost { background: transparent; border-color: var(--line); }
+.castopts { display: flex; flex-direction: column; margin-top: 10px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--panel2); }
+.castopt { position: relative; display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 10px; row-gap: 1px; width: 100%; min-height: 40px; padding: 9px 34px 9px 14px; border: 0; border-top: 1px solid rgba(127,127,127,.2); border-radius: 0; background: transparent; color: var(--ink); text-align: left; cursor: pointer; transition: background-color .12s ease; }
+.castopt:first-child { border-top: 0; }
+.castopt b { font-size: .9rem; font-weight: 650; line-height: 1.3; }
+.castopt span { flex: 1 1 180px; font-size: .78rem; line-height: 1.35; color: var(--soft); }
+.castopt::after { content: ""; position: absolute; right: 15px; top: 50%; width: 6px; height: 6px; border-top: 2px solid currentColor; border-right: 2px solid currentColor; transform: translateY(-50%) rotate(45deg); opacity: .25; transition: opacity .12s ease, right .12s ease; }
+.castopt:hover:not([disabled]) { background: var(--gold-soft); }
+.castopt:hover:not([disabled])::after { opacity: 1; right: 12px; color: var(--gold-ink); }
+.castopt:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+.castopt[disabled] { opacity: .45; cursor: not-allowed; }
+.castopt[disabled]::after { display: none; }
+.castopt.ghost { color: var(--soft); }
 .checkline.big { font-size: .95rem; font-weight: 600; margin: 4px 0 8px; }
 /* Features */
 .clsrow { border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; margin-bottom: 8px; background: var(--panel2); }
@@ -243,7 +249,7 @@ html.mobile .btn.rest { min-height: 44px; font-size: .95rem; }
 .lvlnum b { display: block; font-size: 2rem; line-height: 1; color: var(--banner-ink); }
 .lvlright { display: flex; flex-direction: column; gap: 4px; }
 .lvbtn { font-size: .95rem; padding: 7px 14px; }
-.lvlbox.ready { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold), 0 0 18px rgba(224,165,38,.45); }
+.lvlbox.ready { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold); }
 .lvlbox.ready .lvbtn { animation: pulse 1.6s infinite; }
 .xprow { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 .xprow .lbl { margin: 0; }
@@ -346,7 +352,7 @@ html.mobile .rest-actions { grid-template-columns: 1fr 1fr; }
 html.mobile .pbar { flex-wrap: wrap; }
 html.mobile .flow { columns: 1; }
 
-.btn.gold, .tbtn.gold, .lvbtn, .tabcount, .tbtn.on, .pbar button.on, .lvtabs b, .castopt:hover:not([disabled]) { color: var(--on-gold, #1D2536); }
+.btn.gold, .tbtn.gold, .lvbtn, .tabcount, .tbtn.on, .pbar button.on, .lvtabs b { color: var(--on-gold, #1D2536); }
 .qrow textarea.f, .goal textarea.f { flex: 1; resize: none; min-height: 0; }
 /* Ability blocks with the score big and the modifier small */
 .ab.swap { display: flex; flex-direction: column; align-items: center; }
@@ -363,7 +369,7 @@ html.mobile .xprow { justify-content: space-between; }
 html.mobile .ident-grid .fld { flex: 1 1 140px; }
 
 .btn .hdleft { color: inherit; opacity: .85; font-weight: 600; margin-left: 4px; }
-.btn.gold .hint, .castopt span { color: inherit; opacity: .8; }
+.btn.gold .hint { color: inherit; opacity: .8; }
 
 /* ===== Round 4 ===== */
 /* Header */
@@ -1141,8 +1147,8 @@ html.mobile .advtile .advopt { height: 40px; font-size: .9rem; }
 .econ .readied { border: 1px solid var(--gold); background: var(--gold-soft); border-radius: 10px; padding: 8px 10px; margin-bottom: 8px; }
 .econ .readied .opt-head { gap: 6px; }
 .econ .readied.gone { opacity: .6; }
-#modal-body .castopt.on { outline: 2px solid var(--gold); background: var(--gold); color: #1d2536; }
-#modal-body .castopt.on span { color: #1d2536; }
+#modal-body .castopt.on { background: var(--gold-soft); box-shadow: inset 3px 0 0 var(--gold); }
+#modal-body .castopt.on::after { opacity: 1; right: 15px; width: 5px; height: 10px; border-top: 0; border-bottom: 2px solid var(--gold-ink); border-right-color: var(--gold-ink); transform: translateY(-60%) rotate(45deg); }
 
 /* Nat 1 Roll house rule */
 .rc-n1 { display: inline-block; margin: 3px 0; padding: 2px 8px; border-radius: 6px; background: rgba(200,60,60,.18); color: var(--ink); font-size: .85rem; }
@@ -1805,9 +1811,9 @@ html .tile.hp > .hp-wrap { flex: 1; }
 .tile.hp .btn.hpi[data-act=heal] { color: var(--heal-ink); border-color: var(--heal); background: var(--heal-soft); }
 .tile.hp .btn.hpi { transition: filter .15s, box-shadow .15s, transform .1s; }
 .tile.hp .btn.hpi:hover { filter: brightness(1.12) saturate(1.15); }
-.tile.hp .btn.hpi[data-act=dmg]:hover { border-color: var(--dmg); box-shadow: 0 0 0 1px var(--dmg), 0 0 10px color-mix(in srgb, var(--dmg) 45%, transparent); }
-.tile.hp .btn.hpi[data-act=heal]:hover { border-color: var(--heal); box-shadow: 0 0 0 1px var(--heal), 0 0 10px color-mix(in srgb, var(--heal) 45%, transparent); }
-.tile.hp .btn.hpi.tmpbtn:hover { border-color: var(--temp); box-shadow: 0 0 0 1px var(--temp), 0 0 10px color-mix(in srgb, var(--temp) 45%, transparent); }
+.tile.hp .btn.hpi[data-act=dmg]:hover { border-color: var(--dmg); box-shadow: 0 0 0 1px var(--dmg); }
+.tile.hp .btn.hpi[data-act=heal]:hover { border-color: var(--heal); box-shadow: 0 0 0 1px var(--heal); }
+.tile.hp .btn.hpi.tmpbtn:hover { border-color: var(--temp); box-shadow: 0 0 0 1px var(--temp); }
 :root[data-theme="dark"] .tile.hp .btn.hpi:hover { filter: brightness(1.25) saturate(1.1); }
 
 /* AC tile: plain number with an ⓘ for the breakdown */
@@ -2208,9 +2214,9 @@ body.gdragging .gridl > [data-pid] { transition: none; }
 .chp2 .btn.hpi.dmg { color: var(--dmg-ink); border-color: var(--dmg); background: var(--dmg-soft); }
 .chp2 .btn.hpi.heal { color: var(--heal-ink); border-color: var(--heal); background: var(--heal-soft); }
 .chp2 .btn.hpi.tmp { color: var(--temp-ink); border-color: var(--temp); background: var(--temp-soft); }
-.chp2 .btn.hpi.dmg:hover { box-shadow: 0 0 0 1px var(--dmg), 0 0 10px color-mix(in srgb, var(--dmg) 45%, transparent); }
-.chp2 .btn.hpi.heal:hover { box-shadow: 0 0 0 1px var(--heal), 0 0 10px color-mix(in srgb, var(--heal) 45%, transparent); }
-.chp2 .btn.hpi.tmp:hover { box-shadow: 0 0 0 1px var(--temp), 0 0 10px color-mix(in srgb, var(--temp) 45%, transparent); }
+.chp2 .btn.hpi.dmg:hover { box-shadow: 0 0 0 1px var(--dmg); }
+.chp2 .btn.hpi.heal:hover { box-shadow: 0 0 0 1px var(--heal); }
+.chp2 .btn.hpi.tmp:hover { box-shadow: 0 0 0 1px var(--temp); }
 .cm-card .chp.chp2 { flex-basis: 220px; gap: 10px; padding: 8px; }
 .cm-card .chp2 .chp-ring { width: 78px; height: 78px; }
 .cm-card .chp2 .chp-center { inset: 11px; }
@@ -2446,7 +2452,7 @@ html.mobile #tipbox .tipfx { width: 76px; height: 76px; }
 .insp.one { cursor: pointer; font: inherit; color: inherit; padding: 4px 14px; }
 .insp.one:hover { background: var(--gold-soft); }
 .insp.one .insp-n { font-size: 1.15rem; transition: transform .15s; }
-.insp.one.on .insp-n { transform: scale(1.12); text-shadow: 0 0 8px rgba(201,150,43,.55); }
+.insp.one.on .insp-n { transform: scale(1.12); }
 .insp.one:active .insp-n { transform: scale(.9); }
 
 /* on an actual phone the layout switch is hidden: it always uses the phone layout */
@@ -4248,5 +4254,72 @@ html.mobile .setx > .stpane.nopage { display: none !important; }
 /* character creation on a phone: no background band behind the step markers */
 html.mobile #wizard .wz3 .wz-head { background: none !important; }
 html.mobile #wizard .wz3 .wz-steps { background: none !important; box-shadow: none !important; }
+
+/* ---------- Features tab: ledger rows ----------
+   One soft rounded row per feature (name, short summary, uses, Use); tapping it slides open the full text, tags and Edit. */
+#page-features .fgroup { margin-top: 16px; }
+#page-features .fgroup .subh.fghead { margin: 0 0 6px; padding: 0 12px; background: none; border: 0; box-shadow: none; }
+#page-features .fgrid { display: flex; flex-direction: column; gap: 4px; grid-template-columns: none !important; }
+#page-features .fcard.frow { display: block; padding: 0; border: 0; border-radius: 12px; background: color-mix(in srgb, var(--ink) 3%, transparent); box-shadow: none; min-width: 0; transition: background-color .18s ease, box-shadow .18s ease; }
+@media (hover: hover) { #page-features .fcard.frow:hover { background: color-mix(in srgb, var(--ink) 5.5%, transparent); } }
+#page-features .fcard.frow.open { background: var(--panel2); box-shadow: 0 0 0 1px color-mix(in srgb, var(--gold) 28%, transparent), 0 6px 18px rgba(0,0,0,.18); }
+#page-features .fcard.frow.editing { box-shadow: 0 0 0 2px var(--gold); }
+#page-features .fl-sum { display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 0 12px 0 0; border-radius: 12px; }
+#page-features .fl-tog { flex: 1 1 auto; min-width: 0; align-self: stretch; display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 10px; align-items: center; padding: 7px 0 7px 12px; border: 0; border-radius: 12px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+#page-features .fl-tog:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+#page-features .fcard.frow.custom .fl-tog { box-shadow: inset 3px 0 0 color-mix(in srgb, var(--gold) 70%, transparent); }
+#page-features .fl-car { width: 7px; height: 7px; margin-left: 3px; border-right: 2px solid var(--soft); border-bottom: 2px solid var(--soft); border-radius: 0 0 2px 0; transform: rotate(-45deg); transition: transform .2s ease, border-color .2s ease; }
+#page-features .frow.open .fl-car { transform: rotate(45deg); border-color: var(--gold); }
+#page-features .fl-t { min-width: 0; display: flex; align-items: baseline; gap: 4px 10px; flex-wrap: wrap; }
+#page-features .fl-t .fc-name { font-size: .95rem; font-weight: 650; }
+#page-features .fl-t .fscale { align-self: center; }
+#page-features .fl-s { flex: 1 1 0; min-width: 0; font-style: normal; font-size: .82rem; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#page-features .fl-r { display: flex; align-items: center; gap: 10px; }
+#page-features .fl-r .btn { white-space: nowrap; }
+#page-features .fl-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .22s ease; }
+#page-features .frow.open .fl-body { grid-template-rows: 1fr; }
+#page-features .fl-in { overflow: hidden; min-height: 0; padding: 0 14px 0 38px; display: flex; flex-direction: column; gap: 8px; }
+#page-features .frow.open .fl-in { padding-bottom: 12px; }
+#page-features .fl-in .fc-desc { max-width: 78ch; color: var(--ink); }
+#page-features .fl-foot { display: flex; justify-content: flex-start; }
+html.mobile #page-features .fl-s { display: none; }
+html.mobile #page-features .fl-in { padding-left: 14px; }
+@media (prefers-reduced-motion: reduce) { #page-features .fl-body, #page-features .fl-car, #page-features .fcard.frow { transition: none; } }
+#page-features .fl-s { transition: opacity .18s ease; }
+#page-features .frow.open .fl-s { opacity: 0; }
+/* Buttons inside an open row sit on the row's own colour, so give them a fill and edge of their own. */
+#page-features .fl-in .btn:not(.gold):not(.red) { background: var(--field); border: 1px solid var(--line); color: var(--ink); }
+@media (hover: hover) { #page-features .fl-in .btn:not(.gold):not(.red):hover { border-color: var(--gold); } }
+/* The row's header is a control: double-clicking it shouldn't select its words. */
+#page-features .fl-sum { -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
 /* Condition chips: the ⓘ sits right after the word (just the chip's own gap between them). */
 .cchip > .notetip { margin-left: 0; }
+#page-features .fl-r { flex: none; } #page-features .fl-r .pips { flex-wrap: nowrap; white-space: nowrap; }
+/* Open feature: a quiet meta line, the text, then its actions as accent chips. Editing is a pencil at the row's right end. */
+#page-features .fl-in { gap: 10px; }
+#page-features .fl-in > :first-child { padding-top: 12px; border-top: 1px solid color-mix(in srgb, var(--ink) 8%, transparent); }
+#page-features .fl-meta { display: flex; flex-wrap: wrap; gap: 2px 0; font-size: .74rem; font-weight: 600; letter-spacing: .02em; color: var(--soft); }
+#page-features .fl-meta span + span::before { content: "·"; margin: 0 7px; opacity: .6; }
+#page-features .fl-in .fc-desc { font-size: .9rem; line-height: 1.6; }
+#page-features .fl-in .fc-uses .hint { font-size: .8rem; }
+#page-features .fl-in .fxacts { gap: 6px; margin-top: 0; }
+#page-features .fl-in .fxacts .btn.fxact { background: color-mix(in srgb, var(--gold) 14%, transparent); border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent); color: var(--ink); border-radius: 999px; padding: 4px 14px; font-weight: 650; }
+@media (hover: hover) { #page-features .fl-in .fxacts .btn.fxact:hover { background: color-mix(in srgb, var(--gold) 26%, transparent); border-color: var(--gold); } }
+#page-features .fl-in .fxacts .btn.fxact small { opacity: .75; font-weight: 600; }
+#page-features .fl-in > :last-child { margin-bottom: 2px; }
+#page-features .fl-edit { flex: none; width: 30px; height: 30px; display: inline-grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--soft); cursor: pointer; opacity: 0; visibility: hidden; transition: opacity .15s ease, background-color .15s ease, color .15s ease; }
+#page-features .frow.open .fl-edit, #page-features .frow.editing .fl-edit { opacity: 1; visibility: visible; }
+@media (hover: hover) { #page-features .frow:hover .fl-edit { opacity: 1; visibility: visible; } #page-features .fl-edit:hover { background: color-mix(in srgb, var(--ink) 9%, transparent); color: var(--ink); } }
+#page-features .fl-edit:focus-visible { opacity: 1; visibility: visible; outline: 2px solid var(--gold); outline-offset: 1px; }
+#page-features .fl-edit.on { background: var(--gold); color: var(--on-gold, #1D2536); }
+html.mobile #page-features .fl-edit { width: 34px; height: 34px; }
+/* Open text uses the row's full width. */
+#page-features .fl-in .fc-desc { max-width: none; }
+/* Keyboard focus rings the whole row rather than just its header. */
+#page-features .fl-tog:focus-visible { outline: none; }
+#page-features .fcard.frow:has(.fl-tog:focus-visible) { box-shadow: 0 0 0 2px color-mix(in srgb, var(--gold) 70%, transparent); }
+/* Choice windows size to their options instead of stretching across the screen (computers; phones keep the full-width sheet). */
+html:not(.mobile) .modal.wide:has(> .castopts):not(:has(.settabs)) { width: fit-content; min-width: min(440px, 94vw); max-width: min(640px, 94vw); }
+/* No options to list: just the sentence, without the empty list box around it. */
+.castopts:not(:has(.castopt)) { border: 0; background: none; overflow: visible; }
+.castopts > p.hint { margin: 0; }
