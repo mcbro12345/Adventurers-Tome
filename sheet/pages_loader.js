@@ -1286,7 +1286,7 @@ function wireDie(root) {
       <div class="pg-bug-l pg-bug-att">Attachments <span class="pg-bug-opt">optional</span>
         <div class="pg-bug-fl"></div>
         <button type="button" class="pg-bug-add"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5l-8.6 8.6a5.5 5.5 0 0 1-7.8-7.8l8.6-8.6a3.7 3.7 0 0 1 5.2 5.2l-8.6 8.6a1.8 1.8 0 0 1-2.6-2.6l8-8"/></svg>Attach a screenshot or file</button><input type="file" class="pg-bug-in" multiple hidden>
-        <small class="pg-bug-hint">${matchMedia('(hover: hover)').matches ? `Took a screenshot? Press <kbd>${/Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl'}</kbd>+<kbd>V</kbd> to paste it in. You can also drop files here. ` : ''}Up to ${BUG_MAX}.</small></div>
+        <small class="pg-bug-hint">${matchMedia('(hover: hover)').matches ? `Took a screenshot? Press <kbd>${/Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl'}</kbd>+<kbd>V</kbd> to paste it in. You can also drop files here. ` : ''}<span style="white-space:nowrap">Up to ${BUG_MAX}.</span></small></div>
       <div class="pg-out-row"><button class="pg-out-no">Cancel</button><button class="pg-out-yes" disabled>Send</button></div></div>`;
     const close = () => { m.remove(); document.removeEventListener('keydown', key); }, key = e => { if (e.key === 'Escape') close(); };
     const sm = m.querySelector('.pg-bug-s'), ds = m.querySelector('.pg-bug-d'), ok = m.querySelector('.pg-out-yes');
