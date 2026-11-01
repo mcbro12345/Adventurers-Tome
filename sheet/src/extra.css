@@ -4254,3 +4254,32 @@ html.mobile .setx > .stpane.nopage { display: none !important; }
 /* character creation on a phone: no background band behind the step markers */
 html.mobile #wizard .wz3 .wz-head { background: none !important; }
 html.mobile #wizard .wz3 .wz-steps { background: none !important; box-shadow: none !important; }
+
+/* ---------- Features tab: ledger rows ----------
+   One soft rounded row per feature (name, short summary, uses, Use); tapping it slides open the full text, tags and Edit. */
+#page-features .fgroup { margin-top: 16px; }
+#page-features .fgroup .subh.fghead { margin: 0 0 6px; padding: 0 12px; background: none; border: 0; box-shadow: none; }
+#page-features .fgrid { display: flex; flex-direction: column; gap: 4px; grid-template-columns: none !important; }
+#page-features .fcard.frow { display: block; padding: 0; border: 0; border-radius: 12px; background: color-mix(in srgb, var(--ink) 3%, transparent); box-shadow: none; min-width: 0; transition: background-color .18s ease, box-shadow .18s ease; }
+@media (hover: hover) { #page-features .fcard.frow:hover { background: color-mix(in srgb, var(--ink) 5.5%, transparent); } }
+#page-features .fcard.frow.open { background: var(--panel2); box-shadow: 0 0 0 1px color-mix(in srgb, var(--gold) 28%, transparent), 0 6px 18px rgba(0,0,0,.18); }
+#page-features .fcard.frow.editing { box-shadow: 0 0 0 2px var(--gold); }
+#page-features .fl-sum { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; gap: 10px; align-items: center; min-height: 46px; padding: 7px 12px; border-radius: 12px; cursor: pointer; }
+#page-features .fl-sum:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+#page-features .fl-car { width: 7px; height: 7px; margin-left: 3px; border-right: 2px solid var(--soft); border-bottom: 2px solid var(--soft); border-radius: 0 0 2px 0; transform: rotate(-45deg); transition: transform .2s ease, border-color .2s ease; }
+#page-features .frow.open .fl-car { transform: rotate(45deg); border-color: var(--gold); }
+#page-features .fl-t { min-width: 0; display: flex; align-items: baseline; gap: 4px 10px; flex-wrap: wrap; }
+#page-features .fl-t .fc-name { font-size: .95rem; font-weight: 650; }
+#page-features .fl-t .fscale { align-self: center; }
+#page-features .fl-s { flex: 1 1 0; min-width: 0; font-style: normal; font-size: .82rem; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#page-features .fl-r { display: flex; align-items: center; gap: 10px; }
+#page-features .fl-r .btn { white-space: nowrap; }
+#page-features .fl-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .22s ease; }
+#page-features .frow.open .fl-body { grid-template-rows: 1fr; }
+#page-features .fl-in { overflow: hidden; min-height: 0; padding: 0 14px 0 38px; display: flex; flex-direction: column; gap: 8px; }
+#page-features .frow.open .fl-in { padding-bottom: 12px; }
+#page-features .fl-in .fc-desc { max-width: 78ch; color: var(--ink); }
+#page-features .fl-foot { display: flex; justify-content: flex-start; }
+html.mobile #page-features .fl-s { display: none; }
+html.mobile #page-features .fl-in { padding-left: 14px; }
+@media (prefers-reduced-motion: reduce) { #page-features .fl-body, #page-features .fl-car, #page-features .fcard.frow { transition: none; } }
