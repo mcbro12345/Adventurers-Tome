@@ -4283,3 +4283,5 @@ html.mobile #wizard .wz3 .wz-steps { background: none !important; box-shadow: no
 html.mobile #page-features .fl-s { display: none; }
 html.mobile #page-features .fl-in { padding-left: 14px; }
 @media (prefers-reduced-motion: reduce) { #page-features .fl-body, #page-features .fl-car, #page-features .fcard.frow { transition: none; } }
+#page-features .fl-s { transition: opacity .18s ease; }
+#page-features .frow.open .fl-s { opacity: 0; }
