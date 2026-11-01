@@ -716,17 +716,18 @@ html.mobile .deathtile .death { grid-template-columns: auto auto auto auto; gap:
 .sumcell { font-size: .82rem; color: var(--soft); min-width: 220px; max-width: 360px; }
 .sp-sum { font-size: .8rem; color: var(--soft); margin-top: 2px; }
 .always.known { background: transparent; border-color: var(--line); color: var(--soft); }
-.castopts { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; margin-top: 10px; }
-.castopt { position: relative; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 3px; min-height: 54px; padding: 11px 36px 11px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel2); color: var(--ink); text-align: left; cursor: pointer; transition: border-color .15s ease, background-color .15s ease; }
-.castopt b { font-size: .92rem; font-weight: 650; line-height: 1.25; }
-.castopt span { font-size: .76rem; line-height: 1.4; color: var(--soft); }
-.castopt::after { content: ""; position: absolute; right: 15px; top: 50%; width: 7px; height: 7px; border-top: 2px solid currentColor; border-right: 2px solid currentColor; transform: translateY(-50%) rotate(45deg); opacity: .28; transition: opacity .15s ease, right .15s ease; }
-@media (hover:hover){:where(html:not(.mobile)) .castopt:hover:not([disabled]){ border-color: var(--gold); background: var(--gold-soft); }}
+.castopts { display: flex; flex-direction: column; margin-top: 10px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--panel2); }
+.castopt { position: relative; display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 10px; row-gap: 1px; width: 100%; min-height: 40px; padding: 9px 34px 9px 14px; border: 0; border-top: 1px solid rgba(127,127,127,.2); border-radius: 0; background: transparent; color: var(--ink); text-align: left; cursor: pointer; transition: background-color .12s ease; }
+.castopt:first-child { border-top: 0; }
+.castopt b { font-size: .9rem; font-weight: 650; line-height: 1.3; }
+.castopt span { flex: 1 1 180px; font-size: .78rem; line-height: 1.35; color: var(--soft); }
+.castopt::after { content: ""; position: absolute; right: 15px; top: 50%; width: 6px; height: 6px; border-top: 2px solid currentColor; border-right: 2px solid currentColor; transform: translateY(-50%) rotate(45deg); opacity: .25; transition: opacity .12s ease, right .12s ease; }
+@media (hover:hover){:where(html:not(.mobile)) .castopt:hover:not([disabled]){ background: var(--gold-soft); }}
 @media (hover:hover){:where(html:not(.mobile)) .castopt:hover:not([disabled])::after{ opacity: 1; right: 12px; color: var(--gold-ink); }}
-.castopt:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.castopt:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
 .castopt[disabled] { opacity: .45; cursor: not-allowed; }
 .castopt[disabled]::after { display: none; }
-.castopt.ghost { background: transparent; border-style: dashed; }
+.castopt.ghost { color: var(--soft); }
 .checkline.big { font-size: .95rem; font-weight: 600; margin: 4px 0 8px; }
 /* Features */
 .clsrow { border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; margin-bottom: 8px; background: var(--panel2); }
@@ -1815,7 +1816,7 @@ html.mobile .advtile .advopt { height: 40px; font-size: .9rem; }
 .econ .readied { border: 1px solid var(--gold); background: var(--gold-soft); border-radius: 10px; padding: 8px 10px; margin-bottom: 8px; }
 .econ .readied .opt-head { gap: 6px; }
 .econ .readied.gone { opacity: .6; }
-#modal-body .castopt.on { border-color: var(--gold); background: var(--gold-soft); box-shadow: inset 3px 0 0 var(--gold); }
+#modal-body .castopt.on { background: var(--gold-soft); box-shadow: inset 3px 0 0 var(--gold); }
 #modal-body .castopt.on::after { opacity: 1; right: 15px; width: 5px; height: 10px; border-top: 0; border-bottom: 2px solid var(--gold-ink); border-right-color: var(--gold-ink); transform: translateY(-60%) rotate(45deg); }
 
 /* Nat 1 Roll house rule */
@@ -4843,6 +4844,7 @@ html:not(.mobile) .toolbar [data-zi="history"].iconly .ti { display: block !impo
    Same sizes as before; only the text moves. */
 @supports (text-box: trim-both cap alphabetic) {
   .cchip .ccn, .addc > .tt, .advb .al { display: block; text-box: trim-both cap alphabetic; }
+  .cchip > .ccn { top: 0; }
   .addc, .advb { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; }
   .addc { min-height: 22px; }
   .advb { min-height: 21px; }
@@ -4921,4 +4923,40 @@ html.mobile .setx > .stpane.nopage { display: none !important; }
 /* character creation on a phone: no background band behind the step markers */
 html.mobile #wizard .wz3 .wz-head { background: none !important; }
 html.mobile #wizard .wz3 .wz-steps { background: none !important; box-shadow: none !important; }
+
+/* ---------- Features tab: ledger rows ----------
+   One soft rounded row per feature (name, short summary, uses, Use); tapping it slides open the full text, tags and Edit. */
+#page-features .fgroup { margin-top: 16px; }
+#page-features .fgroup .subh.fghead { margin: 0 0 6px; padding: 0 12px; background: none; border: 0; box-shadow: none; }
+#page-features .fgrid { display: flex; flex-direction: column; gap: 4px; grid-template-columns: none !important; }
+#page-features .fcard.frow { display: block; padding: 0; border: 0; border-radius: 12px; background: color-mix(in srgb, var(--ink) 3%, transparent); box-shadow: none; min-width: 0; transition: background-color .18s ease, box-shadow .18s ease; }
+@media (hover: hover) { @media (hover:hover){:where(html:not(.mobile)) #page-features .fcard.frow:hover{ background: color-mix(in srgb, var(--ink) 5.5%, transparent); }} }
+#page-features .fcard.frow.open { background: var(--panel2); box-shadow: 0 0 0 1px color-mix(in srgb, var(--gold) 28%, transparent), 0 6px 18px rgba(0,0,0,.18); }
+#page-features .fcard.frow.editing { box-shadow: 0 0 0 2px var(--gold); }
+#page-features .fl-sum { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; gap: 10px; align-items: center; min-height: 46px; padding: 7px 12px; border-radius: 12px; cursor: pointer; }
+#page-features .fl-sum:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+#page-features .fl-car { width: 7px; height: 7px; margin-left: 3px; border-right: 2px solid var(--soft); border-bottom: 2px solid var(--soft); border-radius: 0 0 2px 0; transform: rotate(-45deg); transition: transform .2s ease, border-color .2s ease; }
+#page-features .frow.open .fl-car { transform: rotate(45deg); border-color: var(--gold); }
+#page-features .fl-t { min-width: 0; display: flex; align-items: baseline; gap: 4px 10px; flex-wrap: wrap; }
+#page-features .fl-t .fc-name { font-size: .95rem; font-weight: 650; }
+#page-features .fl-t .fscale { align-self: center; }
+#page-features .fl-s { flex: 1 1 0; min-width: 0; font-style: normal; font-size: .82rem; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#page-features .fl-r { display: flex; align-items: center; gap: 10px; }
+#page-features .fl-r .btn { white-space: nowrap; }
+#page-features .fl-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .22s ease; }
+#page-features .frow.open .fl-body { grid-template-rows: 1fr; }
+#page-features .fl-in { overflow: hidden; min-height: 0; padding: 0 14px 0 38px; display: flex; flex-direction: column; gap: 8px; }
+#page-features .frow.open .fl-in { padding-bottom: 12px; }
+#page-features .fl-in .fc-desc { max-width: 78ch; color: var(--ink); }
+#page-features .fl-foot { display: flex; justify-content: flex-start; }
+html.mobile #page-features .fl-s { display: none; }
+html.mobile #page-features .fl-in { padding-left: 14px; }
+@media (prefers-reduced-motion: reduce) { #page-features .fl-body, #page-features .fl-car, #page-features .fcard.frow { transition: none; } }
+#page-features .fl-s { transition: opacity .18s ease; }
+#page-features .frow.open .fl-s { opacity: 0; }
+/* Buttons inside an open row sit on the row's own colour, so give them a fill and edge of their own. */
+#page-features .fl-in .btn:not(.gold):not(.red) { background: var(--field); border: 1px solid var(--line); color: var(--ink); }
+@media (hover: hover) { @media (hover:hover){:where(html:not(.mobile)) #page-features .fl-in .btn:not(.gold):not(.red):hover{ border-color: var(--gold); }} }
+/* The row's header is a control: double-clicking it shouldn't select its words. */
+#page-features .fl-sum { -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
 
