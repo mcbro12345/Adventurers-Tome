@@ -4294,3 +4294,4 @@ html.mobile #page-features .fl-in { padding-left: 14px; }
 #page-features .fl-sum { -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
 /* Condition chips: the ⓘ sits right after the word (just the chip's own gap between them). */
 .cchip > .notetip { margin-left: 0; }
+#page-features .fl-r { flex: none; } #page-features .fl-r .pips { flex-wrap: nowrap; white-space: nowrap; }
