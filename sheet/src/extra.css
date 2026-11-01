@@ -4333,3 +4333,8 @@ html.mobile #page-features .fl-sum:has(.fl-acts) { flex-wrap: wrap; padding-bott
 html.mobile #page-features .fl-sum:has(.fl-acts) .fl-r { flex: 1 1 100%; flex-wrap: wrap; justify-content: flex-start; padding-left: 38px; }
 html.mobile #page-features .fl-sum:has(.fl-acts) .fl-acts { justify-content: flex-start; flex: 1 1 auto; }
 html.mobile #page-features .fl-acts .btn.fxact { min-height: 32px; padding: 4px 12px; }
+/* Edit lives at the bottom right of an open feature, so the header's buttons reach the row's right edge. */
+#page-features .fl-sum { padding-right: 10px; }
+#page-features .fl-foot { display: flex; justify-content: flex-end; margin-top: -6px; }
+#page-features .fl-foot .fl-edit { opacity: 1; visibility: visible; }
+#page-features .fl-in > .fl-foot:last-child { margin-bottom: -4px; }
