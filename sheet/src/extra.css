@@ -4295,3 +4295,21 @@ html.mobile #page-features .fl-in { padding-left: 14px; }
 /* Condition chips: the ⓘ sits right after the word (just the chip's own gap between them). */
 .cchip > .notetip { margin-left: 0; }
 #page-features .fl-r { flex: none; } #page-features .fl-r .pips { flex-wrap: nowrap; white-space: nowrap; }
+/* Open feature: a quiet meta line, the text, then its actions as accent chips. Editing is a pencil at the row's right end. */
+#page-features .fl-in { gap: 10px; }
+#page-features .fl-in > :first-child { padding-top: 12px; border-top: 1px solid color-mix(in srgb, var(--ink) 8%, transparent); }
+#page-features .fl-meta { display: flex; flex-wrap: wrap; gap: 2px 0; font-size: .74rem; font-weight: 600; letter-spacing: .02em; color: var(--soft); }
+#page-features .fl-meta span + span::before { content: "·"; margin: 0 7px; opacity: .6; }
+#page-features .fl-in .fc-desc { font-size: .9rem; line-height: 1.6; }
+#page-features .fl-in .fc-uses .hint { font-size: .8rem; }
+#page-features .fl-in .fxacts { gap: 6px; margin-top: 0; }
+#page-features .fl-in .fxacts .btn.fxact { background: color-mix(in srgb, var(--gold) 14%, transparent); border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent); color: var(--ink); border-radius: 999px; padding: 4px 14px; font-weight: 650; }
+@media (hover: hover) { #page-features .fl-in .fxacts .btn.fxact:hover { background: color-mix(in srgb, var(--gold) 26%, transparent); border-color: var(--gold); } }
+#page-features .fl-in .fxacts .btn.fxact small { opacity: .75; font-weight: 600; }
+#page-features .fl-in > :last-child { margin-bottom: 2px; }
+#page-features .fl-edit { flex: none; width: 30px; height: 30px; display: inline-grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--soft); cursor: pointer; opacity: 0; visibility: hidden; transition: opacity .15s ease, background-color .15s ease, color .15s ease; }
+#page-features .frow.open .fl-edit, #page-features .frow.editing .fl-edit { opacity: 1; visibility: visible; }
+@media (hover: hover) { #page-features .frow:hover .fl-edit { opacity: 1; visibility: visible; } #page-features .fl-edit:hover { background: color-mix(in srgb, var(--ink) 9%, transparent); color: var(--ink); } }
+#page-features .fl-edit:focus-visible { opacity: 1; visibility: visible; outline: 2px solid var(--gold); outline-offset: 1px; }
+#page-features .fl-edit.on { background: var(--gold); color: var(--on-gold, #1D2536); }
+html.mobile #page-features .fl-edit { width: 34px; height: 34px; }
