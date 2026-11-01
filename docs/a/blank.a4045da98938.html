@@ -4978,6 +4978,44 @@ html.mobile #page-features .fl-in { padding-left: 14px; }
 #page-features .fl-sum { -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
 /* Condition chips: the ⓘ sits right after the word (just the chip's own gap between them). */
 .cchip > .notetip { margin-left: 0; }
+#page-features .fl-r { flex: none; } #page-features .fl-r .pips { flex-wrap: nowrap; white-space: nowrap; }
+/* Open feature: a quiet meta line, the text, then its actions as accent chips. Editing is a pencil at the row's right end. */
+#page-features .fl-in { gap: 10px; }
+#page-features .fl-in > :first-child { padding-top: 12px; border-top: 1px solid color-mix(in srgb, var(--ink) 8%, transparent); }
+#page-features .fl-meta { display: flex; flex-wrap: wrap; gap: 2px 0; font-size: .74rem; font-weight: 600; letter-spacing: .02em; color: var(--soft); }
+#page-features .fl-meta span + span::before { content: "·"; margin: 0 7px; opacity: .6; }
+#page-features .fl-in .fc-desc { font-size: .9rem; line-height: 1.6; }
+#page-features .fl-in .fc-uses .hint { font-size: .8rem; }
+#page-features .fl-in .fxacts { gap: 6px; margin-top: 0; }
+#page-features .fl-in .fxacts .btn.fxact { background: color-mix(in srgb, var(--gold) 14%, transparent); border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent); color: var(--ink); border-radius: 999px; padding: 4px 14px; font-weight: 650; }
+@media (hover: hover) { @media (hover:hover){:where(html:not(.mobile)) #page-features .fl-in .fxacts .btn.fxact:hover{ background: color-mix(in srgb, var(--gold) 26%, transparent); border-color: var(--gold); }} }
+#page-features .fl-in .fxacts .btn.fxact small { opacity: .75; font-weight: 600; }
+#page-features .fl-in > :last-child { margin-bottom: 2px; }
+#page-features .fl-edit { flex: none; width: 30px; height: 30px; display: inline-grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--soft); cursor: pointer; opacity: 0; visibility: hidden; transition: opacity .15s ease, background-color .15s ease, color .15s ease; }
+#page-features .frow.open .fl-edit, #page-features .frow.editing .fl-edit { opacity: 1; visibility: visible; }
+@media (hover: hover) { @media (hover:hover){:where(html:not(.mobile)) #page-features .frow:hover .fl-edit{ opacity: 1; visibility: visible; }} @media (hover:hover){:where(html:not(.mobile)) #page-features .fl-edit:hover{ background: color-mix(in srgb, var(--ink) 9%, transparent); color: var(--ink); }} }
+#page-features .fl-edit:focus-visible { opacity: 1; visibility: visible; outline: 2px solid var(--gold); outline-offset: 1px; }
+#page-features .fl-edit.on { background: var(--gold); color: var(--on-gold, #1D2536); }
+html.mobile #page-features .fl-edit { width: 34px; height: 34px; }
+/* Open text uses the row's full width. */
+#page-features .fl-in .fc-desc { max-width: none; }
+/* Keyboard focus rings the whole row rather than just its header. */
+#page-features .fl-tog:focus-visible { outline: none; }
+#page-features .fcard.frow:has(.fl-tog:focus-visible) { box-shadow: 0 0 0 2px color-mix(in srgb, var(--gold) 70%, transparent); }
+/* Choice windows size to their options instead of stretching across the screen (computers; phones keep the full-width sheet). */
+html:not(.mobile) .modal.wide:has(> .castopts):not(:has(.settabs)) { width: fit-content; min-width: min(440px, 94vw); max-width: min(640px, 94vw); }
+/* No options to list: just the sentence, without the empty list box around it. */
+.castopts:not(:has(.castopt)) { border: 0; background: none; overflow: visible; }
+.castopts > p.hint { margin: 0; }
+/* A feature's own actions (Dash / Disengage / Hide…) sit in the row header where Use goes, so they work without opening it. */
+#page-features .fl-acts { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: 5px; margin: 0; }
+#page-features .fl-acts .btn.fxact { background: color-mix(in srgb, var(--gold) 14%, transparent); border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent); color: var(--ink); border-radius: 999px; padding: 3px 11px; font-size: .78rem; font-weight: 650; white-space: nowrap; }
+@media (hover: hover) { @media (hover:hover){:where(html:not(.mobile)) #page-features .fl-acts .btn.fxact:hover{ background: color-mix(in srgb, var(--gold) 26%, transparent); border-color: var(--gold); }} }
+#page-features .fl-acts .btn.fxact small { opacity: .75; font-weight: 600; }
+/* Phones: the actions get their own line under the name. */
+html.mobile #page-features .fl-sum:has(.fl-acts) { flex-wrap: wrap; padding-bottom: 8px; }
+html.mobile #page-features .fl-sum:has(.fl-acts) .fl-r { flex: 1 1 100%; flex-wrap: wrap; justify-content: flex-start; padding-left: 38px; }
+html.mobile #page-features .fl-sum:has(.fl-acts) .fl-acts { justify-content: flex-start; flex: 1 1 auto; }
 
 </style>
 </head>
@@ -14922,9 +14960,9 @@ function renderFeatures() {
     return `<div class="fcard frow${f.auto ? '' : ' custom'}${ed ? ' editing' : ''}${open ? ' open' : ''}">
       <div class="fl-sum"><button type="button" class="fl-tog" data-act="ftog" data-key="${esc(ok)}" aria-expanded="${open}"><i class="fl-car" aria-hidden="true"></i>
         <span class="fl-t"><b class="fc-name">${esc(f.name)}</b>${sc.map(([n, v]) => `<span class="fscale" title="${esc(n)}">${esc(v)}</span>`).join('')}<i class="fl-s">${esc(sum)}</i></span></button>
-        <span class="fl-r">${max != null && !f.pool ? `<span class="pips" data-calc-html="featpips:${i}"></span>` : ''}${max != null && !f.pool && !fxIsResource(f) ? `<button class="btn sm gold" data-act="usefeat" data-i="${i}" ${left || fx.slotRestore ? '' : 'disabled'}>${f.roll || fx.roll ? 'Use & roll' : 'Use'}</button>` : f.roll ? `<button class="btn sm gold" data-act="usefeat" data-i="${i}">Roll</button>` : canUse ? `<button class="btn sm gold" data-act="usefeat" data-i="${i}">${fx.useLabel || (fx.roll ? 'Use & roll' : 'Use')}</button>` : ''}</span></div>
+        <span class="fl-r">${fx.acts && !ed ? `<span class="fxacts fl-acts">${fxActsHTML(f, i)}</span>` : ''}${max != null && !f.pool ? `<span class="pips" data-calc-html="featpips:${i}"></span>` : ''}${max != null && !f.pool && !fxIsResource(f) ? `<button class="btn sm gold" data-act="usefeat" data-i="${i}" ${left || fx.slotRestore ? '' : 'disabled'}>${f.roll || fx.roll ? 'Use & roll' : 'Use'}</button>` : f.roll ? `<button class="btn sm gold" data-act="usefeat" data-i="${i}">Roll</button>` : canUse ? `<button class="btn sm gold" data-act="usefeat" data-i="${i}">${fx.useLabel || (fx.roll ? 'Use & roll' : 'Use')}</button>` : ''}<button type="button" class="fl-edit${ed ? ' on' : ''}" data-act="toggle" data-key="fedit:${i}" title="${ed ? 'Done editing' : 'Edit this feature'}" aria-label="${ed ? 'Done editing' : 'Edit ' + esc(f.name)}">${ed ? '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>' : '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg>'}</button></span></div>
       <div class="fl-body"${open ? '' : ' inert'}><div class="fl-in">
-        <div class="fc-tags">${tags.map(t => `<span class="ftag">${esc(t)}</span>`).join('')}${sc.length > 1 || (sc[0] && sc[0][0].toLowerCase() !== f.name.toLowerCase()) ? sc.map(([n, v]) => `<span class="ftag">${esc(n)}: ${esc(v)}</span>`).join('') : ''}</div>
+        <div class="fl-meta">${tags.map(t => `<span>${esc(t)}</span>`).join('')}${sc.length > 1 || (sc[0] && sc[0][0].toLowerCase() !== f.name.toLowerCase()) ? sc.map(([n, v]) => `<span>${esc(n)}: ${esc(v)}</span>`).join('') : ''}</div>
         ${f.key === 'warlock:uaravenqueen:Sentinel Raven' ? ravenChk() : ''}
         ${max != null ? `<div class="fc-uses">${f.pool ? `<span class="pips" data-calc-html="featpips:${i}"></span>` : `<span class="hint">${left} of ${max} left · refills on ${resetOf(f) === 'short' ? 'a short or long rest' : resetOf(f) === 'long' ? 'a long rest' : 'nothing'}</span>`}</div>` : ''}
         ${ed ? `<div class="fc-form">${fld('Name', inp(`features.${i}.name`, { label: 'Feature name' }))}
@@ -14934,9 +14972,8 @@ function renderFeatures() {
           ${fld('Your own wording (replaces the full description when filled in)', ta(`features.${i}.full`, { rows: 5, label: 'Your own wording', ph: fullDefaultFeat(f) ? 'Optional — leave blank to use the built-in description' : 'Optional — the full description' }))}
           ${hbbOpenRow('feat', i, f.hb, f)}
           <div class="row"><span class="hint">Uses accept formulas like <code>1+cha</code>, <code>prof</code> or <code>5*level</code>.</span><span class="grow"></span>${f.kind === 'feat' ? `<button class="btn sm red" data-act="delfeatn" data-n="${esc(String(f.key).slice(5))}">Remove feat</button>` : ''}${f.auto ? `<button class="btn sm ghost" data-act="featreset" data-i="${i}">Restore original</button>` : `<button class="btn sm red" data-act="del" data-list="features" data-i="${i}">Delete</button>`}</div></div>`
-        : `<div class="fc-desc">${fullHTML(fullOfFeat(f))}</div>`}${fx.acts && !ed ? `<div class="fxacts">${fxActsHTML(f, i)}</div>` : ''}
+        : `<div class="fc-desc">${fullHTML(fullOfFeat(f))}</div>`}
         ${featSpellsHTML(f, i, ed)}
-        <div class="fl-foot"><button class="btn sm ghost" data-act="toggle" data-key="fedit:${i}">${ed ? 'Done editing' : 'Edit'}</button></div>
       </div></div>
     </div>`;
   };
