@@ -4243,3 +4243,7 @@ html.mobile .setx > .stpane.nopage { display: none !important; }
 #robem .robe-s small { display: block; color: var(--soft); font-size: .76rem; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #robem .robe-s .tag { flex: none; }
 @media (hover: hover) { #robem .robe-s:hover { border-color: var(--gold); } }
+
+/* character creation on a phone: no background band behind the step markers */
+html.mobile #wizard .wz3 .wz-head { background: none !important; }
+html.mobile #wizard .wz3 .wz-steps { background: none !important; box-shadow: none !important; }
