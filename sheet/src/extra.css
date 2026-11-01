@@ -4169,6 +4169,7 @@ html:not(.mobile) .toolbar [data-zi="history"].iconly .ti { display: block !impo
    Same sizes as before; only the text moves. */
 @supports (text-box: trim-both cap alphabetic) {
   .cchip .ccn, .addc > .tt, .advb .al { display: block; text-box: trim-both cap alphabetic; }
+  .cchip > .ccn { top: 0; }
   .addc, .advb { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; }
   .addc { min-height: 22px; }
   .advb { min-height: 21px; }
