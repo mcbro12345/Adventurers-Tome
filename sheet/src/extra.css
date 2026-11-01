@@ -4285,3 +4285,8 @@ html.mobile #page-features .fl-in { padding-left: 14px; }
 @media (prefers-reduced-motion: reduce) { #page-features .fl-body, #page-features .fl-car, #page-features .fcard.frow { transition: none; } }
 #page-features .fl-s { transition: opacity .18s ease; }
 #page-features .frow.open .fl-s { opacity: 0; }
+/* Buttons inside an open row sit on the row's own colour, so give them a fill and edge of their own. */
+#page-features .fl-in .btn:not(.gold):not(.red) { background: var(--field); border: 1px solid var(--line); color: var(--ink); }
+@media (hover: hover) { #page-features .fl-in .btn:not(.gold):not(.red):hover { border-color: var(--gold); } }
+/* The row's header is a control: double-clicking it shouldn't select its words. */
+#page-features .fl-sum { -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
