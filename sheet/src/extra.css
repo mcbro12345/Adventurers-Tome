@@ -4290,3 +4290,5 @@ html.mobile #page-features .fl-in { padding-left: 14px; }
 @media (hover: hover) { #page-features .fl-in .btn:not(.gold):not(.red):hover { border-color: var(--gold); } }
 /* The row's header is a control: double-clicking it shouldn't select its words. */
 #page-features .fl-sum { -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+/* Condition chips: the ⓘ sits right after the word (just the chip's own gap between them). */
+.cchip > .notetip { margin-left: 0; }
