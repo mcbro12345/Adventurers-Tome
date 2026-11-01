@@ -4318,3 +4318,8 @@ html.mobile #page-features .fl-edit { width: 34px; height: 34px; }
 /* Keyboard focus rings the whole row rather than just its header. */
 #page-features .fl-tog:focus-visible { outline: none; }
 #page-features .fcard.frow:has(.fl-tog:focus-visible) { box-shadow: 0 0 0 2px color-mix(in srgb, var(--gold) 70%, transparent); }
+/* Choice windows size to their options instead of stretching across the screen (computers; phones keep the full-width sheet). */
+html:not(.mobile) .modal.wide:has(> .castopts):not(:has(.settabs)) { width: fit-content; min-width: min(440px, 94vw); max-width: min(640px, 94vw); }
+/* No options to list: just the sentence, without the empty list box around it. */
+.castopts:not(:has(.castopt)) { border: 0; background: none; overflow: visible; }
+.castopts > p.hint { margin: 0; }
