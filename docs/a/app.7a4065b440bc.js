@@ -156,11 +156,50 @@ const hkey = () => keyFor(S.id || 'blank') + ':history';
 const TRACK = k => !['savedAt', 'spellFilter', 'macroSeen', 'ptyLog', 'ptyNews'].includes(k);
 let HIST = [], REDO = [], LAST = null, pendingLabel = null;
 function snapAll() { const o = {}; for (const k in S) if (TRACK(k)) o[k] = JSON.stringify(S[k]); return o; }
+// What a change was, in words, read from what's different (for changes made without a name of their own — the undo
+// history and the site's activity log show it instead of just "Change").
+const CH_NAMES = { hp: 'HP', currency: 'coins', inventory: 'inventory', spells: 'spells', slotsUsed: 'spell slots', pactUsed: 'pact slots', hdUsed: 'hit dice', death: 'death saves', conditions: 'conditions', exhaustion: 'exhaustion', effects: 'effects', concentration: 'concentration', abilities: 'ability scores', saves: 'saving throws', skills: 'skills', features: 'features', feats: 'feats', classes: 'classes', notes: 'notes', backstory: 'backstory', allies: 'allies', lore: 'lore', traits: 'personality', appearance: 'appearance', attacks: 'attacks', combat: 'actions', turn: 'turn', companions: 'companions', settings: 'settings', layout: 'layout', theme: 'colours', portrait: 'picture', name: 'name', player: 'player name', alignment: 'alignment', xp: 'XP', faith: 'faith', tools: 'tools', langs: 'languages', profs: 'proficiencies', bags: 'containers', quotes: 'quotes', rumors: 'rumours', people: 'people', goals: 'goals', goal: 'goal', customItems: 'custom items', acOverride: 'AC', speedOverride: 'speed', race: 'race', background: 'background', rollAdv: 'advantage', condTurns: 'condition timers', riders: 'riders', form: 'form', picks: 'choices', featChoices: 'feat choices', slotsOverride: 'spell slot totals' };
+function changeWords(changed, cur) {
+  const out = [], P = j => { try { return j == null ? undefined : JSON.parse(j); } catch (e) { return undefined; } }, nm = x => x == null ? '' : typeof x === 'string' ? x : String(x.name || x.dname || x.title || x.label || x.text || x.key || '').slice(0, 60);
+  const num = v => (v === '' || v == null) ? 0 : Number(v) || 0, arrow = (a, b) => `${a} → ${b}`;
+  const list = (a, b, what) => { a = Array.isArray(a) ? a : []; b = Array.isArray(b) ? b : []; const an = a.map(nm), bn = b.map(nm), r = [];
+    bn.forEach((n, i) => { if (n && !an.includes(n)) r.push('added ' + n); });
+    an.forEach(n => { if (n && !bn.includes(n)) r.push('removed ' + n); });
+    if (!r.length) b.forEach(x => { const n = nm(x), o = a.find(y => nm(y) === n); if (!n || !o || JSON.stringify(o) === JSON.stringify(x)) return;
+      const d = [];
+      if (x && o && typeof x === 'object') { if (num(o.qty) !== num(x.qty) && (o.qty != null || x.qty != null)) d.push('×' + arrow(num(o.qty) || 1, num(x.qty) || 1));
+        if (!!o.equipped !== !!x.equipped) d.push(x.equipped ? 'equipped' : 'unequipped'); if (!!o.attuned !== !!x.attuned) d.push(x.attuned ? 'attuned' : 'unattuned');
+        if (!!o.prepared !== !!x.prepared) d.push(x.prepared ? 'prepared' : 'unprepared');
+        if (o.charges && x.charges && num(o.charges.used) !== num(x.charges.used)) d.push('charges used ' + arrow(num(o.charges.used), num(x.charges.used)));
+        if (o.used != null && num(o.used) !== num(x.used)) d.push('used ' + arrow(num(o.used), num(x.used))); }
+      r.push(n + (d.length ? ' ' + d.join(', ') : ' changed')); });
+    return r.length ? r.slice(0, 3).join(', ') + (r.length > 3 ? ` (+${r.length - 3} more)` : '') : what + ' changed'; };
+  for (const k of Object.keys(changed)) { const a = P(changed[k]), b = P(cur[k]); let w = '';
+    if (k === 'hp' && a && b) { const r = []; if (num(a.cur) !== num(b.cur)) r.push('HP ' + arrow(num(a.cur), num(b.cur))); if (num(a.temp) !== num(b.temp)) r.push('temp HP ' + arrow(num(a.temp), num(b.temp))); if (num(a.base) !== num(b.base) || num(a.adj) !== num(b.adj)) r.push('max HP changed'); w = r.join(', '); }
+    else if (k === 'currency' && a && b) { const CN = { pp: 'platinum', gp: 'gold', ep: 'electrum', sp: 'silver', cp: 'copper' }; w = ['pp', 'gp', 'ep', 'sp', 'cp'].filter(c => num(a[c]) !== num(b[c])).map(c => CN[c] + ' ' + arrow(num(a[c]), num(b[c]))).join(', '); }
+    else if (k === 'slotsUsed' && Array.isArray(a) && Array.isArray(b)) w = b.map((v, i) => num(v) !== num(a[i]) ? (num(v) > num(a[i]) ? `used a level ${i + 1} slot` : `got back a level ${i + 1} slot`) : '').filter(Boolean).join(', ');
+    else if (k === 'pactUsed') w = num(b) > num(a) ? 'used a pact slot' : 'got back a pact slot';
+    else if (k === 'death' && a && b) w = 'death saves ' + arrow(`${num(a.s)}✓ ${num(a.f)}✗`, `${num(b.s)}✓ ${num(b.f)}✗`);
+    else if (k === 'exhaustion') w = 'exhaustion ' + arrow(num(a), num(b));
+    else if (k === 'concentration') w = b ? 'concentrating on ' + nm(b) : 'stopped concentrating' + (a ? ' on ' + nm(a) : '');
+    else if (k === 'abilities' && a && b) w = Object.keys(b).filter(x => num(a[x]) !== num(b[x])).map(x => x.toUpperCase() + ' ' + arrow(num(a[x]), num(b[x]))).join(', ');
+    else if (k === 'saves' && a && b) w = Object.keys(b).filter(x => !!a[x] !== !!b[x]).map(x => (b[x] ? 'proficient in ' : 'not proficient in ') + x.toUpperCase() + ' saves').join(', ');
+    else if (k === 'skills' && Array.isArray(a) && Array.isArray(b)) w = b.map((x, i) => { const o = a[i] || {}; return num(o.prof) !== num(x.prof) ? (num(x.prof) >= 2 ? 'expertise in ' : num(x.prof) ? 'proficient in ' : 'not proficient in ') + x.name : num(o.misc) !== num(x.misc) ? x.name + ' bonus ' + arrow(num(o.misc), num(x.misc)) : ''; }).filter(Boolean).join(', ');
+    else if (k === 'classes' && Array.isArray(a) && Array.isArray(b)) { const lv = c => `${c.name || c.key || 'class'} ${c.level || ''}`.trim(); w = JSON.stringify(a.map(lv)) !== JSON.stringify(b.map(lv)) ? arrow(a.map(lv).join(' / ') || 'none', b.map(lv).join(' / ')) : 'class details changed'; }
+    else if (k === 'hdUsed') w = 'hit dice used changed';
+    else if (k === 'turn' && a && b) { const r = []; if (num(a.round) !== num(b.round)) r.push('round ' + arrow(num(a.round), num(b.round))); const ua = a.used || {}, ub = b.used || {}; Object.keys(Object.assign({}, ua, ub)).forEach(x => { if (!!ua[x] !== !!ub[x]) r.push((ub[x] ? 'used ' : 'got back ') + (x === 'action' ? 'the action' : x === 'bonus' ? 'the bonus action' : x === 'reaction' ? 'the reaction' : x)); }); if (num(a.moved) !== num(b.moved)) r.push('moved ' + arrow(num(a.moved), num(b.moved)) + ' ft'); w = r.join(', ') || 'turn tracker changed'; }
+    else if (Array.isArray(a) || Array.isArray(b)) w = (CH_NAMES[k] ? CH_NAMES[k][0].toUpperCase() + CH_NAMES[k].slice(1) + ': ' : '') + list(a, b, CH_NAMES[k] || k);
+    else if (typeof b === 'string' || typeof a === 'string') { const t = CH_NAMES[k] || k; w = String(b || '').length < 40 && String(a || '').length < 40 ? `${t}: ${arrow(a || '—', b || '—')}` : 'edited ' + t; }
+    else if (typeof b === 'number' || typeof a === 'number') w = (CH_NAMES[k] || k) + ' ' + arrow(num(a), num(b));
+    else w = (CH_NAMES[k] || k) + ' changed';
+    if (w) out.push(w); }
+  const t = out.join('; '); return t ? t[0].toUpperCase() + t.slice(1, 300) : 'Change';
+}
 function commit() {
-  const label = pendingLabel || 'Change', merge = label.startsWith('Edit: ');
-  pendingLabel = null;
   const cur = snapAll(), changed = {};
   new Set([...Object.keys(cur), ...Object.keys(LAST || {})]).forEach(k => { if (cur[k] !== (LAST || {})[k]) changed[k] = (LAST || {})[k] === undefined ? null : LAST[k]; });
+  let label = pendingLabel || ''; pendingLabel = null; if (!label) { try { label = changeWords(changed, cur); } catch (e) { label = 'Change'; } }
+  const merge = label.startsWith('Edit: ');
   LAST = cur;
   if (!Object.keys(changed).length || !S.created) return;
   const now = Date.now(), top = HIST[HIST.length - 1];
@@ -1265,6 +1304,8 @@ function ringSpent(sp) {
   if (N(evalMax(sp.uses && sp.uses.max) || 1) - N(sp.uses && sp.uses.used) > 0) return;
   const n = (it.spells || []).find(x => x.toLowerCase() === String(sp.name).toLowerCase()); if (!n) return;
   it.spells = it.spells.filter(x => x !== n); if (it.spellLevels) delete it.spellLevels[n]; if (it.spellCast) delete it.spellCast[n];
+  // a spell scroll crumbles to dust once it's read
+  if (it.scroll && !it.spells.length) { S.inventory = S.inventory.filter(x => x !== it); toast(`The scroll of <b>${esc(n)}</b> crumbles to dust.`); }
   setTimeout(() => { rebuildAuto(); save(); render(); }, 0);
 }
 const ringItems = () => S.inventory.map((it, ii) => [it, ii]).filter(([it]) => itemStores(it) && !it.infusion);
@@ -1601,6 +1642,7 @@ const critDice = e => { e = String(e || ''); if (ST('critRule') !== 'max') retur
 const diceTimes = (e, k) => String(e || '').replace(/(\d*)d(\d+)/gi, (m, n, sd) => ((N(n) || 1) * k) + 'd' + sd);
 
 // ---------- Toasts & modal ----------
+window.sheetToast = (...a) => toast(...a); // (the site's own code on a sheet page shows its notes the same way)
 function toast(html, cls = '', ms = 4500, action) {
   // Rolling in Roll20 yourself: a result card becomes "roll these dice" (the sheet still did everything else).
   if (SKIPPED.length && /^\s*<(b class="total"|div class="rc-multi")/.test(html)) {
@@ -2762,22 +2804,29 @@ function renderFeatures() {
     const fx = fxOf(f), dcl = fxDCLine(fx, f);
     const tags = [f.source, f.hb && f.hb.on ? riderTrigText(f.hb) : '', f.col ? (f.col === 'bonus' ? 'Bonus action' : f.col === 'move' ? 'Free' : f.col[0].toUpperCase() + f.col.slice(1)) : '', max != null ? `${max}× per ${resetOf(f) === 'short' ? 'short rest' : resetOf(f) === 'long' ? 'long rest' : 'never'}` : '', dcl, fx.cost ? 'Costs ' + fxCostText(fx.cost) : '', fx.onlyRaging ? 'While raging' : ''].filter(Boolean);
     const canUse = !fxIsResource(f) && (fx.cost || fx.use || fx.target || fx.roll);
-    return `<div class="fcard${f.auto ? '' : ' custom'}${ed ? ' editing' : ''}">
-      <div class="fc-head"><b class="fc-name">${esc(f.name)}</b>${sc.map(([n, v]) => `<span class="fscale" title="${esc(n)}">${esc(v)}</span>`).join('')}<span class="grow"></span>
-        ${max != null && !f.pool && !fxIsResource(f) ? `<button class="btn sm gold" data-act="usefeat" data-i="${i}" ${left || fx.slotRestore ? '' : 'disabled'}>${f.roll || fx.roll ? 'Use & roll' : 'Use'}</button>` : f.roll ? `<button class="btn sm gold" data-act="usefeat" data-i="${i}">Roll</button>` : canUse ? `<button class="btn sm gold" data-act="usefeat" data-i="${i}">${fx.useLabel || (fx.roll ? 'Use & roll' : 'Use')}</button>` : ''}
-        <button class="icon-btn fc-edit${ed ? ' on' : ''}" data-act="toggle" data-key="fedit:${i}" title="${ed ? 'Done editing' : 'Edit this feature'}" aria-label="Edit">${ed ? '✓' : '✎'}</button></div>
-      <div class="fc-tags">${tags.map(t => `<span class="ftag">${esc(t)}</span>`).join('')}${sc.length > 1 || (sc[0] && sc[0][0].toLowerCase() !== f.name.toLowerCase()) ? sc.map(([n, v]) => `<span class="ftag">${esc(n)}: ${esc(v)}</span>`).join('') : ''}</div>
-      ${f.key === 'warlock:uaravenqueen:Sentinel Raven' ? ravenChk() : ''}
-      ${max != null ? `<div class="fc-uses"><span class="pips" data-calc-html="featpips:${i}"></span>${f.pool ? '' : `<span class="hint">${left} of ${max} left</span>`}</div>` : ''}
-      ${ed ? `<div class="fc-form">${fld('Name', inp(`features.${i}.name`, { label: 'Feature name' }))}
+    // Ledger row: one line (name, short summary, uses, Use) that opens to the full text, tags and editing.
+    const ok = 'fopen:' + (f.key || f.name); if (ed) UI.open[ok] = true; // a row being edited stays open after Done
+    const open = !!UI.open[ok];
+    const sum = String(f.desc || '').replace(/<[^>]+>/g, '').trim() || String(fullOfFeat(f) || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160);
+    return `<div class="fcard frow${f.auto ? '' : ' custom'}${ed ? ' editing' : ''}${open ? ' open' : ''}">
+      <div class="fl-sum"><button type="button" class="fl-tog" data-act="ftog" data-key="${esc(ok)}" aria-expanded="${open}"><i class="fl-car" aria-hidden="true"></i>
+        <span class="fl-t"><b class="fc-name">${esc(f.name)}</b>${sc.map(([n, v]) => `<span class="fscale" title="${esc(n)}">${esc(v)}</span>`).join('')}<i class="fl-s">${esc(sum)}</i></span></button>
+        <span class="fl-r">${fx.acts && !ed ? `<span class="fxacts fl-acts">${fxActsHTML(f, i)}</span>` : ''}${max != null && !f.pool ? `<span class="pips" data-calc-html="featpips:${i}"></span>` : ''}${max != null && !f.pool && !fxIsResource(f) ? `<button class="btn sm gold" data-act="usefeat" data-i="${i}" ${left || fx.slotRestore ? '' : 'disabled'}>${f.roll || fx.roll ? 'Use & roll' : 'Use'}</button>` : f.roll ? `<button class="btn sm gold" data-act="usefeat" data-i="${i}">Roll</button>` : canUse ? `<button class="btn sm gold" data-act="usefeat" data-i="${i}">${fx.useLabel || (fx.roll ? 'Use & roll' : 'Use')}</button>` : ''}</span></div>
+      <div class="fl-body"${open ? '' : ' inert'}><div class="fl-in">
+        <div class="fl-meta">${tags.map(t => `<span>${esc(t)}</span>`).join('')}${sc.length > 1 || (sc[0] && sc[0][0].toLowerCase() !== f.name.toLowerCase()) ? sc.map(([n, v]) => `<span>${esc(n)}: ${esc(v)}</span>`).join('') : ''}</div>
+        ${f.key === 'warlock:uaravenqueen:Sentinel Raven' ? ravenChk() : ''}
+        ${max != null ? `<div class="fc-uses">${f.pool ? `<span class="pips" data-calc-html="featpips:${i}"></span>` : `<span class="hint">${left} of ${max} left · refills on ${resetOf(f) === 'short' ? 'a short or long rest' : resetOf(f) === 'long' ? 'a long rest' : 'nothing'}</span>`}</div>` : ''}
+        ${ed ? `<div class="fc-form">${fld('Name', inp(`features.${i}.name`, { label: 'Feature name' }))}
           <div class="row">${fld('Uses', inp(`features.${i}.max`, { ph: 'unlimited', label: 'Max uses formula', title: 'A number or formula: 1+cha, prof, 5*level, paladin' }))}${fld('Refills on', sel(`features.${i}.reset`, [['short', 'Short rest'], ['long', 'Long rest'], ['none', 'Never']]))}
           ${fld('Used as', sel(`features.${i}.col`, [['', '—'], ['action', 'Action'], ['bonus', 'Bonus action'], ['reaction', 'Reaction']]))}<label class="checkline">${chk(`features.${i}.pool`)} Points pool</label></div>
           ${fld('Short summary (shown on the Combat tab)', ta(`features.${i}.desc`, { rows: 3, label: 'Description' }))}
           ${fld('Your own wording (replaces the full description when filled in)', ta(`features.${i}.full`, { rows: 5, label: 'Your own wording', ph: fullDefaultFeat(f) ? 'Optional — leave blank to use the built-in description' : 'Optional — the full description' }))}
           ${hbbOpenRow('feat', i, f.hb, f)}
           <div class="row"><span class="hint">Uses accept formulas like <code>1+cha</code>, <code>prof</code> or <code>5*level</code>.</span><span class="grow"></span>${f.kind === 'feat' ? `<button class="btn sm red" data-act="delfeatn" data-n="${esc(String(f.key).slice(5))}">Remove feat</button>` : ''}${f.auto ? `<button class="btn sm ghost" data-act="featreset" data-i="${i}">Restore original</button>` : `<button class="btn sm red" data-act="del" data-list="features" data-i="${i}">Delete</button>`}</div></div>`
-        : (fullOfFeat(f).length > 280 ? `<div class="fc-desc fc-full${UI.open['ffull:' + i] ? ' open' : ''}" data-act="toggle" data-key="ffull:${i}" title="Click to ${UI.open['ffull:' + i] ? 'collapse' : 'read all'}">${fullHTML(fullOfFeat(f))}</div>` : `<div class="fc-desc">${fullHTML(fullOfFeat(f))}</div>`)}${fx.acts && !ed ? `<div class="fxacts">${fxActsHTML(f, i)}</div>` : ''}
-      ${featSpellsHTML(f, i, ed)}
+        : `<div class="fc-desc">${fullHTML(fullOfFeat(f))}</div>`}
+        ${featSpellsHTML(f, i, ed)}
+        <div class="fl-foot"><button type="button" class="fl-edit${ed ? ' on' : ''}" data-act="toggle" data-key="fedit:${i}" title="${ed ? 'Done editing' : 'Edit this feature'}" aria-label="${ed ? 'Done editing' : 'Edit ' + esc(f.name)}">${ed ? '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>' : '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg>'}</button></div>
+      </div></div>
     </div>`;
   };
   const head = g => {
@@ -2806,7 +2855,7 @@ function renderFeatures() {
   <div class="panel" ${PID('featlist')}><h2><span class="grow">Features &amp; Traits</span><span class="hint lvhint" style="text-transform:none;letter-spacing:0">Total level ${totalLevel()} · proficiency ${fmt(PB())}</span><button class="btn sm" data-act="hbnew" data-k="feat">+ Homebrew feature</button></h2>
     <div class="filters" style="margin-top:0"><input class="f featq" id="featQ" placeholder="Search features…" value="${esc(UI.featQ || '')}" aria-label="Search features"><button class="chip${ff === 'all' ? ' on' : ''}" data-act="featfilter" data-f="all">All</button>${groups.filter(g => g !== 'feat' || S.features.some(f => featGroup(f) === 'feat')).map(g => `<button class="chip${ff === g ? ' on' : ''}" data-act="featfilter" data-f="${g}">${esc(gname(g))}</button>`).join('')}</div>
     ${sections || '<p class="hint">No features match.</p>'}
-    <p class="hint">Features from your class, race, background and feats are added and updated automatically as you level. Tap ✎ on a card to change it.</p></div>`;
+    <p class="hint">Features from your class, race, background and feats are added and updated automatically as you level. Tap a feature to read it in full or edit it.</p></div>`;
 }
 // ---------- Inventory ----------
 const attuneMax = () => { const a = clsLv('artificer'); return a >= 18 ? 6 : a >= 14 ? 5 : a >= 10 ? 4 : 3; };
@@ -2859,7 +2908,7 @@ function renderInventory() {
         <span class="grow"></span>
         <button class="icon-btn ibtn${open ? ' on' : ''}" data-act="toggle" data-key="item:${esc(it.id)}" title="${open ? 'Close editing' : 'Edit details and notes'}" aria-label="Edit ${esc(it.name)}">${open ? '▴' : '✎'}</button>
         ${del('inventory', i)}</div>
-      <div class="imeta">${resPickItem(it) && !it.resPick ? `<label class="respick unset"><span>Which ring is it?</span><select class="f sel-dmg" data-restype="${i}" aria-label="Damage type this item resists"><option value="">Choose its damage type…</option>${RES_TYPES.map(t => `<option value="${t}">${t[0].toUpperCase() + t.slice(1)}</option>`).join('')}</select></label>` : ''}${String(it.notes || '').trim() && !open ? `<div class="inote-m mnote">${esc(it.notes)}</div>` : ''}${badges}${ch}${isDeckItem(it) ? `<button class="btn sm gold" data-act="deck" data-i="${i}">Draw a card</button>` : ''}${throwOf(it) ? `<button class="btn sm gold" data-act="throwit" data-i="${i}" title="Throw it (uses your action)">Throw</button>` : ''}${packOf(it.name) ? `<button class="btn sm gold" data-act="unpack" data-i="${i}" title="Replace the pack with everything it contains">Unpack</button>` : ''}${it.equipped && it.weapon && it.weapon.kind === 'melee' && !(it.weapon.props || []).includes('two-handed') && ((it.weapon.props || []).includes('light') || dualWielder()) ? `<label class="offchk" title="Dual wield: after attacking with a light melee weapon, attack with this one as a bonus action (Combat tab → Bonus Action)"><input type="checkbox" data-offhand="${i}"${it.offhand ? ' checked' : ''}> Off-hand (dual wield)</label>` : ''}${itemStores(it) && !it.infusion ? `<button class="btn sm gold" data-act="ringstore" data-i="${i}" title="${esc((it.spells || []).length ? 'Holds: ' + it.spells.join(', ') : 'Empty')}">Store a spell <small>${ringUsed(it)}/${ringCap(it)}</small></button>` : ''}${it.heal ? `<button class="btn sm" data-act="drink" data-i="${i}">Drink (${esc(it.heal)})</button>` : ''}${it.hb && hbUsable(hbFx(it.hb)) ? `<button class="btn sm gold" data-act="useitem" data-i="${i}" ${hbItemReady(it) ? '' : 'disabled'} title="${hbItemOn(it) ? '' : it.attune && !it.attuned ? 'Attune first' : 'Equip it first'}">Use</button>` : ''}${hbChips(it)}
+      <div class="imeta">${resPickItem(it) && !it.resPick ? `<label class="respick unset"><span>Which ring is it?</span><select class="f sel-dmg" data-restype="${i}" aria-label="Damage type this item resists"><option value="">Choose its damage type…</option>${RES_TYPES.map(t => `<option value="${t}">${t[0].toUpperCase() + t.slice(1)}</option>`).join('')}</select></label>` : ''}${String(it.notes || '').trim() && !open ? `<div class="inote-m mnote">${esc(it.notes)}</div>` : ''}${badges}${ch}${isDeckItem(it) ? `<button class="btn sm gold" data-act="deck" data-i="${i}">Draw a card</button>` : ''}${isRobeItem(it) ? `<button class="btn sm gold" data-act="robe" data-i="${i}">${it.robe ? `Patches · ${robeLeft(it)} left` : 'Set up patches'}</button>` : ''}${throwOf(it) ? `<button class="btn sm gold" data-act="throwit" data-i="${i}" title="Throw it (uses your action)">Throw</button>` : ''}${packOf(it.name) ? `<button class="btn sm gold" data-act="unpack" data-i="${i}" title="Replace the pack with everything it contains">Unpack</button>` : ''}${it.equipped && it.weapon && it.weapon.kind === 'melee' && !(it.weapon.props || []).includes('two-handed') && ((it.weapon.props || []).includes('light') || dualWielder()) ? `<label class="offchk" title="Dual wield: after attacking with a light melee weapon, attack with this one as a bonus action (Combat tab → Bonus Action)"><input type="checkbox" data-offhand="${i}"${it.offhand ? ' checked' : ''}> Off-hand (dual wield)</label>` : ''}${itemStores(it) && !it.infusion ? `<button class="btn sm gold" data-act="ringstore" data-i="${i}" title="${esc((it.spells || []).length ? 'Holds: ' + it.spells.join(', ') : 'Empty')}">Store a spell <small>${ringUsed(it)}/${ringCap(it)}</small></button>` : ''}${it.heal ? `<button class="btn sm" data-act="drink" data-i="${i}">Drink (${esc(it.heal)})</button>` : ''}${it.hb && hbUsable(hbFx(it.hb)) ? `<button class="btn sm gold" data-act="useitem" data-i="${i}" ${hbItemReady(it) ? '' : 'disabled'} title="${hbItemOn(it) ? '' : it.attune && !it.attuned ? 'Attune first' : 'Equip it first'}">Use</button>` : ''}${hbChips(it)}
 </div>
       ${open ? `<div class="idetail"><div class="idet-top">${picThumb(`inventory.${i}.img`, it.name)}${fld('Notes', ta(`inventory.${i}.notes`, { rows: 2, cls: 'inotefull', label: 'Notes', ph: 'Add a note…' }))}</div>${it.summary ? `<p>${esc(it.summary)}</p>` : ''}${it.armor ? `<p class="hint">${esc(it.armor.type)} armor · AC ${it.armor.base}${it.armor.type === 'shield' ? '' : it.armor.dexCap === 0 ? '' : it.armor.dexCap ? ' + DEX (max ' + it.armor.dexCap + ')' : ' + DEX'}${it.armor.strReq ? ' · STR ' + it.armor.strReq : ''}${it.armor.stealthDis ? ' · Stealth disadvantage' : ''}</p>` : ''}${it.weapon ? `<p class="hint">${esc(it.weapon.cat)} ${esc(it.weapon.kind)} · ${esc(it.weapon.dice)} ${esc(it.weapon.type)}${it.weapon.props && it.weapon.props.length ? ' · ' + esc(it.weapon.props.join(', ')) : ''}${it.weapon.range ? ' · ' + esc(it.weapon.range) + ' ft' : ''}</p>` : ''}
         <div class="row">${fld('Weight (lb)', inp(`inventory.${i}.weight`, { num: 1 }))}${fld('Cost', inp(`inventory.${i}.cost`))}<label class="checkline">${chk(`inventory.${i}.attune`, 'Requires attunement')} Requires attunement</label></div>
@@ -3209,6 +3258,7 @@ function oocHTML(comps) {
       <div class="ooc-col">
         ${(() => { const r = combatCompanionRows(); return r.length ? `<div class="panel"><h2>Companions</h2>${r.join('')}</div>` : ''; })()}
         ${feats.length ? `<div class="panel"><h2>Features</h2>${feats.map(featRow).join('')}</div>` : ''}
+        ${(() => { const r = robeCombatRows(); return r.length ? `<div class="panel"><h2>Robe of Useful Items</h2>${r.join('')}</div>` : ''; })()}
         ${(() => { const ad = addonRows(true); return ad.length ? `<div class="panel"><h2>Add-ons</h2>${ad.join('')}</div>` : ''; })()}
         <div class="panel"><h2>Quick checks</h2><div class="ooc-sks">${skills}</div></div>
       </div>
@@ -3269,6 +3319,7 @@ function renderCombat() {
       if (spells.length) body += riderChipsGen(['cast', 'spelldmg'], 'When you cast:') + combatSpellsHTML(key, spells);
       if (feats.length) body += cGroup(key, 'feat', 'Features', '★', feats.length, feats.map(([f, i]) => featView(key, f, i)).join(''));
       if (key === 'action') { const ad = addonRows(); if (ad.length) body += cGroup(key, 'addon', 'Add-ons', '✚', ad.length, ad.join('')); }
+      if (key === 'action') { const rr = robeCombatRows(); if (rr.length) body += cGroup(key, 'robe', 'Robe of Useful Items', '✂', rr.length, rr.join('')); }
       if (key === 'action') { const comps = combatCompanionRows(); if (comps.length) body += cGroup(key, 'comp', 'Companions', '🐾', comps.length, comps.join('')); }
       if (key === 'bonus' && S.companions.length) body = `<div class="incol-comps">${S.companions.map((c, i) => compCard(c, i, false, true)).join('')}</div>` + body;
       { const ir = infCombatRows(key); if (ir.length) body += cGroup(key, 'inf', 'Infusions', '⚗', ir.length, ir.join('')); }
@@ -3757,6 +3808,8 @@ function mainClick(e) {
     case 'add': addItem(b.dataset.list); break;
     case 'del': delItem(b.dataset.list, i); break;
     case 'up': { const L = getP(b.dataset.list); if (i > 0) { [L[i - 1], L[i]] = [L[i], L[i - 1]]; save(); render(); } break; }
+    // Features tab rows open and close in place (no redraw), so they can slide open.
+    case 'ftog': { const k = b.dataset.key, row = b.closest('.frow'), v = row ? !row.classList.contains('open') : !UI.open[k]; UI.open[k] = v; saveUI(); if (row) { row.classList.toggle('open', v); b.setAttribute('aria-expanded', v); const bd = row.querySelector('.fl-body'); if (bd) bd.inert = !v; } return; }
     case 'toggle': {
       UI.open[b.dataset.key] = !UI.open[b.dataset.key]; saveUI(); pendingLabel = null;
       // Feature cards share rows: opening one card's text opens the others in the same row too (and closing closes them).
@@ -3996,6 +4049,14 @@ function mainClick(e) {
     case 'booksedit': UI.open.booksedit = !UI.open.booksedit; saveUI(); reopenSettings(); break;
     case 'addbag': openAddBag(); break;
     case 'deck': openDeck(i); break;
+    case 'robe': openRobe(i); break;
+    case 'roberoll': robeRoll(); break;
+    case 'robeview': if (ROBE) { ROBE.view = b.dataset.v; ROBE.edit = null; ROBE.msg = ''; renderRobe(); } break;
+    case 'robecnt': if (ROBE && ROBE.edit) { const k = b.dataset.k; ROBE.edit[k] = Math.max(0, Math.min(40, N(ROBE.edit[k]) + N(b.dataset.d))); renderRobe(); } break;
+    case 'robesave': if (ROBE && ROBE.edit) { const it = S.inventory[ROBE.i]; if (it) { it.robe = Object.assign({ log: [] }, it.robe || {}, { p: Object.assign({}, ROBE.edit) }); pendingLabel = 'Robe of Useful Items: patches'; save(); render(); } ROBE.view = 'main'; ROBE.edit = null; ROBE.msg = ''; renderRobe(); } break;
+    case 'robedet': robeDetach(b.dataset.k); break;
+    case 'robescroll': robeDetach('scroll', b.dataset.v); break;
+    case 'robewear': if (ROBE) { const it = S.inventory[ROBE.i]; if (it && !it.equipped) { equipItem(ROBE.i); } renderRobe(); } break;
     case 'unpack': unpackItem(i); break;
     case 'throwit': throwItem(i); break;
     case 'decktype': S.deck.variant = b.dataset.v; DECK.last = null; save(); renderDeck(); break;
@@ -5137,7 +5198,7 @@ function profWeapon(w) {
 function attackFromItem(it) {
   const w = it.weapon, props = w.props || [], ranged = w.kind === 'ranged';
   const monkOK = clsLv('monk') && ((w.cat === 'simple' && !ranged && !props.includes('heavy') && !props.includes('two-handed')) || /shortsword/i.test(it.name));
-  const ab = monkOK ? 'monk' : props.includes('finesse') ? 'fin' : ranged ? 'dex' : 'str';
+  const ab = it.atkAb && it.atkAb !== 'monk' ? it.atkAb : monkOK ? 'monk' : props.includes('finesse') ? 'fin' : ranged ? 'dex' : 'str';
   const vers = props.find(p => /versatile/.test(p));
   return { name: it.name, ab, prof: profWeapon([w.base || it.name, w.cat]), magic: N((it.mods || {}).atk), dice: w.dice, type: w.type, notes: props.filter(p => !/versatile/.test(p)).concat(vers ? [vers.replace('versatile ', 'two hands ')] : []).join(', ') + (w.range ? ` · ${w.range} ft` : '') + (it.silvered ? ' · silvered' : ''), kind: ranged ? 'ranged' : 'melee', oneHanded: !props.includes('two-handed') && !ranged, monk: monkOK, item: it.id };
 }
@@ -5775,6 +5836,7 @@ function openExtFx() {
   </div>`;
   if ($('#condmodal.extfxm') && $('#modal').classList.contains('open')) $('#modal-body').innerHTML = html; else openModal(html);
 }
+
 
 
 // ---------- Fields that grow to fit their text ----------
@@ -6788,6 +6850,141 @@ document.addEventListener('click', e => { const d = e.target.closest && e.target
     if (el.scrollTop < 0) el.scrollTop = 0; else if (my > 0 && el.scrollTop > my) el.scrollTop = my;
     if (el.scrollLeft < 0) el.scrollLeft = 0; else if (mx > 0 && el.scrollLeft > mx) el.scrollLeft = mx; }, { capture: true, passive: true });
 })();
+
+// ---------- Robe of Useful Items ----------
+// The robe gets a "Patches" button (Inventory) and a "Detach a patch" row (Combat → Action). Every robe has two each of
+// six everyday patches plus 4d4 more the DM rolls or picks (DMG table); you can roll them here or enter what your DM said.
+// Detaching one (an action — a Magic action in the 2024 rules — while you wear the robe) turns it into the real thing:
+// gear and coins land in your inventory, a horse or mastiffs join your Creatures, a spell scroll you choose becomes
+// castable from your Spells tab, and doors, pits, ladders and rowboats appear in the world. Once the last patch is gone the
+// robe is an ordinary robe.
+const ROBE_FIXED = ['dagger', 'lantern', 'mirror', 'pole', 'rope', 'sack'];
+const ROBE_P = {
+  dagger: { n: 'Dagger', d: 'A real dagger, ready to use.' },
+  lantern: { n: 'Bullseye lantern', d: 'Filled and already lit: bright light in a 60-ft cone, dim for another 60 ft. Burns 6 hours on its oil.' },
+  mirror: { n: 'Steel mirror', d: 'A small steel mirror.' },
+  pole: { n: '10-foot pole', d: 'A wooden pole, 10 feet long.' },
+  rope: { n: 'Hempen rope', d: '50 feet, coiled.' },
+  sack: { n: 'Sack', d: 'An empty sack (holds 1 cubic foot / 30 lb).' },
+  gold: { n: 'Bag of gold', d: 'A bag holding 100 gp.', r: [1, 8] },
+  coffer: { n: 'Silver coffer', d: '1 ft long, 6 in wide and deep. Worth 500 gp.', r: [9, 15] },
+  door: { n: 'Iron door', d: 'Up to 10 ft wide and 10 ft high, barred on the side you choose. Place it in an opening you can reach; it fits, attaches and hinges itself.', r: [16, 22], world: 1 },
+  gems: { n: '10 gems', d: 'Ten gems worth 100 gp each.', r: [23, 30] },
+  ladder: { n: 'Wooden ladder', d: '24 feet long.', r: [31, 44], world: 1 },
+  horse: { n: 'Riding horse', d: 'A riding horse with saddlebags (a riding saddle in the 2024 rules). Joins your Creatures.', r: [45, 51] },
+  pit: { n: 'Pit', d: 'A 10-ft cube, opening on the ground within 10 ft of you.', r: [52, 59], world: 1 },
+  potions: { n: '4 potions of healing', d: 'Each restores 2d4 + 2 HP.', r: [60, 68] },
+  boat: { n: 'Rowboat', d: '12 feet long.', r: [69, 75], world: 1 },
+  scroll: { n: 'Spell scroll', d: 'A scroll of one spell of level 1–3 (you choose it when you detach the patch).', r: [76, 83] },
+  mastiffs: { n: '2 mastiffs', d: 'Two mastiffs. They join your Creatures.', r: [84, 90] },
+  window: { n: 'Window', d: '2 ft by 4 ft, up to 2 ft deep. Place it on a vertical surface you can reach.', r: [91, 96], world: 1 },
+  ram: { n: 'Portable ram', d: '+4 to Strength checks to break down doors (and advantage if someone helps).', r: [97, 100] },
+};
+const ROBE_RAND = Object.keys(ROBE_P).filter(k => ROBE_P[k].r);
+const isRobeItem = it => !!it && /robe of useful items/i.test(String(it.name || '') + ' ' + String((it.magic && it.magic.name) || ''));
+const robeLeft = it => { const p = (it && it.robe && it.robe.p) || {}; return Object.values(p).reduce((t, v) => t + N(v), 0); };
+const robeD100 = () => 1 + Math.floor(Math.random() * 100);
+const robeKindOf = r => ROBE_RAND.find(k => r >= ROBE_P[k].r[0] && r <= ROBE_P[k].r[1]);
+let ROBE = null;
+function openRobe(i, view) { const it = S.inventory[i]; if (!isRobeItem(it)) return; ROBE = { i, view: view || (it.robe ? 'main' : 'setup'), msg: '', q: '' }; renderRobe(); }
+function robeBase() { const p = {}; ROBE_FIXED.forEach(k => p[k] = 2); return p; }
+function robeRoll() {
+  const it = S.inventory[ROBE.i]; if (!it) return;
+  const r = rollExpr('4d4', { need: true, label: 'Robe of Useful Items: extra patches' }), n = N(r.total) || 10, p = robeBase(), rolls = [];
+  for (let k = 0; k < n; k++) { const d = robeD100(), kind = robeKindOf(d); p[kind] = N(p[kind]) + 1; rolls.push([d, kind]); }
+  it.robe = { p, rolled: rolls, log: [] }; ROBE.view = 'main'; ROBE.msg = `<b>${n} extra patches</b> (4d4): ${rolls.map(([d, k]) => `${esc(ROBE_P[k].n)} <small>(${d})</small>`).join(', ')}.`;
+  pendingLabel = 'Robe of Useful Items: roll patches'; save(); render(); renderRobe();
+}
+function robeTile(k, n, i, act) {
+  const P = ROBE_P[k];
+  return `<div class="robe-p${n ? '' : ' gone'}"><div class="robe-pt"><b>${esc(P.n)}</b>${n > 1 ? `<span class="robe-n">×${n}</span>` : ''}</div><p>${esc(P.d)}</p>${act ? act : `<button class="btn sm gold" data-act="robedet" data-k="${k}" ${n ? '' : 'disabled'}>Detach</button>`}</div>`;
+}
+function renderRobe() {
+  const it = S.inventory[ROBE.i]; if (!it) return closeModal(); let h = `<div id="robem"><h3>${esc(it.name)}</h3>`;
+  if (ROBE.view === 'setup') {
+    h += `<p class="hint">Every robe has two each of a dagger, bullseye lantern, steel mirror, 10-foot pole, hempen rope and sack, plus <b>4d4 more patches</b> your DM rolls or picks.</p>
+      <div class="bagpresets"><button class="bagpreset" data-act="roberoll"><b>Roll the extra patches</b><small>4d4 patches, each rolled on the d100 table</small></button><button class="bagpreset" data-act="robeview" data-v="edit"><b>My DM told me what they are</b><small>Count each kind of patch yourself</small></button></div>`;
+  } else if (ROBE.view === 'edit') {
+    const p = (it.robe && it.robe.p) || robeBase(); ROBE.edit = ROBE.edit || Object.assign({}, p);
+    const row = k => `<div class="robe-er"><span>${esc(ROBE_P[k].n)}${ROBE_P[k].r ? ` <small>${ROBE_P[k].r[0]}–${ROBE_P[k].r[1] === 100 ? '00' : ROBE_P[k].r[1]}</small>` : ''}</span><div class="qty"><button data-act="robecnt" data-k="${k}" data-d="-1" aria-label="One fewer ${esc(ROBE_P[k].n)}">−</button><b>${N(ROBE.edit[k])}</b><button data-act="robecnt" data-k="${k}" data-d="1" aria-label="One more ${esc(ROBE_P[k].n)}">+</button></div></div>`;
+    const extra = ROBE_RAND.reduce((t, k) => t + N(ROBE.edit[k]), 0);
+    h += `<p class="hint">How many of each patch are still on the robe.</p><div class="robe-eh">Everyday patches</div><div class="robe-eg">${ROBE_FIXED.map(row).join('')}</div>
+      <div class="robe-eh">Extra patches <span class="hint">${extra} — usually 4 to 16</span></div><div class="robe-eg">${ROBE_RAND.map(row).join('')}</div>
+      <div class="actions"><button class="btn" data-act="robeview" data-v="${it.robe ? 'main' : 'setup'}">Cancel</button><button class="btn gold" data-act="robesave">Save patches</button></div>`;
+  } else if (ROBE.view === 'scroll') {
+    const my = casters().map(c => c.list).filter(Boolean), q = String(ROBE.q || '').toLowerCase().trim();
+    const list = DND.spells.filter(s => s.level >= 1 && s.level <= 3 && (!q || s.name.toLowerCase().includes(q))).sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
+    const mine = s => my.some(l => String(s.classes || '').includes(l));
+    h += `<p class="hint">Choose the spell on the scroll (level 1–3). Spells on your class's list are marked — you can only read a scroll of a spell on your class's list.</p>
+      <input class="f" id="robeq" placeholder="Search spells…" aria-label="Search spells" value="${esc(ROBE.q || '')}">
+      <div class="robe-sl">${list.map(s => `<button class="robe-s" data-act="robescroll" data-v="${esc(s.name)}"><span><b>${esc(s.name)}</b><small>${ORD[s.level - 1]} level · ${esc(s.school)}${s.summary ? ' · ' + esc(s.summary) : ''}</small></span>${mine(s) ? '<span class="tag">Your list</span>' : ''}</button>`).join('') || '<p class="hint">No spell matches.</p>'}</div>
+      <div class="actions"><button class="btn" data-act="robeview" data-v="main">Back</button></div>`;
+  } else {
+    const p = (it.robe && it.robe.p) || {}, left = robeLeft(it), worn = !!it.equipped;
+    if (ROBE.msg) h += `<div class="robe-msg">${ROBE.msg}</div>`;
+    if (!worn) h += `<p class="robe-warn">Wear the robe to detach patches. <button class="btn sm" data-act="robewear">Put it on</button></p>`;
+    const kinds = ROBE_FIXED.concat(ROBE_RAND).filter(k => N(p[k]) > 0);
+    h += left ? `<p class="hint">${left} patch${left === 1 ? '' : 'es'} left. Detaching one takes an action and turns it into the real thing.</p><div class="robe-grid">${kinds.map(k => robeTile(k, N(p[k]), ROBE.i)).join('')}</div>`
+      : `<p class="hint">No patches left.</p>`;
+    h += `<div class="actions"><button class="linkbtn" data-act="robeview" data-v="edit">Edit patches</button><span class="grow"></span><button class="btn gold" data-act="close">Done</button></div>`;
+  }
+  h += '</div>';
+  if ($('#robem') && $('#modal').classList.contains('open')) $('#modal-body').innerHTML = h; else openModal(h, () => { ROBE = null; }, true);
+  const q = $('#robeq'); if (q) { q.oninput = () => { ROBE.q = q.value; const pos = q.selectionStart; renderRobe(); const q2 = $('#robeq'); if (q2) { q2.focus(); try { q2.setSelectionRange(pos, pos); } catch (e) {} } }; }
+}
+// Something carried: stacks with a plain copy of the same thing you already have
+function robeGive(it) {
+  const same = !it.weapon && !it.armor && !it.spells && !it.charges && !it.hb && S.inventory.find(x => !x.equipped && !x.bag && x.name === it.name && !x.weapon && !x.armor && !x.charges && !x.hb && !x.spells && !x.robe);
+  if (same) same.qty = N(same.qty) + (N(it.qty) || 1); else addInventoryItem(it, true);
+}
+function robeGear(name, qty, notes) { const g = DND.gear.find(x => x[0] === name), it = g ? makeGearItem(g) : Object.assign(BLANK.inventory(), { name }); it.qty = qty || 1; if (notes) it.notes = notes; return it; }
+function robeScrollItem(name) {
+  const sp = SPI(name) || { name, level: 1 }, lv = N(sp.level) || 1, dc = lv >= 3 ? 15 : 13, atk = lv >= 3 ? 7 : 5;
+  const m = DND.magic.find(x => x[0] === 'Spell Scroll'), it = m ? makeMagicItem(m) : Object.assign(BLANK.inventory(), { name: 'Spell Scroll' });
+  it.name = `Spell Scroll (${sp.name})`; it.magic = Object.assign({}, it.magic || {}, { rarity: lv >= 3 ? 'uncommon' : lv === 2 ? 'uncommon' : 'common', type: 'scroll', name: 'Spell Scroll' });
+  it.spells = [sp.name]; it.spellStored = true; it.spellCast = { [sp.name]: { dc, atk } }; it.carried = true; it.scroll = sp.name; it.consumable = true;
+  it.summary = `${ORD[lv - 1]}-level scroll · save DC ${dc}, attack +${atk}. Cast it from your Spells tab; the scroll crumbles once it's used. If the spell isn't on your class's list you can't read it, and one above the level you can cast needs a DC ${10 + lv} check with your spellcasting ability.`;
+  return it;
+}
+function robeDetach(k, spell) {
+  const it = S.inventory[ROBE.i]; if (!it || !it.robe) return; const p = it.robe.p, P = ROBE_P[k]; if (!N(p[k])) return;
+  if (!it.equipped) { toast('Wear the robe first — patches only come off while you have it on.', 'fumble'); return; }
+  if (incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take actions.`, 'fumble'); return; }
+  if (k === 'scroll' && !spell) { ROBE.view = 'scroll'; ROBE.q = ''; renderRobe(); return; }
+  const out = [], fight = !!S.inCombat, acted = fight && S.turn && S.turn.used && S.turn.used.action;
+  if (k === 'dagger') { const w = DND.weapons.find(x => x[0] === 'Dagger'), have = S.inventory.find(x => x.weapon && x.weapon.base === 'Dagger' && x.name === 'Dagger' && !x.magic && !x.hb && !x.bag); if (have) have.qty = N(have.qty) + 1; else robeGive(makeWeaponItem(w)); out.push('A dagger is in your pack (and on your Attacks).'); }
+  else if (k === 'lantern') { robeGive(robeGear('Lantern, bullseye', 1, 'From the robe — already filled and lit.')); out.push('A lit bullseye lantern is in your pack.'); }
+  else if (k === 'mirror') { robeGive(robeGear('Mirror, steel')); out.push('A steel mirror is in your pack.'); }
+  else if (k === 'pole') { robeGive(robeGear('Pole (10-foot)')); out.push('A 10-foot pole is in your pack.'); }
+  else if (k === 'rope') { robeGive(robeGear('Rope, hempen (50 feet)')); out.push('50 feet of hempen rope is in your pack.'); }
+  else if (k === 'sack') { robeGive(robeGear('Sack')); out.push('A sack is in your pack.'); }
+  else if (k === 'gold') { S.currency.gp = N(S.currency.gp) + 100; out.push('+100 gp in your purse.'); }
+  else if (k === 'coffer') { robeGive(Object.assign(BLANK.inventory(), { name: 'Silver coffer', cost: '500 gp', notes: '1 ft long, 6 in wide and deep. From a Robe of Useful Items.' })); out.push('A silver coffer worth 500 gp is in your pack.'); }
+  else if (k === 'gems') { robeGive(Object.assign(BLANK.inventory(), { name: 'Gem (100 gp)', qty: 10, cost: '100 gp', notes: 'From a Robe of Useful Items.' })); out.push('10 gems worth 100 gp each are in your pack.'); }
+  else if (k === 'potions') { const m = DND.magic.find(x => x[0] === 'Potion of Healing'); const pot = makeMagicItem(m); pot.qty = 4; const same = S.inventory.find(x => x.name === pot.name && !x.equipped && !x.bag); if (same) same.qty = N(same.qty) + 4; else addInventoryItem(pot, true); out.push('4 potions of healing are in your pack.'); }
+  else if (k === 'ram') { robeGive(robeGear('Ram, portable', 1, '+4 to Strength checks to break down doors; advantage if another creature helps.')); out.push('A portable ram is in your pack.'); }
+  else if (k === 'scroll') { addInventoryItem(robeScrollItem(spell), true); rebuildAuto(); out.push(`A scroll of ${spell} is in your pack — cast it from your Spells tab.`); }
+  else if (k === 'horse' || k === 'mastiffs') {
+    const cr = DND.creatures.find(c => c.name === (k === 'horse' ? 'Riding Horse' : 'Mastiff'));
+    if (cr) { const c = { id: uid(), name: cr.name + (k === 'mastiffs' ? 's' : ''), kind: 'beast', ac: cr.ac, hp: cr.hp, maxhp: cr.hp, speed: cr.speed, attacks: (cr.attacks || []).map(z => z.slice()), notes: (cr.notes ? cr.notes + ' · ' : '') + (k === 'horse' ? 'Came from a Robe of Useful Items, with saddlebags (a riding saddle in the 2024 rules).' : 'Came from a Robe of Useful Items.'), abil: cr.abil, cr: cr.cr };
+      if (k === 'mastiffs') { c.count = 2; c.hps = [cr.hp, cr.hp]; } S.companions.push(c); }
+    out.push(k === 'horse' ? 'A riding horse appears — it’s in your Creatures.' : 'Two mastiffs appear — they’re in your Creatures.');
+  }
+  else out.push(P.d.replace(/\.$/, '') + '.');
+  p[k] = N(p[k]) - 1; (it.robe.log = it.robe.log || []).push({ k, t: Date.now(), spell: spell || undefined });
+  if (fight && S.turn && S.turn.used) S.turn.used.action = true;
+  let done = '';
+  if (!robeLeft(it)) { it.name = 'Robe'; delete it.magic; it.summary = 'An ordinary robe — once a Robe of Useful Items.'; it.robe.done = true; done = 'That was the last patch: the robe is an ordinary robe now.'; }
+  pendingLabel = 'Robe of Useful Items: detach ' + (k === 'scroll' ? 'a scroll of ' + spell : P.n.toLowerCase()); save(); render();
+  ROBE.view = 'main'; ROBE.msg = `<b>${esc(k === 'scroll' ? 'Spell scroll (' + spell + ')' : P.n)}</b> — ${esc(out.join(' '))}${done ? `<br>${esc(done)}` : ''}`;
+  if (done) { closeModal(); ROBE = null; } else renderRobe();
+  toast(`<div><b>${esc(k === 'scroll' ? 'Spell scroll (' + spell + ')' : P.n)}</b>${!fight ? '' : acted ? ' · you’d already used your action' : ' · uses your action'}</div><div class="det">${esc(out.join(' '))}</div>${done ? `<div class="det">${esc(done)}</div>` : ''}`, '', 8000, { label: 'Undo', fn: () => undo(1) });
+}
+// Combat → Action: a row for the robe while you wear it
+function robeCombatRows() {
+  return S.inventory.map((it, i) => [it, i]).filter(([it]) => isRobeItem(it) && it.equipped).map(([it, i]) => { const left = it.robe ? robeLeft(it) : null;
+    return `<div class="opt"><div class="opt-head"><span class="opt-name">${esc(it.name)}</span>${left != null ? `<span class="tag">${left} patch${left === 1 ? '' : 'es'}</span>` : ''}<button class="btn sm" data-act="robe" data-i="${i}">${it.robe ? 'Detach a patch' : 'Set up patches'}</button></div><div class="opt-text">Detach a patch to turn it into the real object or creature.</div></div>`; });
+}
 
 // ---------- Sources ----------
 // Which books a character draws from. Picked on the first step of creation and changeable later in Settings → Books.
@@ -9748,7 +9945,7 @@ function renderParty() {
       return `<div class="ptya"><b>${esc(a.name)}</b><span class="hint">${esc(ptyFormula(a.def.label || '') || a.def.text || '')}</span><div class="ptya-who">${ms.map(m => `<label class="checkline"><input type="checkbox" data-aura="${esc(a.name)}" data-id="${esc(m.id)}"${on.includes(m.id) ? ' checked' : ''}> ${esc(m.name)}</label>`).join('')}</div></div>`; }).join('')}</div>` : '';
   const logP = `<div class="panel ptylogp"><h2>Party log</h2>${(S.ptyLog || []).length ? `<div class="ptylog">${S.ptyLog.slice(0, 30).map(l => `<div class="ptyl ${esc(l.dir)}"><span class="ptyl-d" aria-label="${l.dir === 'in' ? 'Received' : 'Sent'}">${l.dir === 'in' ? '↓' : '↑'}</span><span class="ptyl-t">${esc(l.text)}<small>${l.dir === 'in' ? 'from ' : 'to '}${esc(l.who)} · ${esc(ptyAgo(l.at))}</small></span></div>`).join('')}</div>` : '<p class="hint" style="margin:0">What you send and receive shows up here.</p>'}</div>`;
   const ch = PTYX().chat, chatP = ch && ch.on() ? (UI.chatPop ? `<div class="panel ptychat ptychat-popped"><h2>Party chat</h2><div class="ptychat-lock"><span aria-hidden="true">⧉</span><p>The chat is popped out in its own window.</p><button class="btn sm" data-pa="chatdock">Bring it back here</button></div></div>` : `<div class="panel ptychat"><h2><span class="grow">Party chat</span><button class="icon-btn ptychat-popbtn" data-pa="chatpop" title="Open the chat in its own window (stays open on every tab)" aria-label="Open the chat in its own window"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-8 8"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg></button></h2>${ptyChatInner()}</div>`)
-    : !P.loading ? `<div class="panel ptychat ptychat-off"><h2>Party chat</h2><div class="ptychat-lock"><span aria-hidden="true">🔒</span><p>${PTYX().owner() !== PTYX().email ? `Only ${esc(S.player || 'this character’s player')} can see and send this character’s party chat.` : 'Party chat is just for the players — as the DM, you can’t see it.'}</p></div></div>` : '';
+    : !P.loading ? `<div class="panel ptychat ptychat-off"><h2>Party chat</h2><div class="ptychat-lock"><span aria-hidden="true"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span><p>${PTYX().owner() !== PTYX().email ? `Only ${esc(S.player || 'this character’s player')} can see and send this character’s party chat.` : 'Party chat is just for the players — as the DM, you can’t see it.'}</p></div></div>` : '';
   // Party chat sits to the right of everything else (below it on a phone).
   pg.innerHTML = `<div class="ptytab">${head}<div class="ptymain${chatP ? ' haschat' : ''}"><div class="ptyleft">${cards}<div class="ptyfoot${aurasP ? '' : ' one'}">${aurasP}${logP}</div></div>${chatP}</div></div>`;
   if (!UI.chatPop) ptyChatWire(); else ptyChatWin();
@@ -10242,6 +10439,8 @@ function ptyBusy() { const a = document.activeElement; return $('#wizard').class
 const ptyFreeKind = k => ['note', 'end', 'reply'].includes(k);
 function ptyTrusted(m) { const P = PTYX(), I = P && P.info(); if (ptyFreeKind(m.kind) && !(m.data && m.data.reason)) return true; if (!m.by) return false;
   if (m.data && m.data.ask) return false; // sent from the party page: always asked, even from the DM
+  // loot the whole party agreed to split (each player said OK on their own sheet): it just arrives
+  if (m.data && m.data.split && ['item', 'loot', 'coins'].includes(m.kind)) return true;
   // only the DM, or this character's own player (their own characters) — not whoever happens to have the sheet open
   return !!I && (m.by === I.dm || (I.mgrs || []).includes(m.by) || m.by === (P.owner && P.owner())); }
 function ptyInFlush() { const I = PTYX() && PTYX().info(); if (!S.created || ptyBusy() || !I || I.loading) { clearTimeout(ptyInFlush._t); ptyInFlush._t = setTimeout(ptyInFlush, 800); return; }
@@ -10792,18 +10991,18 @@ function hbbItemAdv() {
   let h = '';
   if (t === 'weapon') h += bSec('wpn', '⚔', 'Weapon details', hbbSum([['_mag', d._mag ? '+' + d._mag + ' magic' : ''], ['_props', d._props], ['_loading', 'loading']]),
     bF('Magic bonus (to hit and damage)', bSeg('_mag', [['', 'None'], ['1', '+1'], ['2', '+2'], ['3', '+3']])) + bF('Properties', bChips('_props', ['Finesse', 'Light', 'Heavy', 'Two-handed', 'Thrown', 'Reach', 'Versatile', 'Special'])) + bRow(bF('Category', bSeg('_cat', [['simple', 'Simple'], ['martial', 'Martial']])), d._kind === 'ranged' ? bChk('_loading', 'Loading', 'Only one shot per action, bonus action or reaction') : ''));
-  h += bSec('prot', '🛡', 'Protection', hbbSum([[P + 'resist', 'Resist ' + (hbbV(P + 'resist') || '')], [P + 'immune', 'Immune ' + (hbbV(P + 'immune') || '')], [P + 'vuln', 'Vulnerable ' + (hbbV(P + 'vuln') || '')], [P + 'condImmune'], [P + 'ac', 'AC +' + hbbV(P + 'ac')], [P + 'saveAll', 'Saves +' + hbbV(P + 'saveAll')]]) || 'Resistances, immunities, AC',
+  h += bSec('prot', '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/></svg>', 'Protection', hbbSum([[P + 'resist', 'Resist ' + (hbbV(P + 'resist') || '')], [P + 'immune', 'Immune ' + (hbbV(P + 'immune') || '')], [P + 'vuln', 'Vulnerable ' + (hbbV(P + 'vuln') || '')], [P + 'condImmune'], [P + 'ac', 'AC +' + hbbV(P + 'ac')], [P + 'saveAll', 'Saves +' + hbbV(P + 'saveAll')]]) || 'Resistances, immunities, AC',
     bF('Resistant to', bChips(P + 'resist', DND.damageTypes)) + bF('Immune to', bChips(P + 'immune', DND.damageTypes)) + bF('Vulnerable to', bChips(P + 'vuln', DND.damageTypes)) + bF('Can’t be', bChips(P + 'condImmune', HBB_CONDS)) + bRow(bF('AC bonus', bIn(P + 'ac', { ph: '1' })), bF('Bonus to all saves', bIn(P + 'saveAll', { ph: '1' }))));
   h += bSec('move', '🪽', 'Movement & senses', hbbSum([[P + 'speed', '+' + hbbV(P + 'speed') + ' ft'], [P + 'fly', 'Fly'], [P + 'swim', 'Swim'], [P + 'climb', 'Climb'], [P + 'sense']]) || 'Speed, flying, darkvision',
     bRow(bF('Extra speed (ft)', bIn(P + 'speed', { ph: '10' })), bF('Fly (ft)', bIn(P + 'fly', { ph: '30 or walk' })), bF('Swim (ft)', bIn(P + 'swim', { ph: 'walk' })), bF('Climb (ft)', bIn(P + 'climb', { ph: 'walk' }))) + bF('Senses', bIn(P + 'sense', { ph: 'Darkvision 60 ft' })));
   h += bSec('bon', '✚', 'Bonuses', hbbSum([[P + 'skillBonus'], [P + 'init', 'Initiative +' + hbbV(P + 'init')], [P + 'initAdv', 'Adv. on initiative'], [P + 'maxHp', 'Max HP +' + hbbV(P + 'maxHp')], [P + 'adv', 'Advantage notes']]) || 'Skills, initiative, max HP',
     bF('Skill bonuses', bIn(P + 'skillBonus', { ph: 'Stealth +2, Perception +1' })) + bRow(bF('Initiative bonus', bIn(P + 'init', { ph: '2 or wis' })), bF('Max HP bonus', bIn(P + 'maxHp', { ph: 'level' }))) + bChk(P + 'initAdv', 'Advantage on initiative') + bF('Advantage on (a reminder)', bIn(P + 'adv', { ph: 'Saves against being frightened; …' })));
-  h += bSec('use', '⚡', 'When you use it', hbbSum([[P + 'roll', 'Rolls ' + hbbV(P + 'roll')], [P + 'heal', 'Heals ' + hbbV(P + 'heal')], [P + 'temp', 'Temp HP'], [P + 'saveAb', 'Save'], [P + 'dash', 'Dash'], [P + 'refuel', 'Recovers a slot'], [P + 'costFrom', 'Costs']]) || 'Rolls, healing, saves',
+  h += bSec('use', '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>', 'When you use it', hbbSum([[P + 'roll', 'Rolls ' + hbbV(P + 'roll')], [P + 'heal', 'Heals ' + hbbV(P + 'heal')], [P + 'temp', 'Temp HP'], [P + 'saveAb', 'Save'], [P + 'dash', 'Dash'], [P + 'refuel', 'Recovers a slot'], [P + 'costFrom', 'Costs']]) || 'Rolls, healing, saves',
     bRow(bF('Roll', bIn(P + 'roll', { ph: '2d6+wis' })), bF('What the roll is', bIn(P + 'rollNote', { ph: 'fire damage' }))) + bRow(bChk(P + 'healRoll', 'The roll heals me'), bChk(P + 'selfDmg', 'The roll hurts me')) +
     bRow(bF('Targets make a save', bSel(P + 'saveAb', hbbAbOpts, { label: 'Save ability' })), bF('Save DC', bIn(P + 'dc', { ph: '15, or spell' }))) +
     bRow(bF('Heal yourself', bIn(P + 'heal', { ph: '2d4+2' })), bF('Temp HP', bIn(P + 'temp', { ph: '1d10' }))) +
     bRow(bF('Spends', bSel(P + 'costFrom', [['', 'Nothing']].concat(res), { label: 'Spends' })), hbbV(P + 'costFrom') ? bF('How many', bIn(P + 'costN', { num: 1, ph: '1' })) : '', bF('Recovers a spell slot up to', bIn(P + 'refuel', { num: 1, ph: 'level' }))) + bChk(P + 'dash', 'Lets you Dash', 'Adds your speed to this turn’s movement'));
-  h += bSec('eff', '✨', 'Starts an effect', hbbV(P + 'effName') ? hbbV(P + 'effName') : 'A buff that lasts a while', hbbEffFields(P));
+  h += bSec('eff', '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 15l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7z"/></svg>', 'Starts an effect', hbbV(P + 'effName') ? hbbV(P + 'effName') : 'A buff that lasts a while', hbbEffFields(P));
   if (comps.length) h += bSec('sum', '🐾', 'Summons a creature', hbbV(P + 'summon') || 'A companion', bF('Summons', bSel(P + 'summon', [['', '—']].concat(comps.map(c => [c, c])), { label: 'Summons' })));
   h += bSec('sp', '📜', 'Spells it lets you cast', (d.spells || []).join(', ') || 'None', hbbSpellList() + bRow(bChk('spellOnce', 'Leveled spells once per long rest'), bChk('spellAtWill', 'At will (no slot)')) + bF('Cast with', bSel(P + 'spellAb', [['', 'Your spellcasting'], ...AB.map(a => [a, ABN[a]])], { label: 'Cast with' })));
   if (t !== 'weapon') h += bSec('atk', '🗡', 'Gives you an attack', hbbV(P + 'atkName') || 'A special attack', hbbAtkFields(P));
@@ -10863,7 +11062,7 @@ function hbbFeatBasic() {
   const d = HBB.d;
   let h = bF('Name', bIn('name', { ph: 'e.g. Stormborn Fury', cls: 'hbb-name', label: 'Feature name' }));
   h += bF('Using it takes', bSeg('col', hbbUseCols('Nothing — it’s passive, or adds to something else'), { wrap: true }), !d.col && !hbbV('hb.on') ? 'It won’t get its own button in Combat. Pick an action type to use it from Combat, or make it add to another ability below (like Divine Smite).' : '');
-  if (d.col && !HBB.adv) h += `<div class="hbb-card"><div class="hbb-ct">⚡ When you use it</div>` + bRow(bF('Roll', bIn('hb.roll', { ph: '2d6+wis' }), 'Dice or a formula'), bF('What the roll is', bIn('hb.rollNote', { ph: 'radiant damage' }))) + bRow(bF('Targets make a save', bSel('hb.saveAb', hbbAbOpts, { label: 'Save ability' })), hbbV('hb.saveAb') ? bF('Save DC', bIn('hb.dc', { ph: 'spell, or 8+prof+wis' })) : '') + `<p class="hint">More (healing, temp HP, effects, costs) under <b>Advanced</b>.</p></div>`;
+  if (d.col && !HBB.adv) h += `<div class="hbb-card"><div class="hbb-ct"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg> When you use it</div>` + bRow(bF('Roll', bIn('hb.roll', { ph: '2d6+wis' }), 'Dice or a formula'), bF('What the roll is', bIn('hb.rollNote', { ph: 'radiant damage' }))) + bRow(bF('Targets make a save', bSel('hb.saveAb', hbbAbOpts, { label: 'Save ability' })), hbbV('hb.saveAb') ? bF('Save DC', bIn('hb.dc', { ph: 'spell, or 8+prof+wis' })) : '') + `<p class="hint">More (healing, temp HP, effects, costs) under <b>Advanced</b>.</p></div>`;
   h += `<div class="hbb-card"><div class="hbb-ct">↻ Uses</div>` + bF('How often can you use it?', bSeg('_limited', [['', 'As often as I like'], ['1', 'A limited number of times']]));
   if (d._limited) h += bRow(bF('Times', bIn('max', { ph: '1, prof, 1+cha…', label: 'How many times' }), 'A number, or a formula like <code>prof</code> or <code>1+wis</code>'), bF('Comes back on', bSeg('reset', [['short', 'Short rest'], ['long', 'Long rest'], ['none', 'Never']], { wrap: true })));
   h += `</div>`;
@@ -10875,13 +11074,13 @@ function hbbFeatAdv() {
   const d = HBB.d, P = 'hb.', comps = typeof COMP_RULES === 'object' ? Object.keys(COMP_RULES) : [];
   const res = S.features.filter(f => f !== S.features[HBB.idx] && featMax(f) != null).map(f => [f.dname || f.name, f.dname || f.name]);
   let h = '';
-  h += bSec('use', '⚡', 'When you use it', hbbSum([[P + 'roll', 'Rolls ' + hbbV(P + 'roll')], [P + 'heal', 'Heals'], [P + 'temp', 'Temp HP'], [P + 'saveAb', 'Save'], [P + 'dash', 'Dash'], [P + 'costFrom', 'Costs']]) || 'Rolls, healing, saves, costs',
+  h += bSec('use', '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>', 'When you use it', hbbSum([[P + 'roll', 'Rolls ' + hbbV(P + 'roll')], [P + 'heal', 'Heals'], [P + 'temp', 'Temp HP'], [P + 'saveAb', 'Save'], [P + 'dash', 'Dash'], [P + 'costFrom', 'Costs']]) || 'Rolls, healing, saves, costs',
     bRow(bF('Roll', bIn(P + 'roll', { ph: '2d6+wis' })), bF('What the roll is', bIn(P + 'rollNote', { ph: 'radiant damage' }))) + bRow(bChk(P + 'healRoll', 'The roll heals me'), bChk(P + 'selfDmg', 'The roll hurts me')) +
     bRow(bF('Targets make a save', bSel(P + 'saveAb', hbbAbOpts, { label: 'Save ability' })), bF('Save DC', bIn(P + 'dc', { ph: 'spell, or 8+prof+wis' }))) +
     bRow(bF('Heal yourself', bIn(P + 'heal', { ph: '1d8+level' })), bF('Temp HP', bIn(P + 'temp', { ph: 'cha+level' }))) +
     bRow(bF('Also spends', bSel(P + 'costFrom', [['', 'Nothing']].concat(res), { label: 'Also spends' })), hbbV(P + 'costFrom') ? bF('How many', bIn(P + 'costN', { num: 1, ph: '1' })) : '') + bChk(P + 'dash', 'Lets you Dash') + bF('Message when used', bIn(P + 'text', { ph: 'A reminder of what happens' })));
-  h += bSec('eff', '✨', 'Starts an effect', hbbV(P + 'effName') || 'A buff that lasts a while', hbbEffFields(P));
-  h += bSec('always', '🛡', 'Always on', hbbSum([[P + 'resist', 'Resist ' + (hbbV(P + 'resist') || '')], [P + 'immune', 'Immune'], [P + 'ac', 'AC'], [P + 'speed', 'Speed'], [P + 'fly', 'Fly'], [P + 'sense'], [P + 'skillBonus'], [P + 'maxHp', 'Max HP']]) || 'Resistances, speeds, bonuses',
+  h += bSec('eff', '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 15l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7z"/></svg>', 'Starts an effect', hbbV(P + 'effName') || 'A buff that lasts a while', hbbEffFields(P));
+  h += bSec('always', '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/></svg>', 'Always on', hbbSum([[P + 'resist', 'Resist ' + (hbbV(P + 'resist') || '')], [P + 'immune', 'Immune'], [P + 'ac', 'AC'], [P + 'speed', 'Speed'], [P + 'fly', 'Fly'], [P + 'sense'], [P + 'skillBonus'], [P + 'maxHp', 'Max HP']]) || 'Resistances, speeds, bonuses',
     bF('Resistant to', bChips(P + 'resist', DND.damageTypes)) + bF('Immune to', bChips(P + 'immune', DND.damageTypes)) + bF('Vulnerable to', bChips(P + 'vuln', DND.damageTypes)) + bF('Can’t be', bChips(P + 'condImmune', HBB_CONDS)) +
     bRow(bF('AC bonus', bIn(P + 'ac', { ph: '1' })), bF('Extra speed', bIn(P + 'speed', { ph: '10' })), bF('Fly', bIn(P + 'fly', { ph: 'walk' })), bF('Swim', bIn(P + 'swim', { ph: 'walk' })), bF('Climb', bIn(P + 'climb', { ph: 'walk' }))) +
     bRow(bF('Senses', bIn(P + 'sense', { ph: 'Darkvision 60 ft' })), bF('Skill bonuses', bIn(P + 'skillBonus', { ph: 'Insight +2' }))) + bRow(bF('Saves bonus', bIn(P + 'saveAll', { ph: '1' })), bF('Initiative bonus', bIn(P + 'init', { ph: 'wis' })), bF('Max HP bonus', bIn(P + 'maxHp', { ph: 'level' }))) +
