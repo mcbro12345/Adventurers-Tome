@@ -2590,7 +2590,15 @@ function hub(fs, auth, G, ctx) {
   addEventListener('scroll', () => { root.querySelectorAll('.hub-pane').forEach(p => { if (p._y != null) p.style.transform = scrollY - p._y ? `translateY(${scrollY - p._y}px)` : ''; }); }, { passive: true });
   // The gold button beside the tabs makes whatever the tab lists: a character, or (on Parties) a party.
   function newBtn() { const nb = root.querySelector('#hub-new'); if (!nb) return; const pty = view === 'parties', t = nb.querySelector('.hn-txt b');
-    if (t) t.textContent = pty ? 'New party' : 'Create character'; nb.onclick = () => pty ? PMx().newParty() : createChar(); }
+    const to = pty ? 'New party' : 'Create character';
+    // (the words morph from one to the other: the old ones blur and fade out, the new ones blur in, and the button eases to its new width)
+    if (t && t.textContent !== to) { const quiet = calm() || !t.textContent || !t.animate;
+      if (quiet) t.textContent = to;
+      else { const w0 = nb.getBoundingClientRect().width; if (t._mo) t._mo.cancel(); const out = t.animate([{ opacity: 1, filter: 'blur(0)', transform: 'none' }, { opacity: 0, filter: 'blur(4px)', transform: 'translateY(-3px)' }], { duration: 120, easing: 'ease-in', fill: 'forwards' }); t._mo = out;
+        out.onfinish = () => { t.textContent = to; const w1 = nb.getBoundingClientRect().width;
+          if (Math.abs(w1 - w0) > 1 && nb.animate) nb.animate([{ width: w0 + 'px' }, { width: w1 + 'px' }], { duration: 220, easing: 'cubic-bezier(.2,.8,.3,1)' });
+          t._mo = t.animate([{ opacity: 0, filter: 'blur(4px)', transform: 'translateY(3px)' }, { opacity: 1, filter: 'blur(0)', transform: 'none' }], { duration: 200, easing: 'ease-out', fill: 'forwards' }); }; } }
+    nb.onclick = () => pty ? PMx().newParty() : createChar(); }
   function switchView(v) { if (v === view) return; settle(); setTimeout(newBtn, 0); const out0 = root.querySelector('.hub-pane.on'); VSCROLL[view] = scrollY; view = v; history.replaceState(null, '', view === 'mine' ? URLS.hub(G) : URLS[view](G));
     const tr = root.querySelector('.hub-track'); if (!tr) return draw();
     const inP = tr.querySelector(`.hub-pane[data-pane="${v}"]`);

@@ -3935,6 +3935,9 @@ body.hubbody:not(.adminbody) #hub:not(.hd2) .hub-head.hd-stuck::after { opacity:
 .pg-si2 > .pg-a2hs a { background: transparent !important; border: 1px dashed rgba(201,150,43,.4) !important; color: #c9b07a !important; box-shadow: none !important; }
 /* …on a see-through dark backing like the lobby top (blurred, so the page’s pattern only shows softly) */
 .pg-si2 > .pg-a2hs a { background: rgba(0,0,0,.14) !important; -webkit-backdrop-filter: blur(1.5px); backdrop-filter: blur(1.5px); }
+/* the New character / New party words can move while they morph */
+body.hubbody .hub-new .hn-txt b { display: inline-block; white-space: nowrap; }
+body.hubbody .hub-new { overflow: hidden; }
 </style>
 </head>
 <body>
@@ -4885,7 +4888,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261031201057', ASSETS = {"data": "a/data.e8173a24cd9b.js", "app": "a/app.5357e015575b.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.9a5dfce879ae.html", "desk": "a/desk.ab6b05dfed51.js", "deskcss": "a/deskcss.407b744be102.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261031201250', ASSETS = {"data": "a/data.e8173a24cd9b.js", "app": "a/app.5357e015575b.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.9a5dfce879ae.html", "desk": "a/desk.ab6b05dfed51.js", "deskcss": "a/deskcss.407b744be102.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   // The test site says so on every page (and in the tab's title), so it's never mistaken for the real one.
   if (CFG.test) { window.PG_TEST = true; const mark = () => { if (!document.body || document.getElementById('pg-testmark')) return; const t = document.createElement('div'); t.id = 'pg-testmark'; t.textContent = 'Test site'; t.title = 'This is the test copy of Adventurer’s Tome. Changes here don’t touch the real site.'; document.body.appendChild(t);
       if (!/^\[Test\] /.test(document.title)) document.title = '[Test] ' + document.title; };
@@ -6624,7 +6627,15 @@ function hub(fs, auth, G, ctx) {
   addEventListener('scroll', () => { root.querySelectorAll('.hub-pane').forEach(p => { if (p._y != null) p.style.transform = scrollY - p._y ? `translateY(${scrollY - p._y}px)` : ''; }); }, { passive: true });
   // The gold button beside the tabs makes whatever the tab lists: a character, or (on Parties) a party.
   function newBtn() { const nb = root.querySelector('#hub-new'); if (!nb) return; const pty = view === 'parties', t = nb.querySelector('.hn-txt b');
-    if (t) t.textContent = pty ? 'New party' : 'Create character'; nb.onclick = () => pty ? PMx().newParty() : createChar(); }
+    const to = pty ? 'New party' : 'Create character';
+    // (the words morph from one to the other: the old ones blur and fade out, the new ones blur in, and the button eases to its new width)
+    if (t && t.textContent !== to) { const quiet = calm() || !t.textContent || !t.animate;
+      if (quiet) t.textContent = to;
+      else { const w0 = nb.getBoundingClientRect().width; if (t._mo) t._mo.cancel(); const out = t.animate([{ opacity: 1, filter: 'blur(0)', transform: 'none' }, { opacity: 0, filter: 'blur(4px)', transform: 'translateY(-3px)' }], { duration: 120, easing: 'ease-in', fill: 'forwards' }); t._mo = out;
+        out.onfinish = () => { t.textContent = to; const w1 = nb.getBoundingClientRect().width;
+          if (Math.abs(w1 - w0) > 1 && nb.animate) nb.animate([{ width: w0 + 'px' }, { width: w1 + 'px' }], { duration: 220, easing: 'cubic-bezier(.2,.8,.3,1)' });
+          t._mo = t.animate([{ opacity: 0, filter: 'blur(4px)', transform: 'translateY(3px)' }, { opacity: 1, filter: 'blur(0)', transform: 'none' }], { duration: 200, easing: 'ease-out', fill: 'forwards' }); }; } }
+    nb.onclick = () => pty ? PMx().newParty() : createChar(); }
   function switchView(v) { if (v === view) return; settle(); setTimeout(newBtn, 0); const out0 = root.querySelector('.hub-pane.on'); VSCROLL[view] = scrollY; view = v; history.replaceState(null, '', view === 'mine' ? URLS.hub(G) : URLS[view](G));
     const tr = root.querySelector('.hub-track'); if (!tr) return draw();
     const inP = tr.querySelector(`.hub-pane[data-pane="${v}"]`);
