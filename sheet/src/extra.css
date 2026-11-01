@@ -4248,3 +4248,5 @@ html.mobile .setx > .stpane.nopage { display: none !important; }
 /* character creation on a phone: no background band behind the step markers */
 html.mobile #wizard .wz3 .wz-head { background: none !important; }
 html.mobile #wizard .wz3 .wz-steps { background: none !important; box-shadow: none !important; }
+/* Condition chips: the ⓘ sits right after the word (just the chip's own gap between them). */
+.cchip > .notetip { margin-left: 0; }
