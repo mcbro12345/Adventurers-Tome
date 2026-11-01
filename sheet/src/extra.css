@@ -4343,3 +4343,7 @@ html.mobile #page-features .fl-acts .btn.fxact { min-height: 32px; padding: 4px 
 #page-features .fl-foot, #page-features .fl-in > .fl-foot:last-child { position: absolute; right: 8px; bottom: 6px; margin: 0; }
 #page-features .fl-in > :nth-last-child(2) { padding-right: 34px; }
 #page-features .frow:not(.open) .fl-foot { visibility: hidden; }
+/* Room for the pencil only at the end of the last line: the words use the full width and drop a line only if they'd reach it. */
+#page-features .fl-in > :nth-last-child(2) { padding-right: 0; display: flow-root; }
+#page-features .fl-in > :nth-last-child(2):not(:has(p, li))::after,
+#page-features .fl-in > :nth-last-child(2) :is(p, li):last-child:not(:has(~ *))::after { content: ""; float: right; width: 30px; height: 1em; }

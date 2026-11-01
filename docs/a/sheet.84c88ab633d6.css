@@ -4992,4 +4992,28 @@ html:not(.mobile) .modal.wide:has(> .castopts):not(:has(.settabs)) { width: fit-
 /* No options to list: just the sentence, without the empty list box around it. */
 .castopts:not(:has(.castopt)) { border: 0; background: none; overflow: visible; }
 .castopts > p.hint { margin: 0; }
+/* A feature's own actions (Dash / Disengage / Hide…) sit in the row header where Use goes, so they work without opening it. */
+#page-features .fl-acts { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: 5px; margin: 0; }
+#page-features .fl-acts .btn.fxact { background: color-mix(in srgb, var(--gold) 14%, transparent); border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent); color: var(--ink); border-radius: 999px; padding: 3px 11px; font-size: .78rem; font-weight: 650; white-space: nowrap; }
+@media (hover: hover) { @media (hover:hover){:where(html:not(.mobile)) #page-features .fl-acts .btn.fxact:hover{ background: color-mix(in srgb, var(--gold) 26%, transparent); border-color: var(--gold); }} }
+#page-features .fl-acts .btn.fxact small { opacity: .75; font-weight: 600; }
+/* Phones: the actions get their own line under the name. */
+html.mobile #page-features .fl-sum:has(.fl-acts) { flex-wrap: wrap; padding-bottom: 8px; }
+html.mobile #page-features .fl-sum:has(.fl-acts) .fl-r { flex: 1 1 100%; flex-wrap: wrap; justify-content: flex-start; padding-left: 38px; }
+html.mobile #page-features .fl-sum:has(.fl-acts) .fl-acts { justify-content: flex-start; flex: 1 1 auto; }
+html.mobile #page-features .fl-acts .btn.fxact { min-height: 32px; padding: 4px 12px; }
+/* Edit lives at the bottom right of an open feature, so the header's buttons reach the row's right edge. */
+#page-features .fl-sum { padding-right: 10px; }
+#page-features .fl-foot { display: flex; justify-content: flex-end; margin-top: -6px; }
+#page-features .fl-foot .fl-edit { opacity: 1; visibility: visible; }
+#page-features .fl-in > .fl-foot:last-child { margin-bottom: -4px; }
+/* …tucked into the corner instead of taking a line of its own. */
+#page-features .fl-in { position: relative; }
+#page-features .fl-foot, #page-features .fl-in > .fl-foot:last-child { position: absolute; right: 8px; bottom: 6px; margin: 0; }
+#page-features .fl-in > :nth-last-child(2) { padding-right: 34px; }
+#page-features .frow:not(.open) .fl-foot { visibility: hidden; }
+/* Room for the pencil only at the end of the last line: the words use the full width and drop a line only if they'd reach it. */
+#page-features .fl-in > :nth-last-child(2) { padding-right: 0; display: flow-root; }
+#page-features .fl-in > :nth-last-child(2):not(:has(p, li))::after,
+#page-features .fl-in > :nth-last-child(2) :is(p, li):last-child:not(:has(~ *))::after { content: ""; float: right; width: 30px; height: 1em; }
 
