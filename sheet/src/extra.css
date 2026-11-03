@@ -4398,3 +4398,4 @@ html:not(.mobile) #tabs .tab > .tabcount { position: static !important; top: aut
 .gripbtn { margin-left: 6px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line); background: var(--field); color: var(--soft); font: 700 .66rem/1.5 system-ui, sans-serif; letter-spacing: .04em; cursor: pointer; vertical-align: middle; }
 .gripbtn.on { background: color-mix(in srgb, var(--gold) 18%, transparent); border-color: color-mix(in srgb, var(--gold) 55%, transparent); color: var(--ink); }
 @media (hover: hover) { .gripbtn:hover { border-color: var(--gold); color: var(--ink); } }
+.iname-row > .gripbtn { flex: none; align-self: center; margin-left: 4px; }
