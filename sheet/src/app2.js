@@ -754,6 +754,9 @@ function tabPageAnim(prev, nt) {
   bar.addEventListener('click', e => { if (eat) { e.preventDefault(); e.stopPropagation(); } }, true);
 }
 
+// Versatile weapons: one hand or two (two uses the bigger damage die).
+const gripBtn = i => { const a = S.attacks[i]; if (!a || !atkVers(a)) return ''; const two = !!a.twoHand;
+  return `<button class="gripbtn${two ? ' on' : ''}" data-act="twohand" data-i="${i}" title="${two ? 'Held in two hands (' + esc(atkVers(a)) + '). Switch to one hand' : 'Held in one hand (' + esc(a.dice || '') + '). Switch to two hands (' + esc(atkVers(a)) + ')'}" aria-pressed="${two}">${two ? '2H' : '1H'}</button>`; };
 const atkBtn = (i, short) => `<button class="btn gold sm atkbtn" data-act="attack" data-i="${i}" title="Roll to hit and damage; a natural 20 doubles the damage dice">⚔${short ? '' : ' Attack'}</button>`;
 const AB_ATK = [['str', 'STR'], ['dex', 'DEX'], ['fin', 'Finesse (best)'], ['monk', 'Monk (best)'], ['spell', 'Spellcasting'], ['int', 'INT'], ['wis', 'WIS'], ['cha', 'CHA'], ['', '—']];
 function formAttacksHTML() {
@@ -770,7 +773,7 @@ function attacksHTML() {
     if (!atkShown(a)) return '';
     const open = UI.open['atk:' + i], am = ammoItem(a), wit = a.item && S.inventory.find(x => x.id === a.item), hasTip = String(a.notes || '').trim() || (wit && (String(wit.notes || '').trim() || wit.hb)) || !a.item; // (unarmed strikes and natural weapons get one too: to hit, damage and their animation)
     return `<div class="atk-row${open ? ' open' : ''}">
-      <span class="atk-namewrap"><button class="atk-name" data-act="toggle" data-key="atk:${i}" aria-expanded="${!!open}" title="Edit">${esc(a.name)} <span class="caret">${open ? '▴' : '▾'}</span></button>${hasTip ? `<button class="notetip" data-tip="${i}" data-tipkind="atk" aria-label="Notes for ${esc(a.name)}">ⓘ</button>` : ''}${wit && wit.attune ? `<span class="tag${wit.attuned ? ' oath' : ''}" title="${wit.attuned ? 'Attuned' : 'Needs attunement'}">${wit.attuned ? '◆' : '◇'}</span>` : ''}</span>${String(a.notes || '').trim() && !open ? `<div class="atk-notes mnote">${esc(a.notes)}</div>` : ''}${wit && wit.hb && !open && hbSummary(wit.hb, wit).length ? `<div class="atk-notes mnote hbn">⚙ ${esc(hbSummary(wit.hb, wit).join(' · '))}</div>` : ''}
+      <span class="atk-namewrap"><button class="atk-name" data-act="toggle" data-key="atk:${i}" aria-expanded="${!!open}" title="Edit">${esc(a.name)} <span class="caret">${open ? '▴' : '▾'}</span></button>${gripBtn(i)}${hasTip ? `<button class="notetip" data-tip="${i}" data-tipkind="atk" aria-label="Notes for ${esc(a.name)}">ⓘ</button>` : ''}${wit && wit.attune ? `<span class="tag${wit.attuned ? ' oath' : ''}" title="${wit.attuned ? 'Attuned' : 'Needs attunement'}">${wit.attuned ? '◆' : '◇'}</span>` : ''}</span>${String(a.notes || '').trim() && !open ? `<div class="atk-notes mnote">${esc(a.notes)}</div>` : ''}${wit && wit.hb && !open && hbSummary(wit.hb, wit).length ? `<div class="atk-notes mnote hbn">⚙ ${esc(hbSummary(wit.hb, wit).join(' · '))}</div>` : ''}
       <span class="atk-hit">${rollBtn('atk:' + i, a.name + ' attack')}</span>
       <span class="atk-dmg">${rollBtn('dmg:' + i, a.name + ' damage')}</span>
       <span class="atk-type muted">${esc(a.type || '')}${am ? `<b class="ammo" title="${esc(am.name)}" data-calc="ammo:${i}"></b>` : ''}</span>

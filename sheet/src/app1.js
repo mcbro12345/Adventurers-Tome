@@ -632,12 +632,15 @@ function atkDmgMod(a) {
   const ab = attackAb(a);
   const fit = a.item && S.inventory.find(x => x.id === a.item);
   let v = (ab && !a.noModDmg ? mod(ab) : 0) + N(a.magic) + forgeBonus(fit) + infWeapon(fit, a, 'dmg') + (a.effect ? 0 : buffSum('dmg')) + itemBuffs(a).reduce((t, b) => t + N(b.dmg), 0) + (a.kind === 'melee' && ab === 'str' ? buffSum('meleeDmg') : 0) + (a.kind === 'melee' ? fxSum('meleeDmg') : 0);
-  if (a.kind === 'melee' && fightingStyle('Dueling') && a.oneHanded) v += 2;
+  if (a.kind === 'melee' && fightingStyle('Dueling') && a.oneHanded && !(a.twoHand && atkVers(a))) v += 2;
   return v;
 }
 function martialDie() { const m = clsLv('monk'); return m >= 17 ? 'd10' : m >= 11 ? 'd8' : m >= 5 ? 'd6' : m >= 1 ? 'd4' : ''; }
+// A versatile weapon's two-handed damage ("versatile (1d10)"), or '' if the weapon isn't versatile.
+function atkVers(a) { const it = a && a.item && S.inventory.find(x => x.id === a.item), p = (it && it.weapon && it.weapon.props) || [], v = p.find(x => /^versatile/i.test(x)); return v ? ((v.match(/\d+d\d+/) || [])[0] || '') : ''; }
 function atkDice(a) {
   let d = a.dice || '';
+  if (a.twoHand && atkVers(a)) d = atkVers(a); // wielded in two hands
   const wb = wpnBind(a); if (wb && wb.wpn.die) d = /d\d+/.test(d) ? d.replace(/d\d+/, wb.wpn.die) : '1' + wb.wpn.die;
   if (a.monk && martialDie()) { const md = martialDie(), cur = (d.match(/d(\d+)/) || [0, 0])[1]; if (!d || N(md.slice(1)) > N(cur) || d === '1') d = '1' + md; }
   return d;

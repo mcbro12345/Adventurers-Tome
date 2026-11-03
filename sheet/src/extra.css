@@ -4394,3 +4394,7 @@ html:not(.mobile) #tabs .tab > .tabcount { position: static !important; top: aut
 /* The count is centred in its badge: a round badge at least as wide as it is tall, the number in the middle (the digits
    sit a touch high in the font's line, so they're nudged down a pixel). */
 #tabs .tabcount, html #tabs .tab > .tabcount { display: inline-block !important; box-sizing: border-box; min-width: 17px; height: 17px; padding: 2px 5px 0 !important; line-height: 15px !important; font-variant-numeric: tabular-nums; text-align: center; vertical-align: middle; }
+/* One hand / two hands switch on versatile weapons (Warhammer, Longsword, Quarterstaff…) */
+.gripbtn { margin-left: 6px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line); background: var(--field); color: var(--soft); font: 700 .66rem/1.5 system-ui, sans-serif; letter-spacing: .04em; cursor: pointer; vertical-align: middle; }
+.gripbtn.on { background: color-mix(in srgb, var(--gold) 18%, transparent); border-color: color-mix(in srgb, var(--gold) 55%, transparent); color: var(--ink); }
+@media (hover: hover) { .gripbtn:hover { border-color: var(--gold); color: var(--ink); } }
