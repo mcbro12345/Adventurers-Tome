@@ -5043,4 +5043,21 @@ html.mobile :is(#page-features, #page-infusions) .fl-acts .btn.fxact { min-heigh
 .devbtn svg, .devbtn.logbtn svg { width: 18px; height: 18px; display: block; }
 /* The line under the name breaks only between its parts (each part's spaces are non-breaking; see fitSubtitle). */
 .namebox .subtitle { overflow-wrap: normal; word-break: normal; overflow-x: hidden; max-width: 100%; box-sizing: border-box; }
+.namebox .subtitle.sub2, html:not(.mobile) .namebox .subtitle.sub2 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; }
+/* Companion cards in the Combat columns sit on the column's lighter card colour, so their inner boxes (AC/speed, type,
+   attacks, notes) take the darker field colour to stand out, as they do on the Creatures tab. */
+.comp2.incol .csts, .comp2.incol .cmode, .comp2.incol .cacts, .comp2.incol .cnotes { background: var(--field); border-color: var(--line); }
+/* A feature's own action buttons (Eldritch Cannon's Flamethrower / Force Ballista / Protector, Cunning Action's Dash…) are
+   tinted chips in the accent colour everywhere, so they read as buttons on any card colour. */
+.btn.fxact { background: color-mix(in srgb, var(--gold) 14%, transparent) !important; border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent) !important; color: var(--ink) !important; border-radius: 999px !important; padding: 3px 11px; font-weight: 650; }
+@media (hover: hover) { @media (hover:hover){:where(html:not(.mobile)) .btn.fxact:hover:not([disabled]){ background: color-mix(in srgb, var(--gold) 26%, transparent) !important; border-color: var(--gold) !important; }} }
+.btn.fxact small { opacity: .75; font-weight: 600; }
+/* Creatures tab: each creature card keeps its normal size (one grid column) even when it's the only one, instead of
+   stretching across the whole page. */
+#page-companions .comps { grid-template-columns: repeat(auto-fill, minmax(330px, 440px)); }
+#page-companions .comps > .panel.comp2:only-child { grid-column: auto; }
+html.mobile #page-companions .comps { grid-template-columns: 1fr; }
+/* Tab count badges (Creatures, Party…): always red, and sitting just above the tab's word rather than on it. */
+#tabs .tabcount, html #tabs .tab > .tabcount { background: #d63a2c !important; color: #fff !important; }
+html:not(.mobile) #tabs .tab > .tabcount { top: -7px; }
 
