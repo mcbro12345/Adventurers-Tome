@@ -227,7 +227,7 @@ function infUse(i, col) {
 // Infusion actions for the Combat columns.
 function infCombatRows(col) {
   return infActs(col).map(([it, i]) => { const d = infDef(it.infusion), ch = it.charges && it.infusion.charges ? it.charges : null;
-    return `<div class="opt"><div class="opt-head"><span class="opt-name">${esc(d.act.name)}</span>${ch ? `<span class="tag">${Math.max(0, N(ch.max) - N(ch.used))}/${N(ch.max)}</span>` : ''}<button class="btn sm" data-act="infuse-use" data-i="${i}" data-col="${col}" ${ch && N(ch.used) >= N(ch.max) ? 'disabled' : ''}>Use</button></div><div class="opt-info">${esc(it.name)} · ${esc(infLabel(it.infusion))}</div><div class="opt-text">${esc(d.act.text)}</div></div>`; });
+    return `<div class="opt"><div class="opt-head"><span class="opt-name">${esc(d.act.name)}</span>${ch ? `<span class="tag">${Math.max(0, N(ch.max) - N(ch.used))}/${N(ch.max)}</span>` : ''}<button class="btn sm gold" data-act="infuse-use" data-i="${i}" data-col="${col}" ${ch && N(ch.used) >= N(ch.max) ? 'disabled' : ''}>Use</button></div><div class="opt-info">${esc(it.name)} · ${esc(infLabel(it.infusion))}</div><div class="opt-text">${esc(d.act.text)}</div></div>`; });
 }
 
 // ---------- Creatures: one card design for the Creatures tab and (compact) the Combat tab ----------

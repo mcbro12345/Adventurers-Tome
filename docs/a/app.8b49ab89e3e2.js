@@ -526,6 +526,7 @@ function speedInfo() {
   const bs = buffSum('speed'); if (bs) { walk += bs; parts.push(`Spells +${bs}`); }
   if (selfBuffs().some(b => b.speedHalf)) { walk = Math.floor(walk / 2); parts.push('Slowed ×½'); }
   if (hasted()) { walk *= 2; parts.push('Haste ×2'); }
+  if (selfBuffs().some(b => b.speedDouble)) { walk *= 2; parts.push('Boots of Speed ×2'); }
   const enc = encLevel(); if (enc === 3) { walk = Math.min(walk, 5); parts.push('Over carrying capacity: 5 ft'); } else if (enc) { walk -= enc === 2 ? 20 : 10; parts.push(enc === 2 ? 'Heavily encumbered −20' : 'Encumbered −10'); }
   if (exModern() && N(S.exhaustion)) { walk = Math.max(0, walk - 5 * N(S.exhaustion)); parts.push(`Exhaustion −${5 * N(S.exhaustion)}`); }
   else if (N(S.exhaustion) >= 2) { walk = Math.floor(walk / 2); parts.push('Exhaustion halved'); }
@@ -1087,11 +1088,14 @@ const hbItemOn = it => !!it && (it.equipped || !!it.carried) && (!it.attune || !
 // The table's own homebrew items: these get their effect set up as soon as they show up in an inventory
 // (only when the item has no homebrew settings of its own, so a player's edits always win).
 function hbKnownList() { return [
-  [/\bspider legs?\b/i, { hb: { consume: true, effName: 'Spider Legs', effSkillAdv: 'Perception', effNote: 'Advantage on Perception checks until your next long rest', text: 'Advantage on Perception checks until your next long rest.' }, carried: true }]
+  [/\bspider legs?\b/i, { hb: { consume: true, effName: 'Spider Legs', effSkillAdv: 'Perception', effNote: 'Advantage on Perception checks until your next long rest', text: 'Advantage on Perception checks until your next long rest.' }, carried: true }],
+  // Boots of Speed: a bonus action in Combat that doubles your walking speed for up to 10 minutes, once per long rest
+  [/^boots of speed$/i, { hb: { col: 'bonus', effName: 'Boots of Speed', effRounds: 100, effX2: true, effNote: 'Walking speed doubled; opportunity attacks against you have disadvantage', text: 'Click your heels together: your walking speed doubles and opportunity attacks against you have disadvantage, for up to 10 minutes (10 minutes a day in all).' }, charges: [1, 'long'] }]
 ]; }
 function hbKnownItem(it) {
   if (!it || it.hb || it.hbKnown) return; const k = hbKnownList().find(([re]) => re.test(it.name || '')); if (!k) return;
   it.hb = JSON.parse(JSON.stringify(k[1].hb)); if (k[1].carried) it.carried = true; it.hbKnown = 1;
+  if (k[1].charges && !(it.charges && N(it.charges.max))) it.charges = { max: k[1].charges[0], used: 0, reset: k[1].charges[1] };
 }
 function hbFx(hb) {
   if (!hb || typeof hb !== 'object') return null;
@@ -1126,6 +1130,7 @@ function hbFx(hb) {
     const b = {};
     if (has('effFly')) b.fly = hbNum(hb.effFly);
     if (has('effSpeed')) b.speed = hbNum(hb.effSpeed);
+    if (hb.effX2) b.speedDouble = true;
     if (has('effAc')) b.ac = hbNum(hb.effAc);
     if (has('effNote')) b.note = String(hb.effNote);
     if (has('effSkillAdv')) b.skillAdv = hbCSV(hb.effSkillAdv).map(x => { const k = DND.skills.find(z => z[0].toLowerCase() === x.toLowerCase()); return k ? k[0] : x; });
@@ -3446,7 +3451,7 @@ function calcText(key) {
     case 'lvl': return String(totalLevel());
     case 'xpnext': return totalLevel() >= 20 ? 'max' : '/ ' + xpNext().toLocaleString();
     // (only what the character has: race, class, background, alignment, faith, and who plays them)
-    case 'subtitle': return [S.raceName, classLabel(), S.backgroundName, S.alignment, String(S.faith || '').trim() ? (/^(faith|follower|servant|devotee|priest)\b/i.test(String(S.faith).trim()) ? S.faith : 'Faith of ' + String(S.faith).trim()) : '', S.player ? 'played by ' + S.player : ''].map(x => String(x || '').trim()).filter(Boolean).map(x => x.replace(/ /g, '\u00a0')).join(' · '); // (each part stays on one line; the line only breaks between parts)
+    case 'subtitle': return [S.raceName, classLabel(), S.backgroundName, S.alignment, String(S.faith || '').trim() ? (/^(faith|follower|servant|devotee|priest)\b/i.test(String(S.faith).trim()) ? S.faith : 'Faith of ' + String(S.faith).trim()) : '', S.player ? 'played by ' + S.player : ''].map(x => String(x || '').trim()).filter(Boolean).map(x => x.replace(/ /g, '\u00a0')).join('\u00a0· '); // (each part stays on one line; the line only breaks between parts)
   }
   return '';
 }
@@ -6655,16 +6660,20 @@ window.addEventListener('resize', () => $$('input.f.name').forEach(fitNameFont))
 // type instead, so the top bar is the same height for every character. (Remembered per text and width.)
 let SUB_K = '';
 // The line under the name wraps only between its parts (race · class · …), never inside one. If a part is too long for a
-// line of its own it shrinks to fit; on a computer it also shrinks to keep to two lines (past that it stops after two,
-// and the whole of it shows on hover).
+// line of its own it shrinks to fit. It can run to three lines before it shrinks (past that, at the smallest size, it stops
+// after three and the whole of it shows on hover).
 function fitSubtitle() { const el = $('.namebox .subtitle'); if (!el) return;
   const k = el.textContent + '|' + (el.parentElement ? el.parentElement.clientWidth : 0) + '|' + document.documentElement.style.fontSize + '|' + isMobile(); if (k === SUB_K && el._fit) return; SUB_K = k; el._fit = 1;
   el.style.fontSize = ''; el.classList.remove('sub2'); el.removeAttribute('title'); if (!el.textContent || !el.offsetParent) return;
-  const base = parseFloat(getComputedStyle(el).fontSize) || 15, mob = isMobile();
+  const base = parseFloat(getComputedStyle(el).fontSize) || 15;
   const over = () => el.scrollWidth > el.clientWidth + 0.5;
   const lines = () => { const cs = getComputedStyle(el), lh = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.2; return Math.round(el.clientHeight / lh); };
-  let px = base; while ((over() || (!mob && lines() > 2)) && px > base * 0.6) { px -= 0.5; el.style.fontSize = px + 'px'; }
-  if (!mob && lines() > 2) { el.classList.add('sub2'); el.title = el.textContent; } }
+  // (and the name plus this line never make the header taller than the portrait beside them)
+  // (measured against the header's height with a one-word line, so a long line can never make the header taller)
+  const hd = $('#sec-header'), txt = el.textContent; el.textContent = 'X'; const cap = hd ? hd.offsetHeight : 0; el.textContent = txt;
+  const tall = () => cap && hd.offsetHeight > cap;
+  let px = base; while ((over() || lines() > 3 || tall()) && px > base * 0.6) { px -= 0.5; el.style.fontSize = px + 'px'; }
+  if (lines() > 3 || tall()) { el.classList.add('sub2'); el.title = el.textContent; } }
 window.addEventListener('resize', () => { SUB_K = ''; fitSubtitle(); });
 
 // Desktop header stays one row: when the toolbar would wrap, its buttons drop their words and keep their icons.

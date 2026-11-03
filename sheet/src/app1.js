@@ -526,6 +526,7 @@ function speedInfo() {
   const bs = buffSum('speed'); if (bs) { walk += bs; parts.push(`Spells +${bs}`); }
   if (selfBuffs().some(b => b.speedHalf)) { walk = Math.floor(walk / 2); parts.push('Slowed ×½'); }
   if (hasted()) { walk *= 2; parts.push('Haste ×2'); }
+  if (selfBuffs().some(b => b.speedDouble)) { walk *= 2; parts.push('Boots of Speed ×2'); }
   const enc = encLevel(); if (enc === 3) { walk = Math.min(walk, 5); parts.push('Over carrying capacity: 5 ft'); } else if (enc) { walk -= enc === 2 ? 20 : 10; parts.push(enc === 2 ? 'Heavily encumbered −20' : 'Encumbered −10'); }
   if (exModern() && N(S.exhaustion)) { walk = Math.max(0, walk - 5 * N(S.exhaustion)); parts.push(`Exhaustion −${5 * N(S.exhaustion)}`); }
   else if (N(S.exhaustion) >= 2) { walk = Math.floor(walk / 2); parts.push('Exhaustion halved'); }
