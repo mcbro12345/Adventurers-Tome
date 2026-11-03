@@ -1167,8 +1167,6 @@ function riderAfter(ev, what, base) {
 let CASTING = null;
 function castSpell(i, col, force) {
   const sp = S.spells[i]; if (!sp) return;
-  // a known concentration spell is always concentration, however it got on the sheet (an item, a feat, an old copy)
-  if (!sp.conc && (SPI(sp.name) || {}).conc) sp.conc = true;
   col = mmCol(sp, col);
   const itm = spItem(sp); if (itm && !hbItemOn(itm) && !force) { toast(`${esc(sp.name)} needs <b>${esc(itm.name)}</b>${itm.attune && !itm.attuned ? ' (attuned)' : ''} ${itm.carried ? 'on you' : 'equipped'}.`, 'fumble', 7000, { label: 'Cast anyway', fn: () => castSpell(i, col, true) }); return; }
   if (incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take actions or reactions.`, 'fumble'); return; }
