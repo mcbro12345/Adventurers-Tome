@@ -517,7 +517,7 @@ function attackRoll(i, free, opt) {
   if (!nat1 && a.kind === 'melee' && stunStrikeFeat() && stunKiLeft() > 0) acts.push({ keep: true, cls: 't-add', grp: 'stun', label: 'Stunning Strike (1 ki)', title: 'The creature you hit makes a CON save or is stunned', fn: (t, b) => { stunningStrike(); b.remove(); } });
   xr.filter(x => x.refund).forEach(x => acts.push({ label: `Missed — get ${x.what === 'Divine Smite' ? 'the slot' : 'the ki'} back`, fn: () => { x.refund(); pendingLabel = x.what + ' not used'; update(); render(); toast(`${x.what} is ready again for your next hit.`); } }));
   rh.always.forEach(x => acts.push({ label: `Missed — get ${x.src.name} back`, fn: () => { x.src.refund(); pendingLabel = x.src.name + ' not used'; update(); render(); toast(`${esc(x.src.name)} is back.`); } }));
-  acts.push(...rh.acts);
+  acts.push(...rh.acts); { const ia = typeof inspAct === 'function' && !nat1 ? inspAct(h.total, nm + ' to hit') : null; if (ia) acts.push(ia); }
   // What you can still add now that you know it hit: Divine Smite, Sneak Attack, Hand of Harm (each adds to this card).
   if (!nat1) acts.push(...atkAddOns(a, nm, crit, isWeapon, rm, opt, { total, byType, mainT, sneak: sr ? sr.total : 0 }, xr.filter(x => x.what).map(x => x.what)));
   if (sr && !opt.offTurn) acts.push({ label: 'Missed — Sneak Attack not used', fn: () => { S.turn.sneak = false; pendingLabel = 'Sneak Attack not used'; update(); refresh(); toast('Sneak Attack is ready again this turn.'); } });
@@ -774,9 +774,22 @@ function endEffect(n) {
 }
 function repeatEffect(j) {
   const e = S.effects[j]; if (!e || !e.repeat) return;
+  if (isInsp(e)) return giftUse(null, '');
   const r = rollExpr(e.repeat.dice);
   toast(`<b class="total">${r.total}</b><div><div>${esc(e.name)} — ${e.repeat.heal ? 'healing' : esc(e.repeat.type || 'damage')}</div><div class="det">${esc(r.detail)}${e.repeat.save ? ' · ' + esc(e.repeat.save) : ''}</div></div>`, '', 7000);
 }
+// Inspiration you were given (Bardic Inspiration from the effects list or sent by a bard in your party): one die, used
+// once. Rolling it ends it; after an attack, check or save the result offers to add it.
+const isInsp = e => !!(e && e.repeat && /inspiration/i.test(String(e.repeat.type || e.name || '')) && !e.ally);
+const inspFx = () => (S.effects || []).find(isInsp);
+function giftUse(base, label) {
+  const e = inspFx(); if (!e) { toast('No inspiration die to use.', 'fumble'); return; }
+  const r = rollExpr(e.repeat.dice, { label: (label ? label + ': ' : '') + (e.repeat.type || e.name) }); if (!r) return;
+  S.effects = S.effects.filter(x => x !== e); pendingLabel = 'Use ' + e.name; save(); render();
+  const tot = base != null ? base + r.total : r.total;
+  toast(`<b class="total">${tot}</b><div><div>${label ? esc(label) + ' + ' : ''}${esc(e.repeat.type || e.name)}</div><div class="det">${base != null ? base + ' + ' : ''}${esc(e.repeat.dice)} (${esc(r.detail)})</div><div class="det">${esc(e.name)} used</div></div>`, '', 8000, { label: 'Undo', fn: () => undo(1) });
+}
+const inspAct = (base, label) => { const e = inspFx(); return e ? { label: `+ ${e.repeat.type || 'Inspiration'} (${String(e.repeat.dice).replace(/^1d/, 'd')})`, fn: () => giftUse(base, label) } : null; };
 // Features that happen on their own as your turn comes round (Elder Champion's 10 HP, Survivor, Protective Spirit):
 // fx `onTurn: { use, onlyWhen, notZero, notIncap }`. Each one says what it did in a note.
 function turnStartFx() {
