@@ -4372,3 +4372,6 @@ html.mobile :is(#page-features, #page-infusions) .fl-acts .btn.fxact { min-heigh
 .setrow .set-ctl { flex: 0 0 min(200px, 55%); margin-left: auto; } .setrow .set-ctl .f { width: 100% !important; max-width: none !important; min-width: 0 !important; box-sizing: border-box; }
 /* Top-right icon buttons: an even icon size in the 28px inside of the button, so the icon lands on whole pixels and sits dead centre. */
 .devbtn svg, .devbtn.logbtn svg { width: 18px; height: 18px; display: block; }
+/* The line under the name breaks only between its parts (each part's spaces are non-breaking; see fitSubtitle). */
+.namebox .subtitle { overflow-wrap: normal; word-break: normal; overflow-x: hidden; max-width: 100%; box-sizing: border-box; }
+.namebox .subtitle.sub2, html:not(.mobile) .namebox .subtitle.sub2 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; }
