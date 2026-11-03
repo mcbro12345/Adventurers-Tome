@@ -1196,7 +1196,7 @@ function castSpell(i, col, force) {
   if (base > 0 && usable.length === 1 && !extras && !opts.some(o => o.k === 'slot' && o.L > usable[0].L && o.left)) { const o = usable[0]; return executeCast(i, o.k, o.L, col, {}); }
   CASTING = { i, col };
   openModal(`<h3>Cast ${esc(spLabel(sp))}</h3>
-    <p class="hint" style="margin:0 0 8px">${esc(sp.summary || '')}${sp.duration ? ' · ' + esc(sp.duration) : ''}</p>
+    <p class="hint" style="margin:0 0 8px">${esc(sp.summary || '')}${sp.duration ? ' · ' + esc(spDurTxt(sp)) : ''}</p>
     ${extras}
     ${base > 0 ? `<div class="lbl" style="margin-top:8px">Cast using</div><div class="castopts">${opts.map(o => `<button class="castopt" data-act="castgo" data-k="${o.k}" data-l="${o.L}" ${o.left > 0 ? '' : 'disabled'}><b>${esc(o.label)}</b><span>${o.k === 'slot' ? o.left + ' left' : o.k === 'pact' ? o.left + ' left' : ''}${o.L > base && o.k !== 'free' ? ' · upcast' : ''}</span></button>`).join('')}
       <button class="castopt ghost" data-act="castgo" data-k="none" data-l="${base}"><b>No slot</b><span>scroll, item or DM ruling</span></button></div>`
@@ -1704,7 +1704,7 @@ function buildMacros() {
     if (sm.dice && adeptFor(sm.type)) lines.push(`*Elemental Adept (${adeptFor(sm.type)}): count each 1 on the damage dice as a 2; ignores ${adeptFor(sm.type)} resistance*`);
     if (sm.heal && sm.heal !== 'all') lines.push(`**Healing (${sm.heal}):** [[${sm.heal}]]`);
     if (!sm.dice && !sm.heal) lines.push(`**Effect:** ${sp.summary || '—'}`);
-    lines.push(`**Duration:** ${sp.duration || '—'}`);
+    lines.push(`**Duration:** ${spDurTxt(sp) || '—'}`);
     M('Spells', sp.name, `casts ${sp.name}`, lines, `${N(sp.level) ? ORD[N(sp.level) - 1] + ' level' : 'Cantrip'}${sm.dice ? ' · ' + sm.dice : sm.heal ? ' · heal ' + sm.heal : ''}`);
   });
   casters().forEach(c => { const ci = castInfo(c.key); M('Spells', `${c.name} Spell Attack`, 'makes a spell attack', [`**Attack Roll (to hit):** [[${d20x(ci.atk)}]]`, `**Save DC:** ${ci.dc}`], sgn(ci.atk) + ' · DC ' + ci.dc); });

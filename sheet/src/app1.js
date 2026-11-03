@@ -440,6 +440,9 @@ const wpnBind = a => a && a.item ? fxActive().find(e => e.item === a.item && e.w
 const buffSum = k => selfBuffs().reduce((t, b) => t + N(b[k]), 0);
 const blessed = () => selfBuffs().some(b => b.bless) || (S.conditions || []).includes('Blessed');
 const hasted = () => selfBuffs().some(b => b.speedMult) || (S.conditions || []).includes('Hasted');
+// A spell's duration as shown: one that isn't concentration on this sheet (unticked, e.g. cast from an item that
+// doesn't need it) drops the "Concentration, up to" part — "Concentration, up to 1 hour" reads "1 hour".
+function spDurTxt(s) { const d = String((s && s.duration) || ''); if (!s || s.conc) return d; if (!/^\s*concentration/i.test(d)) return d; const t = d.replace(/^\s*concentration\s*,?\s*/i, '').replace(/^up to\s+/i, ''); return t !== d ? t.charAt(0).toUpperCase() + t.slice(1) : d; }
 function parseDur(d) {
   d = String(d || '').toLowerCase();
   if (/instant/.test(d)) return 0;
