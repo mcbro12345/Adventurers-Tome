@@ -655,6 +655,7 @@ function spgHead(col, g, mode, n, open, first, last) {
   return `<div class="cspg-hrow"${mode === 'custom' ? ` data-cat="${esc(g.cat)}"` : ''}>${mv ? `<span class="gdrag" data-gdrag="${esc(g.k)}" title="Drag to rearrange" aria-hidden="true">⠿</span>` : ''}${cGroupHead(col, g.k, esc(g.name), esc(String(g.icon)), n, open)}${tools}</div>`;
 }
 // Dragging a whole group (desktop): a copy of its header follows the pointer; drop it between other groups.
+// While it moves the group folds up to just its header (so an open one is easy to place); it opens again when dropped.
 let GDRAG = null;
 document.addEventListener('pointerdown', e => {
   const h = e.target.closest && e.target.closest('.gdrag'); if (!h || e.button > 0 || isMobile()) return;
@@ -663,7 +664,7 @@ document.addEventListener('pointerdown', e => {
   ghost.className = 'bdrag-ghost cspg spg-ghost'; ghost.style.setProperty('--g', getComputedStyle(grp).getPropertyValue('--g')); ghost.appendChild(hd.cloneNode(true));
   Object.assign(ghost.style, { width: r.width + 'px', left: r.left + 'px', top: r.top + 'px' }); document.body.appendChild(ghost);
   const line = document.createElement('div'); line.className = 'spg-drop'; grp.before(line);
-  grp.classList.add('bdrag-src'); GDRAG = { k: h.dataset.gdrag, grp, ghost, line, dx: e.clientX - r.left, dy: e.clientY - r.top, before: null, moved: false };
+  grp.classList.add('bdrag-src', 'gfold'); GDRAG = { k: h.dataset.gdrag, grp, ghost, line, dx: e.clientX - r.left, dy: e.clientY - r.top, before: null, moved: false };
   document.body.classList.add('idragging');
 });
 document.addEventListener('pointermove', e => {
@@ -676,7 +677,7 @@ document.addEventListener('pointermove', e => {
   const edge = 60; if (e.clientY < edge) scrollBy(0, -12); else if (e.clientY > innerHeight - edge) scrollBy(0, 12);
 }, { passive: false });
 function gdragEnd(cancel) {
-  const d = GDRAG; if (!d) return; GDRAG = null; document.body.classList.remove('idragging'); d.ghost.remove(); d.line.remove(); d.grp.classList.remove('bdrag-src');
+  const d = GDRAG; if (!d) return; GDRAG = null; document.body.classList.remove('idragging'); d.ghost.remove(); d.line.remove(); d.grp.classList.remove('bdrag-src', 'gfold');
   if (cancel || !d.moved || d.before === d.k) return;
   // Dropping right after itself changes nothing.
   const sib = [...d.grp.parentElement.querySelectorAll(':scope > .spg')], at = sib.indexOf(d.grp); if (sib[at + 1] && sib[at + 1].dataset.gk === d.before) return;
@@ -718,7 +719,7 @@ document.addEventListener('pointerdown', e => {
   ghost.className = 'bdrag-ghost cspg spg-ghost ' + [...grp.classList].filter(c => /^g-/.test(c)).join(' '); const st = grp.getAttribute('style'); if (st) ghost.setAttribute('style', st); ghost.appendChild(hd.cloneNode(true));
   Object.assign(ghost.style, { position: 'fixed', width: r.width + 'px', left: r.left + 'px', top: r.top + 'px' }); document.body.appendChild(ghost);
   const line = document.createElement('div'); line.className = 'spg-drop'; grp.before(line);
-  grp.classList.add('bdrag-src'); CGDRAG = { grp, col: grp.dataset.cgcol, ghost, line, dx: e.clientX - r.left, dy: e.clientY - r.top, before: grp, moved: false };
+  grp.classList.add('bdrag-src', 'gfold'); CGDRAG = { grp, col: grp.dataset.cgcol, ghost, line, dx: e.clientX - r.left, dy: e.clientY - r.top, before: grp, moved: false };
   document.body.classList.add('idragging');
 }, true);
 document.addEventListener('pointermove', e => {
@@ -730,7 +731,7 @@ document.addEventListener('pointermove', e => {
   const edge = 60; if (e.clientY < edge) scrollBy(0, -12); else if (e.clientY > innerHeight - edge) scrollBy(0, 12);
 }, { passive: false });
 function cgdragEnd(cancel) {
-  const d = CGDRAG; if (!d) return; CGDRAG = null; document.body.classList.remove('idragging'); d.ghost.remove(); d.line.remove(); d.grp.classList.remove('bdrag-src');
+  const d = CGDRAG; if (!d) return; CGDRAG = null; document.body.classList.remove('idragging'); d.ghost.remove(); d.line.remove(); d.grp.classList.remove('bdrag-src', 'gfold');
   if (cancel || !d.moved) return;
   const keys = [...d.grp.parentElement.querySelectorAll(':scope > .cgmov')].map(g => g.dataset.cgk).filter(k => k !== d.grp.dataset.cgk);
   let at = d.before && d.before !== d.grp ? keys.indexOf(d.before.dataset.cgk) : -1; if (d.before === d.grp) return; if (at < 0) at = keys.length;
