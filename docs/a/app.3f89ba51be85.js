@@ -932,10 +932,11 @@ function useAct(fi, j, col) {
   // Attack-roll options (e.g. the Force Ballista): roll to hit first; a 20 doubles the damage dice.
   let hit = null; if (a.atk) { const bonus = a.atk === 'spell' ? castInfo(f.cls).atk : N(a.atk); const d = d20Expr(bonus, 'attack'); hit = rollExpr(d.expr, { label: (a.name || f.name) + ' attack' }); hit.crit = hit.d20 >= 20; hit.nat1 = hit.d20 === 1; hit.bonus = bonus; }
   const r = a.roll ? rollExpr(hit && hit.crit ? critDice(fxRollExpr(a.roll)) : fxRollExpr(a.roll), { label: (a.name || f.name) + ': ' + (a.rollNote || 'roll').replace(/\s*\(.*$/, '') }) : null;
+  const n1 = hit && hit.nat1 ? nat1Roll(a.atk === 'spell' ? { t: 'spell', lvl: 1 } : {}) : null; // (house rule: the d4 is the last roll)
   const dc = fxDCLine(a.dc ? a : fx, f);
   pendingLabel = 'Use ' + nm; update(); render();
   const heal = r && a.healRoll ? { label: 'Heal me', fn: () => useAmt(r, nm + ': healing', n => healSelf(n, `${nm}: +${n} HP`)) } : null;
-  if (hit) { toast(`<b class="total">${hit.total}</b><div class="rc-body"><div class="rc-name">${esc(nm)}</div><div class="rc-lbl">${hit.crit ? 'CRITICAL HIT' : hit.nat1 ? 'Natural 1 — miss' : 'to hit'}</div><div class="det">Hit: ${esc(hit.detail)}${r ? ' · Dmg: ' + esc(r.detail) : ''}</div>${a.rollNote ? `<div class="det">${esc(a.rollNote)}</div>` : ''}${lines.map(l => `<div class="det">${esc(l)}</div>`).join('')}</div>${r ? `<div class="rc-dmg${hit.nat1 ? ' void' : ''}"><b>${r.total}</b><span>${esc((String(a.rollNote || 'damage').split(/[ (]/)[0]) || 'damage')}</span></div>` : ''}`, hit.crit ? 'crit' : hit.nat1 ? 'fumble' : '', 9000, [{ label: 'Undo', fn: () => undo(1) }]); return; }
+  if (hit) { toast(`<b class="total">${hit.total}</b><div class="rc-body"><div class="rc-name">${esc(nm)}</div><div class="rc-lbl">${hit.crit ? 'CRITICAL HIT' : hit.nat1 ? 'Natural 1 — miss' : 'to hit'}</div>${fumHTML(n1)}<div class="det">Hit: ${esc(hit.detail)}${r ? ' · Dmg: ' + esc(r.detail) : ''}</div>${a.rollNote ? `<div class="det">${esc(a.rollNote)}</div>` : ''}${lines.map(l => `<div class="det">${esc(l)}</div>`).join('')}</div>${r ? `<div class="rc-dmg${hit.nat1 ? ' void' : ''}"><b>${r.total}</b><span>${esc((String(a.rollNote || 'damage').split(/[ (]/)[0]) || 'damage')}</span></div>` : ''}`, hit.crit ? 'crit' : hit.nat1 ? 'fumble' : '', 9000, [{ label: 'Undo', fn: () => undo(1) }]); return; }
   toast(`${r ? `<b class="total">${r.total}</b>` : ''}<div><div><b>${esc(nm)}</b>${cost ? ' · ' + esc(fxCostText(cost)) : ''}</div>${r ? `<div class="det">${esc(r.detail)}${a.rollNote ? ' ' + esc(a.rollNote) : ''}</div>` : ''}${dc ? `<div class="det">${esc(dc)}</div>` : ''}${a.text ? `<div class="det">${esc(fxText(a.text))}</div>` : ''}${lines.map(l => `<div class="det">${esc(l)}</div>`).join('')}</div>`, '', 9000, [heal, typeof ptyFeatAct === 'function' ? ptyFeatAct(nm, r, f) : null, { label: 'Undo', fn: () => undo(1) }].filter(Boolean));
 }
 // Blessing of the Forge: pick the armor or weapon to bless.
@@ -1610,7 +1611,7 @@ function r20Lines(label, expr, first) {
   let em = '', line = '', m;
   // Named rolls that end in "attack" come first, so Sneak Attack isn't read as an attack with a weapon called "Sneak".
   if (/^sneak attack/i.test(L)) { em = 'strikes a vital spot'; line = `**Sneak Attack (${e}):** [[${e}]]`; }
-  else if (/^nat 1 roll$/i.test(L)) { em = 'rolls a natural 1'; line = `**Nat 1 Roll:** [[${e}]]`; }
+  else if (/^(nat 1 roll|critical fumble)$/i.test(L)) { em = 'fumbles'; line = `**Critical Fumble:** [[${e}]]`; }
   else if (/^divine smite/i.test(L)) { em = 'smites with divine radiance'; line = `**Radiant Damage (${e}):** [[${e}]]`; }
   else if ((m = /^(.*) spell attack$/i.exec(L))) { const own = CL[Object.keys(CL).find(k => CL[k].name === m[1])]; em = own ? 'makes a spell attack' : `casts ${m[1]}`; line = `**Spell Attack (to hit):** [[${e}]]`; }
   else if ((m = /^(.*) spell damage(?: \((.*)\))?$/i.exec(L))) { em = `casts ${m[1]}`; line = `**Damage (${e}${m[2] ? ' ' + m[2] : ''}):** [[${e}]]`; }
@@ -1668,7 +1669,23 @@ function d20Expr(bonus, kind, ab) {
   return { expr: base + sgn(bonus - ex) + bless + extra, rm, bless, ex, dieNames, bonus };
 }
 // House rule (Settings → Rules): a natural 1 on an attack roll also rolls a d4, always the last roll.
-function nat1Roll() { return ST('nat1Roll') ? rollExpr('1d4', { label: 'Nat 1 Roll' }) : null; }
+// Critical fumbles: d4 on the table for the kind of attack — t 'melee', 'ranged' or 'spell' (lvl, melee); unknown shows both weapon rows.
+const FUMBLE = {
+  ranged: ['Self damage (1d4)', 'Lose half your movement and no Extra Attack', 'Friendly fire', 'Weapon malfunction — spend your next action fixing it'],
+  melee: ['Self damage (1d4)', 'Lose half your movement and no Extra Attack', 'Overextend — lose your reaction', 'Create an opening — triggers an attack of opportunity'],
+  spell: ['Self damage (1d4 × spell level)', 'Magic malfunction — no spells or cantrips for 1 turn', 'Strain — make a concentration check if concentrating', 'Create an opening (melee) / friendly fire (ranged)'] };
+function nat1Roll(info) {
+  if (!ST('nat1Roll')) return null; info = info || {};
+  const r = rollExpr('1d4', { label: 'Critical Fumble' }); if (r.skipped) return r;
+  const n = Math.min(4, Math.max(1, r.total)), t = info.t;
+  let text = t === 'spell' && n === 4 ? (info.melee ? 'Create an opening — triggers an attack of opportunity' : 'Friendly fire')
+    : FUMBLE[t] ? FUMBLE[t][n - 1] : n >= 3 ? `Melee: ${FUMBLE.melee[n - 1]} · Ranged: ${FUMBLE.ranged[n - 1]}` : FUMBLE.melee[n - 1];
+  if (n === 1) { const lv = t === 'spell' ? Math.max(1, N(info.lvl)) : 1, d = rollExpr('1d4', { label: 'Critical Fumble: self damage' }), dmg = d.skipped ? 0 : d.total * lv;
+    if (!d.skipped) { text = `Self damage: ${dmg}${lv > 1 ? ` (${d.total} × level ${lv})` : ''}`; setTimeout(() => toast(`<div><b>Critical fumble</b><div class="det">You hurt yourself for ${dmg} damage.</div></div>`, 'fumble', 9000, { label: `Take ${dmg} damage`, fn: () => { takeDamage(dmg); save(); render(); } }), 80); } }
+  if (n === 3 && t === 'melee' && S.inCombat && S.turn && S.turn.used) S.turn.used.reaction = true;
+  if (n === 3 && t === 'spell' && S.concentration && typeof concCheck === 'function') setTimeout(() => concCheck(10, true), 120);
+  r.fum = text; return r; }
+const fumHTML = n1 => n1 && !n1.skipped ? `<div class="rc-n1"><b>Critical Fumble ${n1.total}:</b> ${esc(n1.fum || '')}</div>` : '';
 function d20(label, bonus, kind, ab, rows) {
   const dx = d20Expr(bonus, kind, ab), { expr, rm, bless, ex } = dx;
   STAT_KIND = ({ attack: 'attack', save: 'save' })[kind] || ''; let r; try { r = rollExpr(expr, { label }); } finally { STAT_KIND = ''; }
@@ -1676,9 +1693,9 @@ function d20(label, bonus, kind, ab, rows) {
   let floorUp = 0; if (fl && r.d20 != null && r.d20 < fl) { floorUp = fl - r.d20; r.total += floorUp; r.detail += ` (d20 ${r.d20} counts as ${fl})`; r.d20 = fl; }
   const math = mathHTML([d20Math(r, dx, rows || ROLL_ROWS, 'Roll', floorUp ? [`d20 counts as ${fl}`, floorUp] : null)]);
   const note = [rm.mode !== 'normal' ? (rm.mode === 'adv' ? 'Advantage: ' : 'Disadvantage: ') + rm.why.join(', ') : '', bless ? 'Bless +1d4' : '', ex ? `Exhaustion −${ex}` : '', rm.auto ? 'Automatic failure (condition)' : ''].filter(Boolean).join(' · ');
-  const n1 = kind === 'attack' && r.d20 === 1 ? nat1Roll() : null;
+  const n1 = (kind === 'attack' || / attack$/i.test(label)) && r.d20 === 1 ? nat1Roll(/spell attack/i.test(label) ? { t: 'spell' } : (() => { const a = (S.attacks || []).find(x => x.name + ' attack' === label); return a ? { t: a.kind === 'melee' ? 'melee' : 'ranged' } : {}; })()) : null; // (companions' to-hit rolls too)
   if (['attack', 'save', 'check'].includes(kind)) LAST_D20 = { t: Date.now(), label, bonus, kind, ab, rows, total: r.skipped ? null : r.total };
-  toast(`<b class="total">${r.total}</b><div><div>${esc(label)}</div><div class="det dd">${esc(r.detail)}</div>${note ? `<div class="det">${esc(note)}</div>` : ''}${n1 ? `<div class="rc-n1"><b>Nat 1 Roll:</b> ${n1.total}</div>` : ''}${math}</div>`, r.d20 === 20 ? 'crit' : r.d20 === 1 ? 'fumble' : '', ['attack', 'save', 'check'].includes(kind) && !r.skipped && typeof inspAct === 'function' && inspFx() ? 9000 : undefined, ['attack', 'save', 'check'].includes(kind) && !r.skipped && typeof inspAct === 'function' ? inspAct(r.total, label) : null);
+  toast(`<b class="total">${r.total}</b><div><div>${esc(label)}</div><div class="det dd">${esc(r.detail)}</div>${note ? `<div class="det">${esc(note)}</div>` : ''}${fumHTML(n1)}${math}</div>`, r.d20 === 20 ? 'crit' : r.d20 === 1 ? 'fumble' : '', ['attack', 'save', 'check'].includes(kind) && !r.skipped && typeof inspAct === 'function' && inspFx() ? 9000 : undefined, ['attack', 'save', 'check'].includes(kind) && !r.skipped && typeof inspAct === 'function' ? inspAct(r.total, label) : null);
   return r;
 }
 const doubleDice = e => String(e || '').replace(/(\d*)d(\d+)/gi, (m, n, sd) => (2 * (N(n) || 1)) + 'd' + sd);
@@ -1703,23 +1720,26 @@ function toast(html, cls = '', ms = 4500, action) {
     // (an add-on button — Divine Smite, Sneak Attack… — adds to this card and leaves it up; the others act and close it)
     b.onclick = ac.keep ? () => { rollGate(() => ac.fn(t, b)); } : () => { rollGate(ac.fn); t.remove(); }; box.appendChild(b); }); t.appendChild(box); } }
   // (a roll's card stays put until its × is pressed, so a stray tap can't lose it mid-argument; other notes go on a tap)
-  if (!/^\s*<(b class="total"|div class="rc-multi")/.test(html)) t.addEventListener('click', ev => { if (ev.target.tagName !== 'BUTTON') t.remove(); });
+  // (a "card" note — the concentration save prompt — shows in the middle like a roll, and stays until answered or closed)
+  const asCard = /(^|\s)card(\s|$)/.test(cls);
+  if (!/^\s*<(b class="total"|div class="rc-multi")/.test(html) && !asCard) t.addEventListener('click', ev => { if (ev.target.tagName !== 'BUTTON') t.remove(); });
   // Dice results get their own big card in the middle of the screen; everything else stays in the corner.
   const isRoll = /^\s*<(b class="total"|div class="rc-multi")/.test(html);
   let box = $('#toasts');
   if (isRoll || cls === 'manual') logRoll(t.innerHTML, cls); else logEvent(t.innerHTML, cls);
   if (isRoll && cls !== 'manual') statFlush();
   if (isRoll && cls !== 'manual') postSheetRoll(t);
-  if (isRoll) { box = $('#rolls'); if (!box) { box = document.createElement('div'); box.id = 'rolls'; box.setAttribute('aria-live', 'polite'); document.body.appendChild(box); } t.classList.add('rollcard'); ms = Math.max(ms, 6500); }
+  const rollLike = isRoll || asCard;
+  if (rollLike) { box = $('#rolls'); if (!box) { box = document.createElement('div'); box.id = 'rolls'; box.setAttribute('aria-live', 'polite'); document.body.appendChild(box); } t.classList.add('rollcard'); ms = Math.max(ms, 6500); }
   // A new roll while one is showing: like a carousel, the new card slides down into the top spot from just above, the
   // previous card(s) slide down a place to make room, and whichever card no longer fits slides on down and fades away.
-  const cap = isRoll ? (document.documentElement.classList.contains('mobile') ? 1 : 2) : document.documentElement.classList.contains('mobile') ? 2 : 5;
+  const cap = rollLike ? (document.documentElement.classList.contains('mobile') ? 1 : 2) : document.documentElement.classList.contains('mobile') ? 2 : 5;
   let rcOld = [];
-  if (isRoll) { const br = box.getBoundingClientRect(); rcOld = [...box.querySelectorAll(':scope > .rollcard:not(.rc-out)')].map(o => { const r = o.getBoundingClientRect(); const cs = getComputedStyle(o); return { o, top: o.offsetTop, left: o.offsetLeft, w: o.offsetWidth, y: o.offsetTop, tf: cs.transform === 'none' ? '' : cs.transform, op: cs.opacity }; }); }
+  if (rollLike) { const br = box.getBoundingClientRect(); rcOld = [...box.querySelectorAll(':scope > .rollcard:not(.rc-out)')].map(o => { const r = o.getBoundingClientRect(); const cs = getComputedStyle(o); return { o, top: o.offsetTop, left: o.offsetLeft, w: o.offsetWidth, y: o.offsetTop, tf: cs.transform === 'none' ? '' : cs.transform, op: cs.opacity }; }); }
   // (the card gets its final layout before it goes in, so the cards below know exactly how far to move)
-  if (isRoll) { t._at = Date.now(); rcDress(t); }
-  if (isRoll) box.prepend(t); else box.appendChild(t);
-  if (isRoll && rcOld.length) {
+  if (rollLike) { t._at = Date.now(); rcDress(t); }
+  if (rollLike) box.prepend(t); else box.appendChild(t);
+  if (rollLike && rcOld.length) {
     const still = !matchMedia('(prefers-reduced-motion: reduce)').matches, stay = rcOld.slice(0, cap - 1), go = rcOld.slice(cap - 1);
     go.forEach(({ o, top, left, w, tf, op }) => { clearTimeout(o._tm); if (!still) { o.remove(); return; } o.classList.add('rc-out', 'rc-slide'); Object.assign(o.style, { position: 'absolute', top: top + 'px', left: left + 'px', width: w + 'px', margin: '0', animation: 'none', zIndex: '-1' });
       const a = o.animate([{ transform: `translateY(0px) ${tf}`, opacity: op }, { transform: 'translateY(40px) scale(.9)', opacity: 0 }], { duration: 130, easing: 'cubic-bezier(.4,0,1,1)', fill: 'forwards' }); a.onfinish = () => o.remove(); }); // (gone quickly, before the card behind it slides into its place)
@@ -1729,7 +1749,7 @@ function toast(html, cls = '', ms = 4500, action) {
       t.style.animation = 'none'; t.animate([{ transform: 'translateY(-56px)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 380, delay: 150, easing: 'cubic-bezier(.16,1,.3,1)', fill: 'backwards' }); // (it follows a beat behind, so the two never blur together)
     }
   }
-  if (isRoll) {
+  if (rollLike) {
     // The math is always on the card (no button to open it), laid out under the numbers: one column per part (to hit,
     // damage…). The card stays until its × is pressed — or until a newer roll pushes it off the stack.
     // Settings → Dice can make cards fade on their own after a while (it waits while the pointer rests on the card)
@@ -2022,7 +2042,7 @@ function renderVitals() {
   <div class="tile" data-zi="hd"><span class="lbl"><span class="ciw top">Hit Dice${ciBtn('hd', 'hit dice')}</span></span><span class="big" data-calc="hd"></span><span class="sub" data-calc="hdpools"></span></div>
   <div class="tile deathtile" data-zi="death"><span class="lbl">Death Saves</span><div class="death" data-calc-html="death"></div></div>
   <div class="tile condtile" data-zi="conds"><div class="tilehead"><span class="lbl">Conditions</span><button class="addc" data-act="conditions"><span class="tt">+ Add</span></button><span class="advbtns" role="group" aria-label="All d20 rolls"><button class="advb adv${S.rollAdv === 'adv' ? ' on' : ''}" data-act="rolladv" data-v="adv" aria-pressed="${S.rollAdv === 'adv'}" title="Advantage on every attack, check and save"><span class="al">Advantage</span></button><button class="advb dis${S.rollAdv === 'dis' ? ' on' : ''}" data-act="rolladv" data-v="dis" aria-pressed="${S.rollAdv === 'dis'}" title="Disadvantage on every attack, check and save"><span class="al">Disadvantage</span></button></span></div><div class="condchips" data-calc-html="conds"></div></div>
-  <div class="tile fxtile" data-zi="effects"><div class="tilehead"><span class="lbl">Active spells &amp; effects</span><button class="addc" data-act="addeffects" title="Spells and effects someone else put on you"><span class="tt">+ Add</span></button><span class="hint" data-calc="concnote"></span></div><div class="fxchips" data-calc-html="fxchips"></div></div>
+  <div class="tile fxtile" data-zi="effects"><div class="tilehead"><span class="lbl">Active spells &amp; effects</span><button class="addc" data-act="addeffects" title="Spells and effects someone else put on you"><span class="tt">+ Add</span></button><span class="hint concnote" data-calc-html="concnote"></span></div><div class="fxchips" data-calc-html="fxchips"></div></div>
 `;
 }
 
@@ -3488,7 +3508,7 @@ function calcText(key) {
     case 'speedtip': return (speedInfo().parts || []).join(' · ');
     case 'truehp': return `${N(S.hp.cur)}/${maxHp()}`;
     case 'ridersnote': { const r = S.riders || []; const x = extraDice(); return (r.length ? 'Next hit adds: ' + r.map(z => z.name + ' ' + z.dice).join(', ') + '. ' : '') + (x.length ? 'Every hit adds: ' + x.join(', ') + '.' : ''); }
-    case 'concnote': return S.concentration ? 'Concentrating on ' + S.concentration : '';
+    case 'concnote': return S.concentration ? `Concentrating on ${esc(S.concentration)} <button class="ccbtn" data-act="concsave" title="Roll a concentration save (CON save)">Con save</button>` : '';
     case 'ammo': { const am = ammoItem(S.attacks[a]); return am ? N(am.qty) + ' ammo' : ''; }
     case 'lvl': return String(totalLevel());
     case 'xpnext': return totalLevel() >= 20 ? 'max' : '/ ' + xpNext().toLocaleString();
@@ -3876,6 +3896,7 @@ function mainClick(e) {
     case 'econ': S.turn.used[b.dataset.col] = !S.turn.used[b.dataset.col]; if (b.dataset.col === 'action' && !S.turn.used.action) S.turn.attacks = 0; update(); break;
     case 'econtab': UI.econTab = b.dataset.col; saveUI(); render('combat'); refresh(); pendingLabel = null; return;
     case 'qty': { const it = S.inventory[i]; it.qty = Math.max(0, N(it.qty) + N(b.dataset.d)); update(); break; }
+    case 'concsave': concCheck(10, true); break;
     case 'endeffect': endEffect(b.dataset.n); if ($('#condmodal.extfxm')) openExtFx(); break;
     case 'addeffects': UI.extPick = ''; openExtFx(); break;
     case 'extfx': addExtFx(b.dataset.k); break;
@@ -4279,7 +4300,7 @@ function attackRoll(i, free, opt) {
   const mainT = a.type ? String(a.type).toLowerCase() : 'damage', byType = {}, addT = (t, v) => { if (!v) return; t = String(t || '').trim().toLowerCase() || mainT; byType[t] = (byType[t] || 0) + v; };
   addT(mainT, d.total + (sr ? sr.total : 0)); rh.always.forEach(x => addT(x.type, x.total)); xr.forEach(x => addT(String(x.label).replace(/^[\d+d\s-]+/, ''), x.r.total)); rr.forEach((x, k) => addT(String(riders[k].dice).replace(/^[\d+d\s-]+/, ''), x.r.total));
   const types = Object.entries(byType);
-  const n1 = nat1 ? nat1Roll() : null;
+  const n1 = nat1 ? nat1Roll({ t: a.kind === 'melee' ? 'melee' : 'ranged' }) : null;
   if (crit) critUntil = Date.now() + 60000;
   update();
   const head = crit ? 'CRITICAL HIT! Damage dice doubled' : nat1 ? 'Natural 1: automatic miss' : 'to hit';
@@ -4303,7 +4324,7 @@ function attackRoll(i, free, opt) {
   if (sr && !opt.offTurn) acts.push({ label: 'Missed — Sneak Attack not used', fn: () => { S.turn.sneak = false; pendingLabel = 'Sneak Attack not used'; update(); refresh(); toast('Sneak Attack is ready again this turn.'); } });
   // The card shows just the two numbers: to hit and damage. The full breakdown goes to the roll log.
   toast(`<b class="total">${h.total}</b><div class="rc-body"><div class="rc-name">${esc(nm)}</div><div class="rc-lbl">${crit ? 'CRITICAL HIT' : nat1 ? 'Natural 1 — miss' : 'to hit'}</div>
-    ${(opt.notes || []).map(x => `<div class="det">${x}</div>`).join('')}${n1 ? `<div class="rc-n1"><b>Nat 1 Roll:</b> ${n1.total}</div>` : ''}<div class="det dd">Hit: ${esc(h.detail)} · Dmg: ${esc(d.detail)}${sr ? ` · <b>Sneak Attack</b>: ${esc(sr.detail)}` : ''}${xr.map(x => ` · ${esc(x.label)}: ${x.r.total}`).join('')}${rr.map(x => ` · <b>${esc(x.label)}</b>: ${x.r.total}`).join('')}${rh.always.filter(x => x.r).map(x => ` · <b>${esc(x.src.name)}</b>: ${x.total}`).join('')}</div>${rh.always.map(x => x.lines.filter(l => !/ left$/.test(l)).map(l => `<div class="rc-rider"><b>${esc(x.src.name)}:</b> ${esc(l)}</div>`).join('')).join('')}
+    ${(opt.notes || []).map(x => `<div class="det">${x}</div>`).join('')}${fumHTML(n1)}<div class="det dd">Hit: ${esc(h.detail)} · Dmg: ${esc(d.detail)}${sr ? ` · <b>Sneak Attack</b>: ${esc(sr.detail)}` : ''}${xr.map(x => ` · ${esc(x.label)}: ${x.r.total}`).join('')}${rr.map(x => ` · <b>${esc(x.label)}</b>: ${x.r.total}`).join('')}${rh.always.filter(x => x.r).map(x => ` · <b>${esc(x.src.name)}</b>: ${x.total}`).join('')}</div>${rh.always.map(x => x.lines.filter(l => !/ left$/.test(l)).map(l => `<div class="rc-rider"><b>${esc(x.src.name)}:</b> ${esc(l)}</div>`).join('')).join('')}
     ${note ? `<div class="det">${esc(note)}</div>` : ''}<div class="det">${[ammoNote, free ? '' : `Attack ${N(S.turn.attacks)} of ${attacksPerAction()} this turn`].filter(Boolean).join(' · ')}${crit && hasFeature('Divine Smite') ? ' · a smite now also doubles' : ''}</div>${math}</div>
     <div class="rc-dmg${nat1 ? ' void' : ''}"><b>${total}</b><span>${types.length > 1 ? `<span class="rc-types">${types.map(([t, v]) => `<i><b>${v}</b> ${esc(t)}</i>`).join('')}</span>` : esc(mainT)}${sr ? `<small>incl. ${sr.total} sneak</small>` : ''}</span></div>`, crit ? 'crit' : nat1 ? 'fumble' : '', crit ? 12000 : 9000, acts);
 }
@@ -4411,7 +4432,8 @@ function creatureRoll(who, j, what) {
   const h = rollExpr((who === 'form' ? d20Expr(N(a[1]), 'attack').expr : '1d20' + sgn(N(a[1]))), { label: nm + ' attack' });
   const crit = h.d20 === 20, nat1 = h.d20 === 1;
   const d = rollExpr(crit ? doubleDice(a[2]) : String(a[2] || '0'), { label: nm + ' damage' + (a[3] ? ' (' + a[3] + ')' : '') });
-  toast(`<b class="total">${h.total}</b><div class="rc-body"><div class="rc-name">${esc(nm)}</div><div class="rc-lbl">${crit ? 'CRITICAL HIT' : nat1 ? 'Natural 1 — miss' : 'to hit'}</div><div class="det">Hit: ${esc(h.detail)} · Dmg: ${esc(d.detail)}</div></div><div class="rc-dmg${nat1 ? ' void' : ''}"><b>${d.total}</b><span>${esc(a[3] || 'damage')}</span></div>`, crit ? 'crit' : nat1 ? 'fumble' : '', 8000);
+  const n1 = nat1 ? nat1Roll({}) : null;
+  toast(`<b class="total">${h.total}</b><div class="rc-body"><div class="rc-name">${esc(nm)}</div><div class="rc-lbl">${crit ? 'CRITICAL HIT' : nat1 ? 'Natural 1 — miss' : 'to hit'}</div>${fumHTML(n1)}<div class="det">Hit: ${esc(h.detail)} · Dmg: ${esc(d.detail)}</div></div><div class="rc-dmg${nat1 ? ' void' : ''}"><b>${d.total}</b><span>${esc(a[3] || 'damage')}</span></div>`, crit ? 'crit' : nat1 ? 'fumble' : '', 8000);
 }
 function doPip(p) {
   const kind = p.dataset.pip, i = N(p.dataset.i), j = N(p.dataset.j);
@@ -4550,12 +4572,15 @@ function breakConc(reason) {
   pendingLabel = 'Concentration broken: ' + nm; cleanupLinked(); save(); render();
   toast(`💥 Concentration broken — <b>${esc(nm)}</b> ends${reason ? ` (${esc(reason)})` : ''}.`, 'fumble', 9000, { label: 'Undo', fn: () => undo(1) });
 }
-function concCheck(dc) {
-  const nm = S.concentration; if (!nm) return;
+// manual: from the "Con save" button — the DC can be changed on the card (10, or half the damage if that's more).
+let CC_DC = 10;
+document.addEventListener('input', e => { if (e.target.classList && e.target.classList.contains('cc-dcin')) CC_DC = Math.max(1, N(e.target.value) || 10); });
+function concCheck(dc0, manual) {
+  const nm = S.concentration; if (!nm) return; CC_DC = dc0; const dcNow = () => manual ? CC_DC : dc0;
   const bonus = saveVal('con') + (hasFeat('War Caster') ? 0 : 0);
-  toast(`<div><b>Concentration check</b> for ${esc(nm)}<div class="det">DC ${dc} CON save · ${fmt(bonus)}${hasFeat('War Caster') ? ' · War Caster: advantage' : ''}</div></div>`, 'alert', 30000, [
-    { label: 'Roll', fn: () => { if (S.concentration !== nm) { toast('No longer concentrating on that spell.'); return; } const ex = (hasFeat('War Caster') ? '2d20kh1' : d20Expr(bonus, 'save', 'con').expr.replace(/[+-]\d+.*$/, '')) + sgn(bonus - exD20()) + (blessed() ? '+1d4' : ''); const r = rollExpr(ex, { need: true, label: 'Concentration save' }); const ok = r.total >= dc; toast(`<b class="total">${r.total}</b><div><div>Concentration ${ok ? 'holds' : 'fails'} (DC ${dc})</div><div class="det">${esc(r.detail)}</div></div>`, ok ? 'crit' : 'fumble', 6000); if (!ok) breakConc('failed DC ' + dc); } },
-    { label: 'Failed', fn: () => { if (S.concentration === nm) breakConc('failed DC ' + dc); } }]);
+  toast(`<div class="cc-main"><div class="rc-lbl">Concentration save</div><div class="rc-name">${esc(nm)}</div><div class="cc-sub">CON save ${fmt(bonus)}${hasFeat('War Caster') ? ' · advantage (War Caster)' : ''}</div></div><div class="cc-dc"><small>DC</small>${manual ? `<input class="cc-dcin" type="number" min="1" max="99" value="${dc0}" aria-label="Save DC" title="10, or half the damage you took if that's more">` : `<b>${dc0}</b>`}</div>`, 'card cc', 30000, [
+    { label: 'Roll save', cls: 'cc-roll', fn: () => { const dc = dcNow(); if (S.concentration !== nm) { toast('No longer concentrating on that spell.'); return; } const ex = (hasFeat('War Caster') ? '2d20kh1' : d20Expr(bonus, 'save', 'con').expr.replace(/[+-]\d+.*$/, '')) + sgn(bonus - exD20()) + (blessed() ? '+1d4' : ''); const r = rollExpr(ex, { need: true, label: 'Concentration save' }); const ok = r.total >= dc; toast(`<b class="total">${r.total}</b><div><div>Concentration ${ok ? 'holds' : 'fails'} (DC ${dc})</div><div class="det">${esc(r.detail)}</div></div>`, ok ? 'crit' : 'fumble', 6000); if (!ok) breakConc('failed DC ' + dc); } },
+    { label: 'I failed it', cls: 'cc-fail', fn: () => { const dc = dcNow(); if (S.concentration === nm) breakConc('failed DC ' + dc); } }]);
 }
 function endEffect(n) {
   (S.effects || []).filter(x => x.name === n).forEach(x => { if (typeof poolSettle === 'function') poolSettle(x); });
@@ -5134,7 +5159,7 @@ function executeCast(i, how, L, col, x) {
     backAct = { label: `Take ${dmg} damage`, fn: () => { takeDamage(dmg); save(); render(); } };
   }
   if (typeof ptyAfterCast === 'function') { const pl = ptyAfterCast(sp, a, L, x, { self, heal: ptyHeal, healAll: sm.heal === 'all', temp: ptyTemp, maxHp: ptyMax, eff, rounds, card, beamRows, sm, ci, mainTotal, wat }); if (pl) { lines.push(...pl.lines); if (pl.noSelfHeal) healAct = null; } }
-  [].concat(beamRows.filter(r => r.nat1), card && card.nat1 ? [card] : []).forEach(() => { const r = nat1Roll(); if (r) out.unshift(`<span class="rc-n1"><b>Nat 1 Roll:</b> ${r.total}</span>`); });
+  [].concat(beamRows.filter(r => r.nat1), card && card.nat1 ? [card] : []).forEach(() => { const r = nat1Roll({ t: 'spell', lvl: L, melee: /melee spell attack/i.test(String(sp.desc || '') + ' ' + String(sp.summary || '')) || /^(touch|self)/i.test(String(sp.range || '')) }); if (r && !r.skipped) out.unshift(fumHTML(r).replace(/^<div/, '<span').replace(/div>$/, 'span>')); });
   if (MAXDMG && DICE_TOUCHED) S.effects = S.effects.filter(e => !(e.buff && e.buff.maxNext));
   MAXDMG = false; EMPOWER = 0;
   const surgeShow = wildAfterCast(sp);
@@ -6000,7 +6025,7 @@ function openSettings(tab) {
       ${row('Encumbrance', opt('encumbrance', [['off', 'Off'], ['standard', 'Standard (carrying capacity)'], ['variant', 'Variant (encumbered / heavily)']]), ST('encumbrance') === 'variant' ? '−10 ft over 5×STR lb, −20 ft over 10×STR' : ST('encumbrance') === 'standard' ? 'Carry up to 15 × STR lb' : 'Weights are ignored')}
       ${hasSub('artificer', 'artillerist') ? tog('protectorScales', 'Protector cannon scales with Explosive Cannon', 'House rule — 2d8 + INT temp HP from 9th level, like the other two') : ''}
       ${tog('electrum', 'Use electrum pieces (EP)', 'Shows electrum in the coin purse — most tables skip it')}
-      ${tog('nat1Roll', 'Nat 1 Roll: a natural 1 on an attack also rolls a d4', 'House rule — the d4 is always the last roll')}
+      ${tog('nat1Roll', 'Critical fumbles: a natural 1 on an attack rolls a d4 on the fumble table', 'House rule — the d4 is always the last roll; melee, ranged and spell attacks each have their own table')}
       ${tog('inspiration', 'Track Inspiration', 'A − / + counter under your portrait')}
       <label class="setrow subset${ST('inspiration') ? '' : ' dis'}" title="${ST('inspiration') ? '' : 'Turn on Track Inspiration first'}"><input type="checkbox" data-set="inspMany"${ST('inspMany') ? ' checked' : ''}${ST('inspiration') ? '' : ' disabled'}><span><b>More than one Inspiration</b><small>House rule — no limit on how many you can hold${ST('inspiration') ? '' : ' (turn on Track Inspiration to use it)'}</small></span></label>
       ${tog('concPrompt', 'Concentration save prompt when hurt')}

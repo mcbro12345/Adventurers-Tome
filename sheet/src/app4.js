@@ -96,6 +96,7 @@ function mainClick(e) {
     case 'econ': S.turn.used[b.dataset.col] = !S.turn.used[b.dataset.col]; if (b.dataset.col === 'action' && !S.turn.used.action) S.turn.attacks = 0; update(); break;
     case 'econtab': UI.econTab = b.dataset.col; saveUI(); render('combat'); refresh(); pendingLabel = null; return;
     case 'qty': { const it = S.inventory[i]; it.qty = Math.max(0, N(it.qty) + N(b.dataset.d)); update(); break; }
+    case 'concsave': concCheck(10, true); break;
     case 'endeffect': endEffect(b.dataset.n); if ($('#condmodal.extfxm')) openExtFx(); break;
     case 'addeffects': UI.extPick = ''; openExtFx(); break;
     case 'extfx': addExtFx(b.dataset.k); break;
@@ -499,7 +500,7 @@ function attackRoll(i, free, opt) {
   const mainT = a.type ? String(a.type).toLowerCase() : 'damage', byType = {}, addT = (t, v) => { if (!v) return; t = String(t || '').trim().toLowerCase() || mainT; byType[t] = (byType[t] || 0) + v; };
   addT(mainT, d.total + (sr ? sr.total : 0)); rh.always.forEach(x => addT(x.type, x.total)); xr.forEach(x => addT(String(x.label).replace(/^[\d+d\s-]+/, ''), x.r.total)); rr.forEach((x, k) => addT(String(riders[k].dice).replace(/^[\d+d\s-]+/, ''), x.r.total));
   const types = Object.entries(byType);
-  const n1 = nat1 ? nat1Roll() : null;
+  const n1 = nat1 ? nat1Roll({ t: a.kind === 'melee' ? 'melee' : 'ranged' }) : null;
   if (crit) critUntil = Date.now() + 60000;
   update();
   const head = crit ? 'CRITICAL HIT! Damage dice doubled' : nat1 ? 'Natural 1: automatic miss' : 'to hit';
@@ -523,7 +524,7 @@ function attackRoll(i, free, opt) {
   if (sr && !opt.offTurn) acts.push({ label: 'Missed — Sneak Attack not used', fn: () => { S.turn.sneak = false; pendingLabel = 'Sneak Attack not used'; update(); refresh(); toast('Sneak Attack is ready again this turn.'); } });
   // The card shows just the two numbers: to hit and damage. The full breakdown goes to the roll log.
   toast(`<b class="total">${h.total}</b><div class="rc-body"><div class="rc-name">${esc(nm)}</div><div class="rc-lbl">${crit ? 'CRITICAL HIT' : nat1 ? 'Natural 1 — miss' : 'to hit'}</div>
-    ${(opt.notes || []).map(x => `<div class="det">${x}</div>`).join('')}${n1 ? `<div class="rc-n1"><b>Nat 1 Roll:</b> ${n1.total}</div>` : ''}<div class="det dd">Hit: ${esc(h.detail)} · Dmg: ${esc(d.detail)}${sr ? ` · <b>Sneak Attack</b>: ${esc(sr.detail)}` : ''}${xr.map(x => ` · ${esc(x.label)}: ${x.r.total}`).join('')}${rr.map(x => ` · <b>${esc(x.label)}</b>: ${x.r.total}`).join('')}${rh.always.filter(x => x.r).map(x => ` · <b>${esc(x.src.name)}</b>: ${x.total}`).join('')}</div>${rh.always.map(x => x.lines.filter(l => !/ left$/.test(l)).map(l => `<div class="rc-rider"><b>${esc(x.src.name)}:</b> ${esc(l)}</div>`).join('')).join('')}
+    ${(opt.notes || []).map(x => `<div class="det">${x}</div>`).join('')}${fumHTML(n1)}<div class="det dd">Hit: ${esc(h.detail)} · Dmg: ${esc(d.detail)}${sr ? ` · <b>Sneak Attack</b>: ${esc(sr.detail)}` : ''}${xr.map(x => ` · ${esc(x.label)}: ${x.r.total}`).join('')}${rr.map(x => ` · <b>${esc(x.label)}</b>: ${x.r.total}`).join('')}${rh.always.filter(x => x.r).map(x => ` · <b>${esc(x.src.name)}</b>: ${x.total}`).join('')}</div>${rh.always.map(x => x.lines.filter(l => !/ left$/.test(l)).map(l => `<div class="rc-rider"><b>${esc(x.src.name)}:</b> ${esc(l)}</div>`).join('')).join('')}
     ${note ? `<div class="det">${esc(note)}</div>` : ''}<div class="det">${[ammoNote, free ? '' : `Attack ${N(S.turn.attacks)} of ${attacksPerAction()} this turn`].filter(Boolean).join(' · ')}${crit && hasFeature('Divine Smite') ? ' · a smite now also doubles' : ''}</div>${math}</div>
     <div class="rc-dmg${nat1 ? ' void' : ''}"><b>${total}</b><span>${types.length > 1 ? `<span class="rc-types">${types.map(([t, v]) => `<i><b>${v}</b> ${esc(t)}</i>`).join('')}</span>` : esc(mainT)}${sr ? `<small>incl. ${sr.total} sneak</small>` : ''}</span></div>`, crit ? 'crit' : nat1 ? 'fumble' : '', crit ? 12000 : 9000, acts);
 }
@@ -631,7 +632,8 @@ function creatureRoll(who, j, what) {
   const h = rollExpr((who === 'form' ? d20Expr(N(a[1]), 'attack').expr : '1d20' + sgn(N(a[1]))), { label: nm + ' attack' });
   const crit = h.d20 === 20, nat1 = h.d20 === 1;
   const d = rollExpr(crit ? doubleDice(a[2]) : String(a[2] || '0'), { label: nm + ' damage' + (a[3] ? ' (' + a[3] + ')' : '') });
-  toast(`<b class="total">${h.total}</b><div class="rc-body"><div class="rc-name">${esc(nm)}</div><div class="rc-lbl">${crit ? 'CRITICAL HIT' : nat1 ? 'Natural 1 — miss' : 'to hit'}</div><div class="det">Hit: ${esc(h.detail)} · Dmg: ${esc(d.detail)}</div></div><div class="rc-dmg${nat1 ? ' void' : ''}"><b>${d.total}</b><span>${esc(a[3] || 'damage')}</span></div>`, crit ? 'crit' : nat1 ? 'fumble' : '', 8000);
+  const n1 = nat1 ? nat1Roll({}) : null;
+  toast(`<b class="total">${h.total}</b><div class="rc-body"><div class="rc-name">${esc(nm)}</div><div class="rc-lbl">${crit ? 'CRITICAL HIT' : nat1 ? 'Natural 1 — miss' : 'to hit'}</div>${fumHTML(n1)}<div class="det">Hit: ${esc(h.detail)} · Dmg: ${esc(d.detail)}</div></div><div class="rc-dmg${nat1 ? ' void' : ''}"><b>${d.total}</b><span>${esc(a[3] || 'damage')}</span></div>`, crit ? 'crit' : nat1 ? 'fumble' : '', 8000);
 }
 function doPip(p) {
   const kind = p.dataset.pip, i = N(p.dataset.i), j = N(p.dataset.j);
@@ -770,12 +772,15 @@ function breakConc(reason) {
   pendingLabel = 'Concentration broken: ' + nm; cleanupLinked(); save(); render();
   toast(`💥 Concentration broken — <b>${esc(nm)}</b> ends${reason ? ` (${esc(reason)})` : ''}.`, 'fumble', 9000, { label: 'Undo', fn: () => undo(1) });
 }
-function concCheck(dc) {
-  const nm = S.concentration; if (!nm) return;
+// manual: from the "Con save" button — the DC can be changed on the card (10, or half the damage if that's more).
+let CC_DC = 10;
+document.addEventListener('input', e => { if (e.target.classList && e.target.classList.contains('cc-dcin')) CC_DC = Math.max(1, N(e.target.value) || 10); });
+function concCheck(dc0, manual) {
+  const nm = S.concentration; if (!nm) return; CC_DC = dc0; const dcNow = () => manual ? CC_DC : dc0;
   const bonus = saveVal('con') + (hasFeat('War Caster') ? 0 : 0);
-  toast(`<div class="cc-main"><div class="rc-lbl">Concentration save</div><div class="rc-name">${esc(nm)}</div><div class="cc-sub">CON save ${fmt(bonus)}${hasFeat('War Caster') ? ' · advantage (War Caster)' : ''}</div></div><div class="cc-dc"><small>DC</small><b>${dc}</b></div>`, 'card cc', 30000, [
-    { label: 'Roll save', cls: 'cc-roll', fn: () => { if (S.concentration !== nm) { toast('No longer concentrating on that spell.'); return; } const ex = (hasFeat('War Caster') ? '2d20kh1' : d20Expr(bonus, 'save', 'con').expr.replace(/[+-]\d+.*$/, '')) + sgn(bonus - exD20()) + (blessed() ? '+1d4' : ''); const r = rollExpr(ex, { need: true, label: 'Concentration save' }); const ok = r.total >= dc; toast(`<b class="total">${r.total}</b><div><div>Concentration ${ok ? 'holds' : 'fails'} (DC ${dc})</div><div class="det">${esc(r.detail)}</div></div>`, ok ? 'crit' : 'fumble', 6000); if (!ok) breakConc('failed DC ' + dc); } },
-    { label: 'I failed it', cls: 'cc-fail', fn: () => { if (S.concentration === nm) breakConc('failed DC ' + dc); } }]);
+  toast(`<div class="cc-main"><div class="rc-lbl">Concentration save</div><div class="rc-name">${esc(nm)}</div><div class="cc-sub">CON save ${fmt(bonus)}${hasFeat('War Caster') ? ' · advantage (War Caster)' : ''}</div></div><div class="cc-dc"><small>DC</small>${manual ? `<input class="cc-dcin" type="number" min="1" max="99" value="${dc0}" aria-label="Save DC" title="10, or half the damage you took if that's more">` : `<b>${dc0}</b>`}</div>`, 'card cc', 30000, [
+    { label: 'Roll save', cls: 'cc-roll', fn: () => { const dc = dcNow(); if (S.concentration !== nm) { toast('No longer concentrating on that spell.'); return; } const ex = (hasFeat('War Caster') ? '2d20kh1' : d20Expr(bonus, 'save', 'con').expr.replace(/[+-]\d+.*$/, '')) + sgn(bonus - exD20()) + (blessed() ? '+1d4' : ''); const r = rollExpr(ex, { need: true, label: 'Concentration save' }); const ok = r.total >= dc; toast(`<b class="total">${r.total}</b><div><div>Concentration ${ok ? 'holds' : 'fails'} (DC ${dc})</div><div class="det">${esc(r.detail)}</div></div>`, ok ? 'crit' : 'fumble', 6000); if (!ok) breakConc('failed DC ' + dc); } },
+    { label: 'I failed it', cls: 'cc-fail', fn: () => { const dc = dcNow(); if (S.concentration === nm) breakConc('failed DC ' + dc); } }]);
 }
 function endEffect(n) {
   (S.effects || []).filter(x => x.name === n).forEach(x => { if (typeof poolSettle === 'function') poolSettle(x); });
@@ -1354,7 +1359,7 @@ function executeCast(i, how, L, col, x) {
     backAct = { label: `Take ${dmg} damage`, fn: () => { takeDamage(dmg); save(); render(); } };
   }
   if (typeof ptyAfterCast === 'function') { const pl = ptyAfterCast(sp, a, L, x, { self, heal: ptyHeal, healAll: sm.heal === 'all', temp: ptyTemp, maxHp: ptyMax, eff, rounds, card, beamRows, sm, ci, mainTotal, wat }); if (pl) { lines.push(...pl.lines); if (pl.noSelfHeal) healAct = null; } }
-  [].concat(beamRows.filter(r => r.nat1), card && card.nat1 ? [card] : []).forEach(() => { const r = nat1Roll(); if (r) out.unshift(`<span class="rc-n1"><b>Nat 1 Roll:</b> ${r.total}</span>`); });
+  [].concat(beamRows.filter(r => r.nat1), card && card.nat1 ? [card] : []).forEach(() => { const r = nat1Roll({ t: 'spell', lvl: L, melee: /melee spell attack/i.test(String(sp.desc || '') + ' ' + String(sp.summary || '')) || /^(touch|self)/i.test(String(sp.range || '')) }); if (r && !r.skipped) out.unshift(fumHTML(r).replace(/^<div/, '<span').replace(/div>$/, 'span>')); });
   if (MAXDMG && DICE_TOUCHED) S.effects = S.effects.filter(e => !(e.buff && e.buff.maxNext));
   MAXDMG = false; EMPOWER = 0;
   const surgeShow = wildAfterCast(sp);

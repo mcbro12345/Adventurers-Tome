@@ -945,6 +945,7 @@ function calcText(key) {
 function calcHTML(key) {
   const [k, a] = key.split(':');
   switch (k) {
+    case 'concnote': return S.concentration ? `Concentrating on ${esc(S.concentration)} <button class="ccbtn" data-act="concsave" title="Roll a concentration save (CON save)">Con save</button>` : '';
     case 'sneakdot': { if (!S.inCombat) return '<span class="hint">once per turn</span>'; const u = !!(S.turn && S.turn.sneak); return `<span class="pips"><button class="pip${u ? ' spent' : ''}" data-act="sneaktog" aria-pressed="${u}" aria-label="Sneak Attack this turn" title="${u ? 'Used this turn — tap to mark it ready again' : 'Ready — once per turn'}"></button></span><span class="hint">${u ? 'Used this turn' : 'Ready this turn'}</span>`; }
     case 'hpring': {
       const f = S.form;
