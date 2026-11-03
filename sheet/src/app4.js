@@ -722,6 +722,7 @@ function passRounds(n) {
     if (e.rounds === 0) ended.push(e); else if (e.rounds === 1 && n === 1) warn.push(e);
   });
   if (ended.length) {
+    if (typeof poolSettle === 'function') ended.forEach(poolSettle); // (an item's time pool runs out with it)
     S.effects = S.effects.filter(e => !ended.includes(e));
     if (ended.some(e => e.conc && e.name === S.concentration)) S.concentration = '';
     cleanupLinked();
@@ -761,6 +762,7 @@ function concCheck(dc) {
     { label: 'Failed', fn: () => { if (S.concentration === nm) breakConc('failed DC ' + dc); } }]);
 }
 function endEffect(n) {
+  (S.effects || []).filter(x => x.name === n).forEach(x => { if (typeof poolSettle === 'function') poolSettle(x); });
   S.effects = (S.effects || []).filter(x => x.name !== n);
   if (S.concentration === n) S.concentration = '';
   clampHp(); // (an effect that raised your max HP takes the extra HP with it)

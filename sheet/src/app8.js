@@ -389,11 +389,22 @@ const hbItemOn = it => !!it && (it.equipped || !!it.carried) && (!it.attune || !
 // The table's own homebrew items: these get their effect set up as soon as they show up in an inventory
 // (only when the item has no homebrew settings of its own, so a player's edits always win).
 function hbKnownList() { return [
-  [/\bspider legs?\b/i, { hb: { consume: true, effName: 'Spider Legs', effSkillAdv: 'Perception', effNote: 'Advantage on Perception checks until your next long rest', text: 'Advantage on Perception checks until your next long rest.' }, carried: true }]
+  [/\bspider legs?\b/i, { hb: { consume: true, effName: 'Spider Legs', effSkillAdv: 'Perception', effNote: 'Advantage on Perception checks until your next long rest', text: 'Advantage on Perception checks until your next long rest.' }, carried: true }],
+  // Boots of Speed: a bonus action in Combat that doubles your walking speed for up to 10 minutes, once per long rest
+  // Boots of Speed (rare, attunement): a bonus action clicks the heels together to switch them on or off. While on, your walking
+  // speed doubles and opportunity attacks against you have disadvantage. They run for 10 minutes in all (the "charges" are
+  // those minutes, spent by how long they were on, rounded up to the minute), and the time comes back on a long rest.
+  [/^boots of speed$/i, { hb: { col: 'bonus', pool: true, effName: 'Boots of Speed', effX2: true, effNote: 'Walking speed doubled; opportunity attacks against you have disadvantage', text: 'Click your heels together to turn them on or off. While on: walking speed doubled, and opportunity attacks against you have disadvantage.' }, charges: [10, 'long'] }],
+  // Cloak of Displacement (rare, attunement): attacks against you have disadvantage until you take damage; it's back at the
+  // start of your next turn, and does nothing while you're incapacitated, restrained or can't move
+  [/^cloak of displacement$/i, { hb: { adv: 'Cloak of Displacement: attacks against you have disadvantage. It stops when you take damage and comes back at the start of your next turn; not while you are incapacitated, restrained or unable to move' } }],
+  // Animated Shield (very rare, attunement): a bonus action sets it hovering to guard you, hands free, for 1 minute
+  [/\banimated shield\b/i, { hb: { col: 'bonus', effName: 'Animated Shield', effRounds: 10, effNote: 'The shield guards you as if you were holding it (its AC still counts), leaving your hands free. Ends early if you are incapacitated or die, or with another bonus action', text: 'Speak its command word: it leaps into the air and guards you for 1 minute, leaving your hands free.' } }]
 ]; }
 function hbKnownItem(it) {
   if (!it || it.hb || it.hbKnown) return; const k = hbKnownList().find(([re]) => re.test(it.name || '')); if (!k) return;
   it.hb = JSON.parse(JSON.stringify(k[1].hb)); if (k[1].carried) it.carried = true; it.hbKnown = 1;
+  if (k[1].charges && !(it.charges && N(it.charges.max))) it.charges = { max: k[1].charges[0], used: 0, reset: k[1].charges[1] };
 }
 function hbFx(hb) {
   if (!hb || typeof hb !== 'object') return null;
@@ -428,6 +439,7 @@ function hbFx(hb) {
     const b = {};
     if (has('effFly')) b.fly = hbNum(hb.effFly);
     if (has('effSpeed')) b.speed = hbNum(hb.effSpeed);
+    if (hb.effX2) b.speedDouble = true;
     if (has('effAc')) b.ac = hbNum(hb.effAc);
     if (has('effNote')) b.note = String(hb.effNote);
     if (has('effSkillAdv')) b.skillAdv = hbCSV(hb.effSkillAdv).map(x => { const k = DND.skills.find(z => z[0].toLowerCase() === x.toLowerCase()); return k ? k[0] : x; });
@@ -483,11 +495,39 @@ function throwItem(i) {
   attackRoll(a, true, { label: nm + ' (thrown)', notes: [esc(t.range) + ' · improvised' + (brawler ? ' (Tavern Brawler: proficient)' : ', no proficiency'), esc(t.note), esc(left)] });
   render();
 }
+// Items that run on a pool of minutes (Boots of Speed): the same button turns them on and off; the minutes they were on
+// come off the pool when they stop (switched off, ended from the effects list, or run out).
+function poolSettle(e) {
+  if (!e || !e.pool) return; const it = S.inventory.find(x => x.id === e.pool.item); if (!it || !it.charges) return;
+  const used = Math.max(1, Math.ceil((N(e.pool.t0) - N(e.rounds)) / 10));
+  it.charges.used = Math.min(N(it.charges.max), N(it.charges.used) + used);
+}
+function usePoolItem(it, col) {
+  const ch = it.charges, on = (S.effects || []).find(x => x.pool && x.pool.item === it.id);
+  if (['action', 'bonus', 'reaction'].includes(col) && incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take actions or reactions.`, 'fumble'); return; }
+  if (S.inCombat && col && S.turn.used[col]) { toast(`Your ${col === 'bonus' ? 'bonus action' : col} is already used this turn.`, 'fumble'); return; }
+  if (on) {
+    poolSettle(on); S.effects = S.effects.filter(x => x !== on); if (col && S.inCombat) S.turn.used[col] = true;
+    const left = Math.max(0, N(ch.max) - N(ch.used));
+    pendingLabel = 'Turn off ' + it.name; update(); render();
+    toast(`<div><b>${esc(it.name)}</b> off<div class="det">${left} minute${left === 1 ? '' : 's'} left until your next long rest</div></div>`, '', 6000, { label: 'Undo', fn: () => undo(1) }); return;
+  }
+  const left = Math.max(0, N(ch.max) - N(ch.used));
+  if (!left) { toast(`<b>${esc(it.name)}</b> ${ch.reset === 'short' ? 'are spent until a short or long rest' : 'have no time left — it comes back on a long rest'}.`, 'fumble'); return; }
+  const fx = hbFx(it.hb) || {}, lines = [];
+  if (fx.use && fx.use.effect) fx.use.effect.rounds = left * 10;
+  fxApplyUse(fx.use, it.name, lines);
+  const e = (S.effects || []).find(x => x.name === (fx.use && fx.use.effect && fx.use.effect.name)); if (e) e.pool = { item: it.id, t0: left * 10 };
+  if (col && S.inCombat) S.turn.used[col] = true;
+  pendingLabel = 'Turn on ' + it.name; update(); render();
+  toast(`<div><b>${esc(it.name)}</b> on<div class="det">${esc(fxText(fx.text || ''))}</div><div class="det">Up to ${left} minute${left === 1 ? '' : 's'} · use it again to turn them off</div></div>`, '', 8000, { label: 'Undo', fn: () => undo(1) });
+}
 function useItem(i, col) {
   const it = S.inventory[i]; if (!it) return;
   const fx = hbFx(it.hb) || {};
   if (it.attune && !it.attuned) { toast(`Attune to <b>${esc(it.name)}</b> first.`, 'fumble'); return; }
   col = col || (it.hb && it.hb.col) || '';
+  if (it.hb && it.hb.pool && it.hb.effName && it.charges) return usePoolItem(it, col);
   if (['action', 'bonus', 'reaction'].includes(col) && incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take actions or reactions.`, 'fumble'); return; }
   if (fx.onlyWhen && !fxWhenOK(fx.onlyWhen)) { toast(`${esc(it.name)} only works ${esc(fxWhenText(fx.onlyWhen))}.`, 'fumble'); return; }
   const ch = it.charges && N(it.charges.max) > 0 ? it.charges : null;
