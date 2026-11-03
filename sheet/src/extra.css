@@ -4359,3 +4359,4 @@ html.mobile :is(#page-features, #page-infusions) .fl-acts .btn.fxact { min-heigh
 #page-infusions .frow.is-on .fl-car { border-color: var(--gold); }
 #page-infusions .inf-rows .inf-warn, #page-infusions .inf-rows .inf-eff { margin: 0; }
 #page-infusions .fl-r .ichip.on { white-space: nowrap; }
+#page-features .fl-hbtns { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
