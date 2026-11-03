@@ -4378,3 +4378,8 @@ html.mobile :is(#page-features, #page-infusions) .fl-acts .btn.fxact { min-heigh
 /* Companion cards in the Combat columns sit on the column's lighter card colour, so their inner boxes (AC/speed, type,
    attacks, notes) take the darker field colour to stand out, as they do on the Creatures tab. */
 .comp2.incol .csts, .comp2.incol .cmode, .comp2.incol .cacts, .comp2.incol .cnotes { background: var(--field); border-color: var(--line); }
+/* A feature's own action buttons (Eldritch Cannon's Flamethrower / Force Ballista / Protector, Cunning Action's Dash…) are
+   tinted chips in the accent colour everywhere, so they read as buttons on any card colour. */
+.btn.fxact { background: color-mix(in srgb, var(--gold) 14%, transparent) !important; border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent) !important; color: var(--ink) !important; border-radius: 999px !important; padding: 3px 11px; font-weight: 650; }
+@media (hover: hover) { .btn.fxact:hover:not([disabled]) { background: color-mix(in srgb, var(--gold) 26%, transparent) !important; border-color: var(--gold) !important; } }
+.btn.fxact small { opacity: .75; font-weight: 600; }
