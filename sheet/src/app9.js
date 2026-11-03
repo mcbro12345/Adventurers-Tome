@@ -85,39 +85,49 @@ function renderInfusions() {
       <li>An infusion lasts indefinitely. If you die, it fades after a number of days equal to your INT modifier (minimum 1). It also ends if you swap that infusion out when you level up.</li>
       <li>When you gain an artificer level you can replace one infusion you know with another.</li>
       <li>Infusions that need attunement only work once the wearer attunes (that uses an attunement slot).</li></ul></details></div>`;
+  // Ledger rows, same as the Features tab: one line with what matters at the table, tap to open the details.
+  const colName = c => c === 'bonus' ? 'Bonus action' : c === 'reaction' ? 'Reaction' : 'Action';
+  const row = (key, name, chip, sum, right, body, foot, cls) => { const open = !!UI.open[key];
+    return `<div class="fcard frow${cls ? ' ' + cls : ''}${open ? ' open' : ''}"><div class="fl-sum"><button type="button" class="fl-tog" data-act="ftog" data-key="${esc(key)}" aria-expanded="${open}"><i class="fl-car" aria-hidden="true"></i>
+      <span class="fl-t"><b class="fc-name">${esc(name)}</b>${chip ? `<span class="fscale">${esc(chip)}</span>` : ''}<i class="fl-s">${esc(sum)}</i></span></button>${right ? `<span class="fl-r">${right}</span>` : ''}</div>
+      <div class="fl-body"${open ? '' : ' inert'}><div class="fl-in">${body}${foot ? `<div class="fl-foot">${foot}</div>` : ''}</div></div></div>`; };
+  const meta = list => `<div class="fl-meta">${list.filter(Boolean).map(t => `<span>${esc(t)}</span>`).join('')}</div>`;
   // Active
   const actCards = act.map(([it, i]) => {
     const d = infDef(it.infusion), e = infEffect(it), on = infOn(it), ch = it.charges && it.infusion.charges ? it.charges : null;
     const bits = [e.spellAtk ? `+${e.spellAtk} spell attack rolls` : '', e.atk ? `+${e.atk} attack & damage${e.ranged ? ' (ranged)' : ''}` : '', e.ac ? `+${e.ac} AC` : '', e.resist ? `Resistance to ${e.resist}` : e.resist === '' && d.choose ? 'Pick a damage type' : '', e.speed ? `+${e.speed} ft speed` : '', e.note || ''].filter(Boolean);
     const warn = !it.equipped && !it.carried ? 'Not equipped — effect off' : d.attune && !it.attuned ? 'Needs attunement — effect off' : '';
-    return `<div class="inf-card active${on ? '' : ' off'}"><div class="inf-ch"><span class="inf-dot"></span><div class="grow"><b>${esc(it.name)}</b><div class="hint">${esc(infLabel(it.infusion))}</div></div>
-        <button class="btn sm ghost" data-act="infend" data-i="${i}" title="End this infusion">End</button></div>
-      ${bits.length ? `<div class="inf-eff">${bits.map(b => `<span class="ichip">${esc(b)}</span>`).join('')}</div>` : ''}
-      ${d.choose ? `<label class="inf-choose">Resistance <select class="f" data-infchoice="${i}">${['<option value="">— choose —</option>'].concat(d.choose.map(c => `<option${it.infusion.choice === c ? ' selected' : ''}>${c}</option>`)).join('')}</select></label>` : ''}
-      ${ch ? `<div class="inf-charges"><span class="hint">Charges</span><span class="pips" data-calc-html="infpips:${i}"></span><span class="hint">${Math.max(0, N(ch.max) - N(ch.used))}/${N(ch.max)}${d.charges[1] === 'dawn' ? ' · back at dawn' : ' · regains ' + d.charges[1] + ' at dawn'}</span></div>` : ''}
-      ${d.act ? `<div class="inf-act"><button class="btn sm gold" data-act="infuse-use" data-i="${i}" ${on && (!ch || N(ch.used) < N(ch.max)) ? '' : 'disabled'}>${esc(d.act.name)}</button><span class="hint">${d.act.col === 'bonus' ? 'Bonus action' : d.act.col === 'reaction' ? 'Reaction' : 'Action'} — ${esc(d.act.text)}</span></div>` : ''}
-      ${d.companion ? `<div class="hint">The homunculus is on the Creatures tab.</div>` : ''}
-      ${warn ? `<div class="inf-warn">${esc(warn)}${d.attune && !it.attuned && (it.equipped || it.carried) ? ` <button class="btn sm" data-act="attune" data-i="${i}">Attune</button>` : !it.equipped ? ` <button class="btn sm" data-act="infequip" data-i="${i}">Equip</button>` : ''}</div>` : ''}
-    </div>`;
+    const right = (ch ? `<span class="pips" data-calc-html="infpips:${i}"></span>` : '') + (d.act ? `<button class="btn sm gold" data-act="infuse-use" data-i="${i}" ${on && (!ch || N(ch.used) < N(ch.max)) ? '' : 'disabled'} title="${esc(colName(d.act.col))}">${esc(d.act.name)}</button>` : '');
+    const txt = DND.full['pick:infusion:' + it.infusion.name] || '';
+    const body = meta([infLabel(it.infusion), d.attune ? (it.attuned ? 'Attuned' : 'Requires attunement') : '', d.act ? colName(d.act.col) : ''])
+      + (warn ? `<div class="inf-warn">${esc(warn)}${d.attune && !it.attuned && (it.equipped || it.carried) ? ` <button class="btn sm" data-act="attune" data-i="${i}">Attune</button>` : !it.equipped ? ` <button class="btn sm" data-act="infequip" data-i="${i}">Equip</button>` : ''}</div>` : '')
+      + (bits.length ? `<div class="inf-eff">${bits.map(x => `<span class="ichip">${esc(x)}</span>`).join('')}</div>` : '')
+      + (d.choose ? `<label class="inf-choose">Resistance <select class="f" data-infchoice="${i}">${['<option value="">— choose —</option>'].concat(d.choose.map(c => `<option${it.infusion.choice === c ? ' selected' : ''}>${c}</option>`)).join('')}</select></label>` : '')
+      + (ch ? `<div class="hint">${Math.max(0, N(ch.max) - N(ch.used))} of ${N(ch.max)} charges${d.charges[1] === 'dawn' ? ' · back at dawn' : ' · regains ' + d.charges[1] + ' at dawn'}</div>` : '')
+      + (d.act ? `<div class="hint">${esc(d.act.name)} (${colName(d.act.col).toLowerCase()}): ${esc(d.act.text)}</div>` : '')
+      + (d.companion ? `<div class="hint">The homunculus is on the Creatures tab.</div>` : '')
+      + (txt ? `<div class="fc-desc">${fullHTML(txt)}</div>` : '');
+    return row('iopen:a:' + (it.id || i), it.name, '', warn || bits.join(' · ') || infLabel(it.infusion), right, body, `<button class="btn sm ghost inf-end" data-act="infend" data-i="${i}">End infusion</button>`, on ? '' : 'inf-offrow');
   }).join('');
-  const bagCards = bags.map(([b, i]) => `<div class="inf-card active"><div class="inf-ch"><span class="inf-dot"></span><div class="grow"><b>${esc(b.name)}</b><div class="hint">${esc(infLabel(b.infusion))} · container</div></div><button class="btn sm ghost" data-act="infendbag" data-i="${i}" title="End this infusion">End</button></div><div class="inf-eff"><span class="ichip">Holds ${N(b.cap) || 500} lb${b.weightless ? ', weighs a fixed ' + (N(b.weight) || 15) + ' lb' : ''}</span></div><div class="hint">Its contents are on the Inventory tab. If the infusion ends, everything inside appears around it.</div></div>`).join('');
+  const bagCards = bags.map(([b, i]) => row('iopen:b:' + (b.id || i), b.name, '', `Holds ${N(b.cap) || 500} lb${b.weightless ? ', weighs a fixed ' + (N(b.weight) || 15) + ' lb' : ''}`, '',
+    meta([infLabel(b.infusion), 'Container']) + `<div class="fc-desc">Its contents are on the Inventory tab. If the infusion ends, everything inside appears around it.</div>`,
+    `<button class="btn sm ghost inf-end" data-act="infendbag" data-i="${i}">End infusion</button>`)).join('');
   const activePanel = `<div class="panel" ${PID('infactive')}><h2><span class="grow">Infused items</span><span class="hint">${nAct} of ${aMax}</span></h2>
-    ${nAct ? `<div class="inf-grid">${actCards}${bagCards}</div>` : '<p class="hint" style="margin:0">Nothing infused right now. Pick an infusion below and choose an item.</p>'}</div>`;
+    ${nAct ? `<div class="fgrid inf-rows">${actCards}${bagCards}</div>` : '<p class="hint" style="margin:0">Nothing infused right now. Pick an infusion below and choose an item.</p>'}</div>`;
   // Known
   const knownList = infKnown().map(n => ({ name: n })).concat((S.picks.infusion || []).includes('Replicate Magic Item') ? (infReplicas().length ? infReplicas().map(r => ({ name: 'Replicate Magic Item', rep: r })) : [{ name: 'Replicate Magic Item', rep: '' }]) : []);
   const knownCards = knownList.map(k => {
     const d = INF[k.name] || {}, on = act.concat(bags).find(([it]) => it.infusion.name === k.name && (k.name !== 'Replicate Magic Item' || it.infusion.rep === k.rep));
     const lv = k.rep ? repLevel(k.rep) : d.lv || 2, needAtt = k.rep ? repAttune(k.rep) : !!d.attune;
     const txt = k.rep ? (DND.full['item:' + k.rep] || (DND.magic.find(m => m[0] === k.rep) || [])[5] || '') : (DND.full['pick:infusion:' + k.name] || '');
-    const key = 'inf:' + k.name + ':' + (k.rep || '');
-    return `<div class="inf-card${on ? ' is-on' : ''}"><div class="inf-ch"><div class="grow"><b>${esc(k.rep ? k.rep : k.name)}</b><div class="hint">${k.rep ? 'Replicate Magic Item · ' : ''}${esc(k.rep ? 'Magic item' : d.item || '')}</div></div>
-        ${on ? `<span class="ichip on">On ${esc(on[0].name)}</span>` : `<button class="btn sm gold" data-act="infpick" data-n="${esc(k.name)}" data-r="${esc(k.rep || '')}" ${k.name === 'Replicate Magic Item' && !k.rep ? 'disabled title="Choose which item first (Learn / swap)"' : ''}>Infuse…</button>`}</div>
-      <div class="inf-tags"><span class="itag">${ordn(lv)}-level+</span><span class="itag${needAtt ? ' att' : ''}">${needAtt ? 'Requires attunement' : 'No attunement'}</span>${d.charges ? `<span class="itag">${d.charges[1] === 'dawn' ? 'Once per dawn' : d.charges[0] + ' charges'}</span>` : ''}${d.act ? `<span class="itag">${d.act.col === 'bonus' ? 'Bonus action' : d.act.col === 'reaction' ? 'Reaction' : 'Action'}</span>` : ''}</div>
-      ${txt ? `<div class="inf-txt${UI.open[key] ? ' open' : ''}" data-act="toggle" data-key="${esc(key)}">${fullHTML(txt)}</div>` : ''}
-    </div>`;
+    const right = on ? `<span class="ichip on">On ${esc(on[0].name)}</span>` : `<button class="btn sm gold" data-act="infpick" data-n="${esc(k.name)}" data-r="${esc(k.rep || '')}" ${k.name === 'Replicate Magic Item' && !k.rep ? 'disabled title="Choose which item first (Learn / swap)"' : ''}>Infuse…</button>`;
+    const sum = (k.rep ? 'Replicate Magic Item' : d.item || '') + (needAtt ? ' · attunement' : '');
+    const body = meta([k.rep ? 'Replicate Magic Item' : '', k.rep ? 'Magic item' : d.item || '', ordn(lv) + '-level+', needAtt ? 'Requires attunement' : 'No attunement', d.charges ? (d.charges[1] === 'dawn' ? 'Once per dawn' : d.charges[0] + ' charges') : '', d.act ? colName(d.act.col) : ''])
+      + (txt ? `<div class="fc-desc">${fullHTML(txt)}</div>` : '');
+    return row('iopen:k:' + k.name + ':' + (k.rep || ''), k.rep ? k.rep : k.name, '', sum, right, body, '', on ? 'is-on' : '');
   }).join('');
   const knownPanel = `<div class="panel" ${PID('infknown')}><h2><span class="grow">Known infusions</span><span class="hint">${kn} of ${kMax}</span></h2>
-    ${knownList.length ? `<div class="inf-grid">${knownCards}</div>` : '<p class="hint" style="margin:0">You don\'t know any infusions yet — use Learn / swap infusions.</p>'}</div>`;
+    ${knownList.length ? `<div class="fgrid inf-rows">${knownCards}</div>` : '<p class="hint" style="margin:0">You don\'t know any infusions yet — use Learn / swap infusions.</p>'}</div>`;
   el.innerHTML = head + activePanel + knownPanel;
 }
 // ---------- Learn / swap ----------
