@@ -4049,7 +4049,7 @@ html.mwin .skman { display: grid; grid-template-columns: 1fr 1fr; column-gap: 22
 /* Header with Player/Race/Background/Alignment/Faith all off: the whole row drops so its bottom lines up with the portrait's bottom */
 html:not(.mobile) .ident.noid { padding-bottom: 0 !important; margin-bottom: 0 !important; }
 html:not(.mobile) .ident.noid .ident-top { align-items: flex-end !important; padding-bottom: 0 !important; margin-bottom: 0 !important; }
-html:not(.mobile) .ident.noid .namebox { align-self: flex-end; }
+html:not(.mobile) .ident.noid .namebox { align-self: center; position: relative; top: -2px; } /* name and the line under it centred on the portrait */
 html:not(.mobile) .ident.noid .subtitle { margin-bottom: -4px; }
 /* The info button on condition chips sits dead centre on the chip */
 .cchip .notetip { display: inline-flex !important; align-items: center; justify-content: center; align-self: center; width: 16px; height: 16px; padding: 0; margin: 0 0 0 3px; line-height: 16px; vertical-align: middle; }
@@ -5029,4 +5029,35 @@ html.mobile :is(#page-features, #page-infusions) .fl-acts .btn.fxact { min-heigh
 #page-infusions .inf-rows .inf-warn, #page-infusions .inf-rows .inf-eff { margin: 0; }
 #page-infusions .fl-r .ichip.on { white-space: nowrap; }
 #page-features .fl-hbtns { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.hbb-head { flex-wrap: wrap; row-gap: 6px; }
+.hbb-head .hbb-paste { white-space: nowrap; }
+/* A group being dragged folds to its header while it moves (it opens again once dropped). */
+.spg.gfold > :not(.cspg-hrow), .cgmov.gfold > :not(.cspg-h):not(.cgdrag) { display: none !important; }
+/* The grip sits above the header button that starts under it, so it gets the grab cursor and the press. */
+.cspg-hrow > .gdrag, .cgmov > .cgdrag { z-index: 3; }
+.cspg-hrow > .gdrag-off { z-index: auto; }
+/* Story tab: alignment, faith (and player, in the single-file sheet) above the personality traits. */
+.story-id { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 12px; }
+.setrow .set-ctl { flex: 0 0 min(200px, 55%); margin-left: auto; } .setrow .set-ctl .f { width: 100% !important; max-width: none !important; min-width: 0 !important; box-sizing: border-box; }
+/* Top-right icon buttons: an even icon size in the 28px inside of the button, so the icon lands on whole pixels and sits dead centre. */
+.devbtn svg, .devbtn.logbtn svg { width: 18px; height: 18px; display: block; }
+/* The line under the name breaks only between its parts (each part's spaces are non-breaking; see fitSubtitle). */
+.namebox .subtitle { overflow-wrap: normal; word-break: normal; overflow-x: hidden; max-width: 100%; box-sizing: border-box; }
+.namebox .subtitle.sub2, html:not(.mobile) .namebox .subtitle.sub2 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; }
+/* Companion cards in the Combat columns sit on the column's lighter card colour, so their inner boxes (AC/speed, type,
+   attacks, notes) take the darker field colour to stand out, as they do on the Creatures tab. */
+.comp2.incol .csts, .comp2.incol .cmode, .comp2.incol .cacts, .comp2.incol .cnotes { background: var(--field); border-color: var(--line); }
+/* A feature's own action buttons (Eldritch Cannon's Flamethrower / Force Ballista / Protector, Cunning Action's Dash…) are
+   tinted chips in the accent colour everywhere, so they read as buttons on any card colour. */
+.btn.fxact { background: color-mix(in srgb, var(--gold) 14%, transparent) !important; border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent) !important; color: var(--ink) !important; border-radius: 999px !important; padding: 3px 11px; font-weight: 650; }
+@media (hover: hover) { @media (hover:hover){:where(html:not(.mobile)) .btn.fxact:hover:not([disabled]){ background: color-mix(in srgb, var(--gold) 26%, transparent) !important; border-color: var(--gold) !important; }} }
+.btn.fxact small { opacity: .75; font-weight: 600; }
+/* Creatures tab: each creature card keeps its normal size (one grid column) even when it's the only one, instead of
+   stretching across the whole page. */
+#page-companions .comps { grid-template-columns: repeat(auto-fill, minmax(330px, 440px)); }
+#page-companions .comps > .panel.comp2:only-child { grid-column: auto; }
+html.mobile #page-companions .comps { grid-template-columns: 1fr; }
+/* Tab count badges (Creatures, Party…): always red, and sitting just above the tab's word rather than on it. */
+#tabs .tabcount, html #tabs .tab > .tabcount { background: #d63a2c !important; color: #fff !important; }
+html:not(.mobile) #tabs .tab > .tabcount { top: -7px; }
 
