@@ -3446,7 +3446,7 @@ function calcText(key) {
     case 'lvl': return String(totalLevel());
     case 'xpnext': return totalLevel() >= 20 ? 'max' : '/ ' + xpNext().toLocaleString();
     // (only what the character has: race, class, background, alignment, faith, and who plays them)
-    case 'subtitle': return [S.raceName, classLabel(), S.backgroundName, S.alignment, String(S.faith || '').trim() ? (/^(faith|follower|servant|devotee|priest)\b/i.test(String(S.faith).trim()) ? S.faith : 'Faith of ' + String(S.faith).trim()) : '', S.player ? 'played by ' + S.player : ''].map(x => String(x || '').trim()).filter(Boolean).join(' · ');
+    case 'subtitle': return [S.raceName, classLabel(), S.backgroundName, S.alignment, String(S.faith || '').trim() ? (/^(faith|follower|servant|devotee|priest)\b/i.test(String(S.faith).trim()) ? S.faith : 'Faith of ' + String(S.faith).trim()) : '', S.player ? 'played by ' + S.player : ''].map(x => String(x || '').trim()).filter(Boolean).map(x => x.replace(/ /g, '\u00a0')).join('\u00a0· '); // (each part stays on one line; the line only breaks between parts)
   }
   return '';
 }
@@ -6654,15 +6654,20 @@ window.addEventListener('resize', () => $$('input.f.name').forEach(fitNameFont))
 // The line under the name (race · class · background) never runs past two lines on a computer: a long one gets smaller
 // type instead, so the top bar is the same height for every character. (Remembered per text and width.)
 let SUB_K = '';
+// The line under the name wraps only between its parts (race · class · …), never inside one. If a part is too long for a
+// line of its own it shrinks to fit. It can run to three lines before it shrinks (past that, at the smallest size, it stops
+// after three and the whole of it shows on hover).
 function fitSubtitle() { const el = $('.namebox .subtitle'); if (!el) return;
-  if (isMobile()) { if (el.style.fontSize) el.style.fontSize = ''; SUB_K = ''; return; }
-  const k = el.textContent + '|' + (el.parentElement ? el.parentElement.clientWidth : 0) + '|' + document.documentElement.style.fontSize; if (k === SUB_K && el._fit) return; SUB_K = k; el._fit = 1;
-  el.style.fontSize = ''; if (!el.textContent || !el.offsetParent) return; const base = parseFloat(getComputedStyle(el).fontSize) || 15;
+  const k = el.textContent + '|' + (el.parentElement ? el.parentElement.clientWidth : 0) + '|' + document.documentElement.style.fontSize + '|' + isMobile(); if (k === SUB_K && el._fit) return; SUB_K = k; el._fit = 1;
+  el.style.fontSize = ''; el.classList.remove('sub2'); el.removeAttribute('title'); if (!el.textContent || !el.offsetParent) return;
+  const base = parseFloat(getComputedStyle(el).fontSize) || 15;
+  const over = () => el.scrollWidth > el.clientWidth + 0.5;
   const lines = () => { const cs = getComputedStyle(el), lh = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.2; return Math.round(el.clientHeight / lh); };
-  el.classList.remove('sub2'); el.removeAttribute('title');
-  let px = base; while (lines() > 2 && px > base * 0.72) { px -= 0.5; el.style.fontSize = px + 'px'; }
-  // (still more than two lines at the smallest size: it stops after two, and the whole of it shows on hover)
-  if (lines() > 2) { el.classList.add('sub2'); el.title = el.textContent; } }
+  // (and the name plus this line never make the header taller than the portrait beside them)
+  const pic = [...document.querySelectorAll('#sec-header .portrait-wrap, #sec-header .mini-portrait')].find(x => x.offsetParent && x.offsetHeight), nb = el.parentElement;
+  const cap = pic ? pic.offsetHeight + 2 : 0, tall = () => cap && nb.offsetHeight > cap;
+  let px = base; while ((over() || lines() > 3 || tall()) && px > base * 0.6) { px -= 0.5; el.style.fontSize = px + 'px'; }
+  if (lines() > 3 || tall()) { el.classList.add('sub2'); el.title = el.textContent; } }
 window.addEventListener('resize', () => { SUB_K = ''; fitSubtitle(); });
 
 // Desktop header stays one row: when the toolbar would wrap, its buttons drop their words and keep their icons.
