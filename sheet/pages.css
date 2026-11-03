@@ -3736,3 +3736,16 @@ body.hubbody .hub-new { overflow: hidden; }
 
 /* The admin sidebar is always navy, so its wordmark keeps the bright gold in light mode too. */
 body.adminbody .adm-brand .hl-t { color: #d9a93f !important; -webkit-text-fill-color: #d9a93f !important; }
+/* phones: the logo and the Sample / View only tag line up with the header's contents (the picture and the icon buttons),
+   so the tag never runs into the panel's edge */
+html.mobile .pg-pubrow { padding-left: 22px; padding-right: 22px; }
+
+/* links inside the View only / Sample tag ("Make your own") */
+.pg-shared a { color: inherit; font-weight: 800; }
+/* Landing page: dimmer text is a solid colour, not see-through (see-through text let the background's lines show
+   through the letters on phones) */
+.si2-try p { opacity: 1; color: color-mix(in srgb, currentColor 75%, #151c2b); }
+.si2-tx small { opacity: 1; color: color-mix(in srgb, currentColor 74%, #1a2131); }
+.si2-tx .si2-sub { opacity: 1; color: color-mix(in srgb, #e9e3d3 52%, #1a2131); }
+.si2-go { opacity: 1; color: color-mix(in srgb, var(--c) 72%, #1a2131); }
+.si2-feat small { opacity: 1; color: color-mix(in srgb, currentColor 72%, #151c2b); }
