@@ -5072,6 +5072,11 @@ html.mobile :is(#page-features, #page-infusions) .fl-acts .btn.fxact { min-heigh
 #page-companions .comps { grid-template-columns: repeat(auto-fill, minmax(330px, 440px)); }
 #page-companions .comps > .panel.comp2:only-child { grid-column: auto; }
 html.mobile #page-companions .comps { grid-template-columns: 1fr; }
+/* Tab count badges (Creatures, Party…): always red, and sitting just above the tab's word rather than on it. */
+#tabs .tabcount, html #tabs .tab > .tabcount { background: #d63a2c !important; color: #fff !important; }
+html:not(.mobile) #tabs .tab > .tabcount { position: static !important; top: auto; left: auto; margin: 0 0 0 -2px !important; align-self: center; }
+/* The count is centred in its badge: a round badge at least as wide as it is tall, the number in the middle. */
+#tabs .tabcount, html #tabs .tab > .tabcount { display: inline-flex !important; align-items: center; justify-content: center; box-sizing: border-box; min-width: 17px; height: 17px; padding: 1px 5px 0 !important; line-height: 1 !important; font-variant-numeric: tabular-nums; text-align: center; }
 
 </style>
 </head>
