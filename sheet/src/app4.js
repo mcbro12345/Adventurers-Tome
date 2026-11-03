@@ -909,16 +909,21 @@ function readyPay(k, L) {
 function readyCommit(r) {
   closeModal(true);
   S.turn.used.action = true; S.turn.readied = r;
+  // Holding a readied spell takes concentration (PHB): it ends any other concentration, and if your concentration breaks the spell is lost.
+  let was = '';
+  if (r.spell) { const hn = r.spell + ' (readied)';
+    if (S.concentration && S.concentration !== hn) { was = S.concentration; S.effects = (S.effects || []).filter(e => !e.conc); }
+    S.effects = (S.effects || []).filter(e => !e.readied).concat([{ name: hn, conc: true, readied: true }]); S.concentration = hn; r.held = true; cleanupLinked(); }
   const paid = r.paid && r.paid.k !== 'none' ? (r.paid.k === 'slot' ? `${ORD[r.paid.L - 1]} slot` : r.paid.k === 'pact' ? 'pact slot' : r.paid.k === 'store' ? 'stored use' : 'free use') : '';
   pendingLabel = 'Ready: ' + r.name + (paid ? ` (${paid})` : ''); update(); render('combat');
-  toast(`<div><b>Readied:</b> ${esc(r.name)}${trig0(r)}${paid ? `<div class="det">${esc(paid.charAt(0).toUpperCase() + paid.slice(1))} spent now — concentrate to hold it.</div>` : ''}<div class="det">It's waiting in your Reaction column.</div></div>`, '', 7000);
+  toast(`<div><b>Readied:</b> ${esc(r.name)}${trig0(r)}${paid ? `<div class="det">${esc(paid.charAt(0).toUpperCase() + paid.slice(1))} spent now — concentrate to hold it.</div>` : ''}${was ? `<div class="det">Concentration on ${esc(was)} ends — you're concentrating on holding this now.</div>` : ''}<div class="det">It's waiting in your Reaction column.</div></div>`, '', 7000);
 }
 const trig0 = r => r.trigger ? `<div class="det">Trigger: ${esc(r.trigger)}</div>` : '';
 function readyFire() {
   const r = S.turn.readied; if (!r) return;
   if (incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take reactions.`, 'fumble'); return; }
   if ((S.turn.used || {}).reaction) { toast('Your reaction is already used — the readied action is lost.', 'fumble'); return; }
-  S.turn.readied = null;
+  S.turn.readied = null; readySync(true);
   if (r.k.startsWith('atk:')) { S.turn.used.reaction = true; pendingLabel = 'Readied attack'; attackRoll(N(r.k.slice(4)), true, { offTurn: true }); render('combat'); return; }
   if (r.k.startsWith('sp:')) { const i = N(r.k.slice(3)); if (S.spells[i] && S.spells[i].name === r.spell) { if (r.paid) READY_PAID = { i, L: r.paid.L }; render('combat'); castSpell(i, 'reaction'); return; } }
   S.turn.used.reaction = true;
@@ -926,6 +931,13 @@ function readyFire() {
   pendingLabel = 'Readied: ' + r.name; update(); render('combat');
   toast(`<div><b>${esc(r.name)}</b> — reaction spent.${r.trigger ? `<div class="det">Trigger: ${esc(r.trigger)}</div>` : ''}</div>`, '', 6000);
 }
+// Keeps the "<spell> (readied)" concentration in step with the readied action: released, dropped or run out → it ends;
+// concentration broken (failed save, knocked out, another concentration spell) → the readied spell is lost.
+function readySync(quiet) {
+  const r = S.turn && S.turn.readied, hold = (S.effects || []).find(e => e.readied); let ch = false;
+  if (r && r.spell && r.held && !hold) { S.turn.readied = null; ch = true; if (!quiet) setTimeout(() => readyLost(r, 'Your concentration broke'), 60); }
+  else if (hold && !(r && r.spell && hold.name === r.spell + ' (readied)')) { S.effects = S.effects.filter(e => e !== hold); if (S.concentration === hold.name) S.concentration = ''; ch = true; }
+  return ch; }
 // A readied spell that never goes off still used its slot.
 function readyLost(r, why) {
   if (r.spell && r.paid) { toast(`<div><b>${esc(r.spell)}</b> was never released.<div class="det">${esc(why)}. Its slot was spent when you readied it.</div></div>`, 'fumble', 8000); return; }
