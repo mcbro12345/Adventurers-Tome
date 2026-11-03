@@ -2235,6 +2235,8 @@ function hub(fs, auth, G, ctx) {
     modal.querySelector('#lv-ok').onclick = async e => { e.target.disabled = true;
       const acc = { viewers: (c.viewers || []).filter(x => x !== EMAIL), editors: (c.editors || []).filter(x => x !== EMAIL) };
       try { const s0 = await sheets.doc(c.id).get(); const n = Number(s0.exists && s0.data().n) || 1;
+        // a character in a party leaves it first, so its card doesn't stay behind on the party page
+        { const pid = clean((s0.exists && s0.data().party) || c.party || ''); if (pid) await ptyLeave(fs, EMAIL, pid, c.id, { owner: c.owner, asMgr: (c.owner || '') !== EMAIL, admin: !!adm }).catch(e => console.warn('party leave', e)); }
         for (let k = 1; k < n; k++) await sheets.doc(c.id + '_p' + k).update(acc).catch(() => {});
         await charsCol.doc(c.id).set(acc, { merge: true }); await sheets.doc(c.id).update(acc);
         Object.assign(c, acc); if (!IS_ADMIN) chars = chars.filter(x => x.id !== c.id); toast('You no longer have access to ' + (c.name || 'that character') + '.'); pgLog('leave', { target: c.id, tName: c.name }); close(); if (after) after(); }
