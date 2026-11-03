@@ -945,7 +945,7 @@ function calcText(key) {
 function calcHTML(key) {
   const [k, a] = key.split(':');
   switch (k) {
-    case 'concnote': return S.concentration ? `Concentrating on ${esc(S.concentration)} <button class="ccbtn" data-act="concsave" title="Roll a concentration save (CON save)">Con save</button>` : '';
+    case 'concnote': return S.concentration ? `Concentrating on ${esc(S.concentration)}${(S.effects || []).some(e => e.conc) ? '' : ` <button class="ccbtn" data-act="concsave" title="Roll a concentration save (CON save)">Con save</button>`}` : '';
     case 'sneakdot': { if (!S.inCombat) return '<span class="hint">once per turn</span>'; const u = !!(S.turn && S.turn.sneak); return `<span class="pips"><button class="pip${u ? ' spent' : ''}" data-act="sneaktog" aria-pressed="${u}" aria-label="Sneak Attack this turn" title="${u ? 'Used this turn — tap to mark it ready again' : 'Ready — once per turn'}"></button></span><span class="hint">${u ? 'Used this turn' : 'Ready this turn'}</span>`; }
     case 'hpring': {
       const f = S.form;
@@ -966,7 +966,7 @@ function calcHTML(key) {
     case 'fxchips': {
       const fx = S.effects || [];
       if (!fx.length) return '<span class="hint">No spells or effects running.</span>';
-      return fx.map((e, j) => `<span class="fxc${e.conc ? ' conc' : ''}${e.rounds != null && e.rounds <= 1 ? ' ending' : ''}" title="${esc(fxTip(e))}">${e.conc ? '<i class="cdot"></i>' : ''}<b>${esc(e.name)}</b>${e.ally ? ' (ally)' : ''}${e.from ? '<small class="fxfrom" title="Cast on you by someone else">↘</small>' : ''}${e.buff && N(e.buff.ac) && !e.ally ? ` +${N(e.buff.ac)} AC` : ''}<span class="left">${(e.rage && e.rounds == null ? "until rage ends" : fmtRounds(e.rounds))}</span>${e.repeat ? `<button class="rep" data-act="repeatfx" data-j="${j}" title="Roll ${esc(e.repeat.dice)} ${esc(e.repeat.type || '')}">${esc(String(e.repeat.dice).replace(/^1d/, 'd'))}</button>` : ''}<button data-act="endeffect" data-n="${esc(e.name)}" aria-label="End ${esc(e.name)}">✕</button></span>`).join('');
+      return fx.map((e, j) => `<span class="fxc${e.conc ? ' conc' : ''}${e.rounds != null && e.rounds <= 1 ? ' ending' : ''}" title="${esc(fxTip(e))}">${e.conc ? '<i class="cdot"></i>' : ''}<b>${esc(e.name)}</b>${e.ally ? ' (ally)' : ''}${e.from ? '<small class="fxfrom" title="Cast on you by someone else">↘</small>' : ''}${e.buff && N(e.buff.ac) && !e.ally ? ` +${N(e.buff.ac)} AC` : ''}<span class="left">${(e.readied ? 'until your next turn' : e.rage && e.rounds == null ? "until rage ends" : fmtRounds(e.rounds))}</span>${e.repeat ? `<button class="rep" data-act="repeatfx" data-j="${j}" title="Roll ${esc(e.repeat.dice)} ${esc(e.repeat.type || '')}">${esc(String(e.repeat.dice).replace(/^1d/, 'd'))}</button>` : ''}${e.conc && S.concentration ? `<button class="rep ccs" data-act="concsave" title="Roll a concentration save (CON save)">CON save</button>` : ''}<button data-act="endeffect" data-n="${esc(e.name)}" aria-label="End ${esc(e.name)}">✕</button></span>`).join('');
     }
     case 'slotsall': {
       let h = '';
@@ -1005,6 +1005,7 @@ function fxTip(e) {
 }
 function refresh() {
   if (!S.created) return;
+  if (typeof readySync === 'function' && readySync()) { setTimeout(() => { save(); render(); }, 0); }
   $$('[data-calc]').forEach(el => { const t = calcText(el.dataset.calc); if (el.textContent !== t) el.textContent = t; });
   if (typeof fitSubtitle === 'function') fitSubtitle();
   fitCoins();
