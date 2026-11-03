@@ -5059,6 +5059,22 @@ html.mobile :is(#page-features, #page-infusions) .fl-acts .btn.fxact { min-heigh
 /* The line under the name breaks only between its parts (each part's spaces are non-breaking; see fitSubtitle). */
 .namebox .subtitle { overflow-wrap: normal; word-break: normal; overflow-x: hidden; max-width: 100%; box-sizing: border-box; }
 .namebox .subtitle.sub2, html:not(.mobile) .namebox .subtitle.sub2 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; }
+/* Companion cards in the Combat columns sit on the column's lighter card colour, so their inner boxes (AC/speed, type,
+   attacks, notes) take the darker field colour to stand out, as they do on the Creatures tab. */
+.comp2.incol .csts, .comp2.incol .cmode, .comp2.incol .cacts, .comp2.incol .cnotes { background: var(--field); border-color: var(--line); }
+/* A feature's own action buttons (Eldritch Cannon's Flamethrower / Force Ballista / Protector, Cunning Action's Dash…) are
+   tinted chips in the accent colour everywhere, so they read as buttons on any card colour. */
+.btn.fxact { background: color-mix(in srgb, var(--gold) 14%, transparent) !important; border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent) !important; color: var(--ink) !important; border-radius: 999px !important; padding: 3px 11px; font-weight: 650; }
+@media (hover: hover) { @media (hover:hover){:where(html:not(.mobile)) .btn.fxact:hover:not([disabled]){ background: color-mix(in srgb, var(--gold) 26%, transparent) !important; border-color: var(--gold) !important; }} }
+.btn.fxact small { opacity: .75; font-weight: 600; }
+/* Creatures tab: each creature card keeps its normal size (one grid column) even when it's the only one, instead of
+   stretching across the whole page. */
+#page-companions .comps { grid-template-columns: repeat(auto-fill, minmax(330px, 440px)); }
+#page-companions .comps > .panel.comp2:only-child { grid-column: auto; }
+html.mobile #page-companions .comps { grid-template-columns: 1fr; }
+/* Tab count badges (Creatures, Party…): always red, and sitting just above the tab's word rather than on it. */
+#tabs .tabcount, html #tabs .tab > .tabcount { background: #d63a2c !important; color: #fff !important; }
+html:not(.mobile) #tabs .tab > .tabcount { position: static !important; top: auto; left: auto; margin: 0 0 0 -2px !important; align-self: center; }
 
 </style>
 </head>
@@ -13635,10 +13651,10 @@ function riderChipsGen(keys, label) { const rs = riderSources().filter(x => keys
 // plus your own homebrew features with limited uses that don't take an action (so they're never out of sight).
 function addonRows(ridersOnly) {
   const rows = riderSources().map(src => { const l = src.left(), tip = src.kind === 'feat' ? `<button class="notetip" data-tip="${src.i}" data-tipkind="feat" aria-label="What ${esc(src.name)} does">ⓘ</button>` : `<button class="notetip" data-tip="${src.i}" aria-label="What ${esc(src.name)} does">ⓘ</button>`;
-    return `<div class="opt"><div class="opt-head"><span class="opt-name">${esc(src.name)}</span>${tip}${l != null ? `<span class="tag">${l}/${src.max}</span>` : ''}<button class="btn sm" data-act="useaddon" data-k="${src.kind}" data-i="${src.i}" ${l === 0 ? 'disabled' : ''}>Use</button></div>
+    return `<div class="opt"><div class="opt-head"><span class="opt-name">${esc(src.name)}</span>${tip}${l != null ? `<span class="tag">${l}/${src.max}</span>` : ''}<button class="btn sm gold" data-act="useaddon" data-k="${src.kind}" data-i="${src.i}" ${l === 0 ? 'disabled' : ''}>Use</button></div>
       <div class="opt-info rider">${esc(riderTrigText(src.hb))}${riderWhat(src.hb) ? ': ' + esc(riderWhat(src.hb)) : ''}${src.hb.onAsk === false || src.hb.onAsk === 'false' ? ' · happens by itself' : ' · you\u2019re asked each time'}</div></div>`; });
   if (!ridersOnly) (S.features || []).forEach((f, i) => { if (!f || (f.hb && f.hb.on) || f.col || f.source !== 'Custom' || featMax(f) == null || f.pool) return; const max = featMax(f), l = Math.max(0, max - N(f.used));
-    rows.push(`<div class="opt"><div class="opt-head"><span class="opt-name">${esc(f.name)}</span><button class="notetip" data-tip="${i}" data-tipkind="feat" aria-label="What ${esc(f.name)} does">ⓘ</button><span class="pips" data-calc-html="featpips:${i}"></span><button class="btn sm" data-act="usefeat" data-i="${i}" data-col="" ${l ? '' : 'disabled'}>Use</button></div>${f.desc ? `<div class="opt-text">${esc(formulaDC(f.desc))}</div>` : ''}</div>`); });
+    rows.push(`<div class="opt"><div class="opt-head"><span class="opt-name">${esc(f.name)}</span><button class="notetip" data-tip="${i}" data-tipkind="feat" aria-label="What ${esc(f.name)} does">ⓘ</button><span class="pips" data-calc-html="featpips:${i}"></span><button class="btn sm gold" data-act="usefeat" data-i="${i}" data-col="" ${l ? '' : 'disabled'}>Use</button></div>${f.desc ? `<div class="opt-text">${esc(formulaDC(f.desc))}</div>` : ''}</div>`); });
   return rows;
 }
 
@@ -15500,7 +15516,7 @@ function renderCombat() {
   const m = isMobile();
   const featView = (col, f, fi) => {
     const max = featMax(f), key = `fopt:${fi}`, open = !m || UI.open[key], fx = fxOf(f), own = f.col === col, info = own ? fxInfoLine(f) : '';
-    const useBtn = !own || fxIsResource(f) || (max != null && f.pool && !fx.cost) ? '' : `<button class="btn sm${max != null || fx.cost || fx.roll ? '' : ' ghost'}" data-act="usefeat" data-i="${fi}" data-col="${col}">${f.roll || fx.roll ? 'Use & roll' : max != null || fx.cost || fx.use ? 'Use' : 'Take'}</button>`;
+    const useBtn = !own || fxIsResource(f) || (max != null && f.pool && !fx.cost) ? '' : `<button class="btn sm${max != null || fx.cost || fx.roll ? ' gold' : ' ghost'}" data-act="usefeat" data-i="${fi}" data-col="${col}">${f.roll || fx.roll ? 'Use & roll' : max != null || fx.cost || fx.use ? 'Use' : 'Take'}</button>`;
     return `<div class="opt"><div class="opt-head">${m ? `<button class="opt-name opt-tog" data-act="toggle" data-key="${key}" aria-expanded="${!!open}">${esc(f.name)} <span class="caret">${open ? '▴' : '▾'}</span></button>` : `<span class="opt-name">${esc(f.name)}</span>`}
       <button class="notetip" data-tip="${fi}" data-tipkind="feat" aria-label="What ${esc(f.name)} does">ⓘ</button>${max != null ? `<span class="pips" data-calc-html="featpips:${fi}"></span>` : ''}${useBtn}${own ? riderChipsNamed(f.name) : ''}${own && typeof ptyFeatBtn === 'function' ? ptyFeatBtn(f, fi) : ''}</div>
       ${info ? `<div class="opt-info">${esc(info)}</div>` : ''}${fx.acts ? `<div class="fxacts">${fxActsHTML(f, fi, col)}</div>` : ''}
@@ -15557,7 +15573,7 @@ function renderCombat() {
       { const ir = infCombatRows(key); if (ir.length) body += cGroup(key, 'inf', 'Infusions', '⚗', ir.length, ir.join('')); }
       const items = hbItemActs(key);
       if (items.length) body += cGroup(key, 'item', 'Items', '⚙', items.length, items.map(([it, i]) => { const ch = it.charges && N(it.charges.max) > 0 ? it.charges : null, fx = hbFx(it.hb), info = [dcVal(fx.dc) ? `DC ${dcVal(fx.dc)}${fx.save ? ' ' + fx.save : ''}` : '', fx.roll ? 'roll ' + fxRollExpr(fx.roll) : '', fx.dash ? 'Dash' : ''].filter(Boolean).join(' · ');
-        return `<div class="opt"><div class="opt-head"><span class="opt-name">${esc(it.name)}</span>${String(it.notes || '').trim() || it.summary || it.hb ? `<button class="notetip" data-tip="${i}" aria-label="What ${esc(it.name)} does">ⓘ</button>` : ''}${ch ? `<span class="tag">${Math.max(0, N(ch.max) - N(ch.used))}/${N(ch.max)}</span>` : ''}<button class="btn sm" data-act="useitem" data-i="${i}" data-col="${key}" ${ch && N(ch.used) >= N(ch.max) ? 'disabled' : ''}>${fx.roll ? 'Use & roll' : 'Use'}</button></div>${info ? `<div class="opt-info">${esc(info)}</div>` : ''}${it.hb.text ? `<div class="opt-text">${esc(fxText(it.hb.text))}</div>` : ''}</div>`; }).join(''));
+        return `<div class="opt"><div class="opt-head"><span class="opt-name">${esc(it.name)}</span>${String(it.notes || '').trim() || it.summary || it.hb ? `<button class="notetip" data-tip="${i}" aria-label="What ${esc(it.name)} does">ⓘ</button>` : ''}${ch ? `<span class="tag">${Math.max(0, N(ch.max) - N(ch.used))}/${N(ch.max)}</span>` : ''}<button class="btn sm gold" data-act="useitem" data-i="${i}" data-col="${key}" ${ch && N(ch.used) >= N(ch.max) ? 'disabled' : ''}>${fx.roll ? 'Use & roll' : 'Use'}</button></div>${info ? `<div class="opt-info">${esc(info)}</div>` : ''}${it.hb.text ? `<div class="opt-text">${esc(fxText(it.hb.text))}</div>` : ''}</div>`; }).join(''));
       // Flasks and beads you can throw (holy water, acid, Bead of Force…): the action column.
       if (key === 'action') { const th = S.inventory.map((it, i) => [it, i]).filter(([it]) => throwOf(it) && !(it.hb && hbUsable(hbFx(it.hb))) && N(it.qty || 1) > 0);
         if (th.length) body += cGroup(key, 'throw', 'Throwables', '🧪', th.length, th.map(([it, i]) => { const t = throwOf(it), ch = t.bead && it.charges && N(it.charges.max) > 0 ? it.charges : null;
@@ -19547,7 +19563,7 @@ function infUse(i, col) {
 // Infusion actions for the Combat columns.
 function infCombatRows(col) {
   return infActs(col).map(([it, i]) => { const d = infDef(it.infusion), ch = it.charges && it.infusion.charges ? it.charges : null;
-    return `<div class="opt"><div class="opt-head"><span class="opt-name">${esc(d.act.name)}</span>${ch ? `<span class="tag">${Math.max(0, N(ch.max) - N(ch.used))}/${N(ch.max)}</span>` : ''}<button class="btn sm" data-act="infuse-use" data-i="${i}" data-col="${col}" ${ch && N(ch.used) >= N(ch.max) ? 'disabled' : ''}>Use</button></div><div class="opt-info">${esc(it.name)} · ${esc(infLabel(it.infusion))}</div><div class="opt-text">${esc(d.act.text)}</div></div>`; });
+    return `<div class="opt"><div class="opt-head"><span class="opt-name">${esc(d.act.name)}</span>${ch ? `<span class="tag">${Math.max(0, N(ch.max) - N(ch.used))}/${N(ch.max)}</span>` : ''}<button class="btn sm gold" data-act="infuse-use" data-i="${i}" data-col="${col}" ${ch && N(ch.used) >= N(ch.max) ? 'disabled' : ''}>Use</button></div><div class="opt-info">${esc(it.name)} · ${esc(infLabel(it.infusion))}</div><div class="opt-text">${esc(d.act.text)}</div></div>`; });
 }
 
 // ---------- Creatures: one card design for the Creatures tab and (compact) the Combat tab ----------
