@@ -823,8 +823,12 @@ function fitSubtitle() { const el = $('.namebox .subtitle'); if (!el) return;
   const base = parseFloat(getComputedStyle(el).fontSize) || 15;
   const over = () => el.scrollWidth > el.clientWidth + 0.5;
   const lines = () => { const cs = getComputedStyle(el), lh = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.2; return Math.round(el.clientHeight / lh); };
-  let px = base; while ((over() || lines() > 3) && px > base * 0.6) { px -= 0.5; el.style.fontSize = px + 'px'; }
-  if (lines() > 3) { el.classList.add('sub2'); el.title = el.textContent; } }
+  // (and the name plus this line never make the header taller than the portrait beside them)
+  // (measured against the header's height with a one-word line, so a long line can never make the header taller)
+  const hd = $('#sec-header'), txt = el.textContent; el.textContent = 'X'; const cap = hd ? hd.offsetHeight : 0; el.textContent = txt;
+  const tall = () => cap && hd.offsetHeight > cap;
+  let px = base; while ((over() || lines() > 3 || tall()) && px > base * 0.6) { px -= 0.5; el.style.fontSize = px + 'px'; }
+  if (lines() > 3 || tall()) { el.classList.add('sub2'); el.title = el.textContent; } }
 window.addEventListener('resize', () => { SUB_K = ''; fitSubtitle(); });
 
 // Desktop header stays one row: when the toolbar would wrap, its buttons drop their words and keep their icons.
