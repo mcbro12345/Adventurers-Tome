@@ -3644,13 +3644,13 @@ function hub(fs, auth, G, ctx) {
         if (TAB === 'notice') tabNotice(); };
     }
     // --- Bug reports: live, newest first; open ones counted on the tab ---
-    const bugsAdm = fs.collection('bugs'); let BROWS = null, BLIVE = null, BF = 'open', BCHECKED = Number(ME && ME.bugsCheckedAt) || 0; // (new = sent since you last marked them read, like the New tab)
+    const bugsAdm = fs.collection('bugs'); let BROWS = null, BLIVE = null, BF = 'all', BCHECKED = Number(ME && ME.bugsCheckedAt) || 0; // (new = sent since you last marked them read, like the New tab)
     const bugBadge = () => { const t = root.querySelector('[data-tab="bugs"]'); if (!t) return; const bd = t.querySelector('.adm-badge'); if (BUGN && !bd) t.insertAdjacentHTML('beforeend', `<b class="adm-badge">${BUGN}</b>`); else if (bd) BUGN ? (bd.textContent = BUGN) : bd.remove(); };
     const bugsLive = () => { if (!BLIVE) BLIVE = bugsAdm.orderBy('at', 'desc').limit(500).onSnapshot(qs => { BROWS = docs(qs); BUGN = BROWS.filter(b => (b.at || 0) > BCHECKED).length; bugBadge(); if (TAB === 'bugs') paintBugs();
       Promise.all([...new Set(BROWS.map(b => b.by))].filter(em => em && !PICS[em]).map(picFor)).then(n => { if (n.length && TAB === 'bugs') paintBugs(); }); }, x => { const l = B() && B().querySelector('#bg-l'); if (l) l.innerHTML = failMsg(x); }); };
     const browserOf = ua => { ua = String(ua || ''); const b = /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera' : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : ''; return [b, /iPhone|iPad|Android/.test(ua) ? 'phone' : ''].filter(Boolean).join(' · '); };
     function tabBugs() { const el = B(); HA().innerHTML = '';
-      el.innerHTML = `<div class="adm-filters"><div class="adm-fsels"><select class="adm-sel" id="bg-f" aria-label="Show"><option value="open">Open</option><option value="fixed">Fixed</option><option value="declined">Declined</option><option value="all">All</option></select></div></div><div id="bg-l"><div class="sk-auto" data-k="adm-bugs-t"></div></div>`;
+      el.innerHTML = `<div class="adm-filters"><div class="adm-fsels"><select class="adm-sel" id="bg-f" aria-label="Show"><option value="all">All</option><option value="open">Open</option><option value="fixed">Fixed</option><option value="declined">Declined</option></select></div></div><div id="bg-l"><div class="sk-auto" data-k="adm-bugs-t"></div></div>`;
       const f = el.querySelector('#bg-f'); f.value = BF; f.onchange = () => { BF = f.value; paintBugs(); }; bugsLive(); if (BROWS) paintBugs(); }
     // A report's attachments, as blob URLs (never the stored string itself as a link): pictures shown, anything else downloaded.
     const BATT = {}, b64Blob = (d, type) => { const k = d.indexOf(','), bin = atob(d.slice(k + 1)), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return new Blob([u], { type }); };
