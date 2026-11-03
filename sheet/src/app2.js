@@ -516,15 +516,15 @@ function zoneOrder(zone, ids) {
 function renderHeader() {
   const dark = document.documentElement.getAttribute('data-theme') === 'dark';
   const pic = S.portrait || PLACEHOLDER, xp = ST('advancement') === 'xp';
-  const idf = [ST('showPlayer') ? (window.SHEET_PAGES ? `<div class="fld"><span class="lbl">Player</span><span class="identtxt" title="Comes from the player list on your party page">${esc(S.player || '—')}</span></div>` : fld('Player', inp('player', { fit: 8, ph: 'Player' }))) : '', ST('showRace') ? `<div class="fld"><span class="lbl">Race</span><span class="identtxt" title="Change your race in Settings">${esc(S.raceName || '—')}</span></div>` : '', ST('showBackground') ? `<div class="fld"><span class="lbl">Background</span><span class="identtxt" title="Change your background in Settings">${esc(S.backgroundName || '—')}</span></div>` : '',
-    ST('showAlignment') ? fld('Alignment', sel('alignment', [['', '—']].concat(DND.alignments.map(a => [a, a])))) : '', ST('showFaith') ? fld('Faith', inp('faith', { ph: '—', fit: 8 })) : ''].join('');
+  // (alignment, faith and player now ride along in the line under the name; they're edited on the Story tab)
+  const idf = '';
   $('#sec-header').innerHTML = `
   <div class="banner-row"><div class="portrait-wrap"><img id="portraitImg" src="${esc(pic)}" alt="${esc((S.name || 'Character') + '’s portrait')}">
     <label class="portrait-edit" tabindex="0" data-act="portrait" title="Change portrait" aria-label="Change portrait"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/></svg></label></div>${inspHTML()}</div>
   <div class="ident${idf ? '' : ' noid'}"><h1 class="sr-only">${esc(S.name || 'Character sheet')}</h1>
     <div class="ident-top">
       <img class="mini-portrait" src="${esc(pic)}" alt="" data-act="portrait">
-      <div class="namebox">${ST('showName') ? inp('name', { cls: 'name', label: 'Character name', ph: 'Character name', fit: 10 }) : ''}
+      <div class="namebox">${inp('name', { cls: 'name', label: 'Character name', ph: 'Character name', fit: 10 })}
         <div class="subtitle" data-calc="subtitle"></div></div>
       <div class="lvlbox${xpReady() ? ' ready' : ''}" id="lvlbox">
         <div class="lvlnum"><span class="lbl">Level</span><b data-calc="lvl"></b></div>

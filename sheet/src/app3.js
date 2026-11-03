@@ -608,7 +608,7 @@ function renderStory() {
   $('#page-story').innerHTML = `
   <div class="story">
     <div class="stack">
-      <div class="panel" ${PID('personality')}><h2>Personality</h2><div class="traits">
+      <div class="panel" ${PID('personality')}><h2>Personality</h2><div class="story-id">${fld('Alignment', sel('alignment', [['', '—']].concat(DND.alignments.map(a => [a, a]))))}${fld('Faith', inp('faith', { ph: 'Deity or belief' }))}${window.SHEET_PAGES ? '' : fld('Player', inp('player', { ph: 'Who plays this character' }))}</div><div class="traits">
         ${fld('Personality Traits', ta('traits.personality', { rows: 2 }))}${fld('Ideals', ta('traits.ideals', { rows: 2 }))}
         ${fld('Bonds', ta('traits.bonds', { rows: 2 }))}${fld('Flaws', ta('traits.flaws', { rows: 2 }))}</div></div>
       <div class="panel" ${PID('appearance')}><h2>Appearance</h2><div class="appear">${['age', 'height', 'weight', 'eyes', 'skin', 'hair'].map(k => fld(k[0].toUpperCase() + k.slice(1), inp('appearance.' + k))).join('')}</div></div>
@@ -937,7 +937,8 @@ function calcText(key) {
     case 'ammo': { const am = ammoItem(S.attacks[a]); return am ? N(am.qty) + ' ammo' : ''; }
     case 'lvl': return String(totalLevel());
     case 'xpnext': return totalLevel() >= 20 ? 'max' : '/ ' + xpNext().toLocaleString();
-    case 'subtitle': return [S.raceName, classLabel(), S.backgroundName].filter(Boolean).join(' · ');
+    // (only what the character has: race, class, background, alignment, faith, and who plays them)
+    case 'subtitle': return [S.raceName, classLabel(), S.backgroundName, S.alignment, S.faith, S.player ? 'played by ' + S.player : ''].map(x => String(x || '').trim()).filter(Boolean).join(' · ');
   }
   return '';
 }

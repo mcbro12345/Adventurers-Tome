@@ -60,7 +60,6 @@ function openSettings(tab) {
       ${row('Leveling', opt('advancement', [['milestone', 'Milestone'], ['xp', 'XP']]), '')}
       ${row('Ability blocks', opt('abilityStyle', [['mod', 'Modifier big'], ['score', 'Score big']]))}
       ${row('Spell sorting', opt('combatSpellSort', [['level', 'Grouped by level'], ['purpose', 'Grouped by purpose'], ['custom', 'My own categories (set up on the Spells tab)']]))}
-      <div class="setrow chkrow"><span><b>Show in header</b></span><span class="chkset">${[['showName', 'Name'], ['showPlayer', 'Player'], ['showRace', 'Race'], ['showBackground', 'Background'], ['showAlignment', 'Alignment'], ['showFaith', 'Faith']].map(([k, t]) => `<label class="checkline"><input type="checkbox" data-set="${k}"${ST(k) ? ' checked' : ''}> ${t}</label>`).join('')}</span></div>
       ${booksHTML()}
 `)}
     ${pane('dice', `

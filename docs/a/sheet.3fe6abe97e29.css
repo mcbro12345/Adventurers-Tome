@@ -4049,7 +4049,7 @@ html.mwin .skman { display: grid; grid-template-columns: 1fr 1fr; column-gap: 22
 /* Header with Player/Race/Background/Alignment/Faith all off: the whole row drops so its bottom lines up with the portrait's bottom */
 html:not(.mobile) .ident.noid { padding-bottom: 0 !important; margin-bottom: 0 !important; }
 html:not(.mobile) .ident.noid .ident-top { align-items: flex-end !important; padding-bottom: 0 !important; margin-bottom: 0 !important; }
-html:not(.mobile) .ident.noid .namebox { align-self: flex-end; }
+html:not(.mobile) .ident.noid .namebox { align-self: center; position: relative; top: -2px; } /* name and the line under it centred on the portrait */
 html:not(.mobile) .ident.noid .subtitle { margin-bottom: -4px; }
 /* The info button on condition chips sits dead centre on the chip */
 .cchip .notetip { display: inline-flex !important; align-items: center; justify-content: center; align-self: center; width: 16px; height: 16px; padding: 0; margin: 0 0 0 3px; line-height: 16px; vertical-align: middle; }
@@ -5017,8 +5017,10 @@ html.mobile :is(#page-features, #page-infusions) .fl-acts .btn.fxact { min-heigh
 :is(#page-features, #page-infusions) .fl-in > :nth-last-child(2):not(:has(p, li))::after,
 :is(#page-features, #page-infusions) .fl-in > :nth-last-child(2) :is(p, li):last-child:not(:has(~ *))::after { content: ""; float: right; width: var(--footw, 30px); height: 1em; }
 
-/* Infusions tab: the same ledger rows. "End infusion" sits in the open row's corner like Features' pencil. */
-#page-infusions .fl-in { --footw: 104px; }
+/* Infusions tab: the same ledger rows. "End infusion" sits at the bottom right of an open row. */
+#page-infusions .fl-in .fl-foot { position: static !important; margin: 0 !important; justify-content: flex-end; }
+#page-infusions .fl-in > :nth-last-child(2) { padding-right: 0; }
+#page-infusions .fl-in > :nth-last-child(2)::after, #page-infusions .fl-in > :nth-last-child(2) :is(p, li)::after { content: none !important; }
 #page-infusions .fl-in .inf-end { color: var(--soft); }
 @media (hover: hover) { @media (hover:hover){:where(html:not(.mobile)) #page-infusions .fl-in .btn.inf-end:hover{ color: var(--red); border-color: var(--red); }} }
 #page-infusions .frow.inf-offrow .fc-name { opacity: .65; }
@@ -5026,4 +5028,14 @@ html.mobile :is(#page-features, #page-infusions) .fl-acts .btn.fxact { min-heigh
 #page-infusions .frow.is-on .fl-car { border-color: var(--gold); }
 #page-infusions .inf-rows .inf-warn, #page-infusions .inf-rows .inf-eff { margin: 0; }
 #page-infusions .fl-r .ichip.on { white-space: nowrap; }
+#page-features .fl-hbtns { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.hbb-head { flex-wrap: wrap; row-gap: 6px; }
+.hbb-head .hbb-paste { white-space: nowrap; }
+/* A group being dragged folds to its header while it moves (it opens again once dropped). */
+.spg.gfold > :not(.cspg-hrow), .cgmov.gfold > :not(.cspg-h):not(.cgdrag) { display: none !important; }
+/* The grip sits above the header button that starts under it, so it gets the grab cursor and the press. */
+.cspg-hrow > .gdrag, .cgmov > .cgdrag { z-index: 3; }
+.cspg-hrow > .gdrag-off { z-index: auto; }
+/* Story tab: alignment, faith (and player, in the single-file sheet) above the personality traits. */
+.story-id { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 12px; }
 
