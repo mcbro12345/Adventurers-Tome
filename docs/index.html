@@ -13,7 +13,7 @@
     document.documentElement.setAttribute('data-theme', t);
   })();
 </script>
-<link rel="stylesheet" href="a/sheet.336dae4115e8.css">
+<link rel="stylesheet" href="a/sheet.09d92f9ff93d.css">
 <link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" type="image/png" sizes="195x195" href="speed-dial-195.png"><link rel="icon" type="image/png" sizes="512x512" href="icon-512.png"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="icon" type="image/png" sizes="32x32" href="icon-32.png"><meta name="apple-mobile-web-app-title" content="Adventurer’s Tome"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta property="og:type" content="video.other"><meta property="og:site_name" content="adventurers-tome.web.app"><meta property="og:title" content="Adventurer’s Tome"><meta property="og:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta property="og:url" content="https://adventurers-tome.web.app/"><meta property="og:image" content="https://adventurers-tome.web.app/og-tour.png?v=5"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1280"><meta property="og:image:height" content="720"><meta property="og:image:alt" content="Adventurer’s Tome: D&amp;D 5e sheets that do the math"><meta property="og:image" content="https://adventurers-tome.web.app/speed-dial.png?v=1"><link rel="image_src" href="/speed-dial.png?v=1"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1024"><meta property="og:image:height" content="640"><meta property="og:image:alt" content="Adventurer’s Tome"><meta property="og:video" content="https://www.youtube.com/embed/wR1JulNVoDE"><meta property="og:video:url" content="https://www.youtube.com/embed/wR1JulNVoDE"><meta property="og:video:secure_url" content="https://www.youtube.com/embed/wR1JulNVoDE"><meta property="og:video:type" content="text/html"><meta property="og:video:width" content="1280"><meta property="og:video:height" content="720"><link rel="alternate" type="application/json+oembed" href="https://adventurers-tome.web.app/oembed.json?v=6" title="Adventurer’s Tome"><meta name="twitter:card" content="player"><meta name="twitter:player" content="https://www.youtube.com/embed/wR1JulNVoDE"><meta name="twitter:player:width" content="1280"><meta name="twitter:player:height" content="720"><meta name="twitter:title" content="Adventurer’s Tome"><meta name="twitter:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta name="twitter:image" content="https://adventurers-tome.web.app/og-tour.png?v=5"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.webmanifest"><script>var t="dark";try{if(localStorage.getItem("pg-theme")==="light")t="light"}catch(e){}document.documentElement.setAttribute("data-pgtheme",t)</script><style>/* Loading screen: dark navy with a slowly spinning d20 (light parchment only behind the sign-in card in light mode) */
 html.pg-loading, html.pg-loading body { background: #0f1420; }
@@ -3946,6 +3946,19 @@ body.hubbody .hub-new { overflow: hidden; }
 
 /* The admin sidebar is always navy, so its wordmark keeps the bright gold in light mode too. */
 body.adminbody .adm-brand .hl-t { color: #d9a93f !important; -webkit-text-fill-color: #d9a93f !important; }
+/* phones: the logo and the Sample / View only tag line up with the header's contents (the picture and the icon buttons),
+   so the tag never runs into the panel's edge */
+html.mobile .pg-pubrow { padding-left: 22px; padding-right: 22px; }
+
+/* links inside the View only / Sample tag ("Make your own") */
+.pg-shared a { color: inherit; font-weight: 800; }
+/* Landing page: dimmer text is a solid colour, not see-through (see-through text let the background's lines show
+   through the letters on phones) */
+.si2-try p { opacity: 1; color: color-mix(in srgb, currentColor 75%, #151c2b); }
+.si2-tx small { opacity: 1; color: color-mix(in srgb, currentColor 74%, #1a2131); }
+.si2-tx .si2-sub { opacity: 1; color: color-mix(in srgb, #e9e3d3 52%, #1a2131); }
+.si2-go { opacity: 1; color: color-mix(in srgb, var(--c) 72%, #1a2131); }
+.si2-feat small { opacity: 1; color: color-mix(in srgb, currentColor 72%, #151c2b); }
 </style>
 </head>
 <body>
@@ -4899,7 +4912,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261102235736', ASSETS = {"data": "a/data.e8173a24cd9b.js", "app": "a/app.53a0d871b447.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.0829183b6d43.html", "desk": "a/desk.f9a8ca1ca7cd.js", "deskcss": "a/deskcss.cc6e6bb4676a.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261103102921', ASSETS = {"data": "a/data.e8173a24cd9b.js", "app": "a/app.ee8006bffc00.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.6f8c84eb4bc9.html", "desk": "a/desk.f9a8ca1ca7cd.js", "deskcss": "a/deskcss.cc6e6bb4676a.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   // The test site says so on every page (and in the tab's title), so it's never mistaken for the real one.
   if (CFG.test) { window.PG_TEST = true; const mark = () => { if (!document.body || document.getElementById('pg-testmark')) return; const t = document.createElement('div'); t.id = 'pg-testmark'; t.textContent = 'Test site'; t.title = 'This is the test copy of Adventurer’s Tome. Changes here don’t touch the real site.'; document.body.appendChild(t);
       if (!/^\[Test\] /.test(document.title)) document.title = '[Test] ' + document.title; };
@@ -5007,7 +5020,7 @@ function wireDie(root) {
     if (!txt) { const home = PRETTY ? '/' : location.pathname; sayStatus(TRYQ ? { icon: 'offline', title: 'Couldn’t open that character', text: 'The sample character didn’t load. Check your internet connection, then try again.', btns: RELOAD + pgStBtn('Go back to the lobby', home) }
       : { icon: 'link', title: 'This link isn’t working', text: 'This view-only link has been turned off, or it was copied incompletely. Ask whoever shared it for a new link.', btns: pgStBtn('Go back to the lobby', home, true) }); return; }
     data.textContent = txt; window.SHEET_PAGES = true; window.SHEET_CHAR = 'pub_' + t; window.PG_PUBLIC = true;
-    document.documentElement.classList.add('pg-sheetpage', 'pg-public'); if (TRYQ) document.documentElement.classList.add('pg-try');
+    document.documentElement.classList.add('pg-sheetpage'); if (TRYQ) document.documentElement.classList.add('pg-try');
     const ref = p => { const m = /^sheets\/(main|part(\d+))$/.exec(p); return m ? pc.doc(m[2] ? t + '_p' + m[2] : t) : null; };
     const none = { get: async () => ({ exists: false, data: () => null }), set: async () => { throw { code: 'unsupported' }; }, delete: async () => {}, onSnapshot: () => () => {} };
     const SNAP = { exists: true, id: t, metadata: { fromCache: false, hasPendingWrites: false }, data: () => ({ v: 2, n: 1, tab: 'x', savedAt: JSON.parse(txt).savedAt, data: txt }) };
@@ -5021,7 +5034,7 @@ function wireDie(root) {
     if (!TOUCH && !FRAMED) sheetScrollbar();
     if (load) { if (!load.isConnected) document.body.appendChild(load); const go = () => fadeLoad(load); if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 600 }); else setTimeout(go, 150); }
     if (ASSETS.full) fetch(ASSETS.full).then(r => r.ok ? r.text() : '').then(x => { if (!x) return; const sc = document.createElement('script'); sc.textContent = x; document.body.appendChild(sc); try { if (typeof render === 'function') render(); } catch (e) {} }, () => {});
-    const tag = document.createElement('div'); tag.className = 'pg-shared view pg-pubtag'; tag.innerHTML = TRYQ ? `Sample character<span class="pt-sub"> (nothing is saved) · <a href="${PRETTY ? '/' : location.pathname}">Make your own</a></span>` : 'View only<span class="pt-sub"> (changes are not saved)</span>'; document.body.appendChild(tag);
+    const tag = document.createElement('div'); tag.className = 'pg-shared view'; tag.innerHTML = TRYQ ? `Sample character<span class="pt-sub"> (nothing is saved) · <a href="${PRETTY ? '/' : location.pathname}">Make your own</a></span>` : 'View only<span class="pt-sub"> (changes are not saved)</span>'; document.body.appendChild(tag);
     // Who's viewing: everyone on this link counts as an anonymous viewer, and signed-in people looking at the character show
     // with their picture. (Only works while the link is on — the list closes with it.)
     const pbox = document.createElement('div'); pbox.className = 'pg-pres pg-pubpres'; pbox.id = 'pg-pubpres'; pbox.hidden = true; document.body.appendChild(pbox);
@@ -5037,58 +5050,29 @@ function wireDie(root) {
       beat(); show(); setInterval(beat, 60000); setInterval(show, 15000);
       document.addEventListener('visibilitychange', () => { if (!document.hidden) beat(); });
       live.onSnapshot(qs => { seen = {}; qs.docs.forEach(d => { if (d.id !== vid && !d.data().anon) seen[d.id] = d.data(); }); show(); }, () => {}); }
-    // The full logo across the top: tap it to go to Adventurer's Tome (the lobby, or sign in).
-    { const lg = document.createElement('a'); lg.className = 'pg-publogo'; lg.href = PRETTY ? '/' : location.pathname; lg.title = 'Go to Adventurer’s Tome'; lg.setAttribute('aria-label', 'Go to Adventurer’s Tome'); lg.innerHTML = logoHTML(); document.body.prepend(lg); wireDie(lg);
-      lg.addEventListener('click', e => { if (e.target.closest && e.target.closest('.hl-d20')) e.preventDefault(); });
-      lg.addEventListener('mouseenter', () => { if (!TOUCH) rollDie(lg); }); // on a computer, moving onto any part of the logo rolls the die // the die rolls; the words go to Adventurer's Tome
-      // Phones: it sits at the top of the sheet's header with the tag right under it. Computers: it takes the Adventurer's
-      // Tome button's spot (placed below), with the tag beside it.
-      const home = () => { const mob = document.documentElement.classList.contains('mobile'), bn = document.querySelector('header.banner');
-        if (mob) { let row = document.querySelector('.pg-pubrow'); if (!row) { row = document.createElement('div'); row.className = 'pg-pubrow'; }
-          if (bn && row.parentElement !== bn) bn.prepend(row); if (lg.parentElement !== row) row.prepend(lg);
-          let side = row.querySelector('.pg-pubside'); if (!side) { side = document.createElement('div'); side.className = 'pg-pubside'; row.appendChild(side); }
-          if (tag.parentElement !== side) side.prepend(tag); const pb = document.getElementById('pg-pubpres'); if (pb && pb.parentElement !== side) side.appendChild(pb);
-          lg.classList.remove('pinned'); lg.style.left = lg.style.top = ''; }
-        else { if (lg.parentElement !== document.body) document.body.appendChild(lg); if (tag.parentElement !== document.body) document.body.appendChild(tag); const pb = document.getElementById('pg-pubpres'); if (pb && pb.parentElement !== document.body) document.body.appendChild(pb); lg.classList.add('pinned'); } };
-      // Phones: the logo grows to fill the room left of the View only tag (and about as tall as the tag plus the viewers).
-      const fit = () => { if (!document.documentElement.classList.contains('mobile')) return; const row = lg.parentElement, side = row && row.querySelector('.pg-pubside'), hl = lg.querySelector('.hub-logo'); if (!side || !hl) return;
-        const cs = getComputedStyle(row), avail = row.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - side.offsetWidth - 16;
-        lg.style.setProperty('--mls', '60px'); const w0 = hl.scrollWidth || 1, h = side.offsetHeight || 60;
-        const px = Math.floor(60 * Math.min(avail / w0, Math.max(1, (h + 6) / 60), 1.5)); lg.style.setProperty('--mls', Math.max(40, px) + 'px'); };
-      lg.id = 'pg-publogo'; home(); fit(); addEventListener('resize', () => { home(); fit(); }); setInterval(fit, 1500); setTimeout(fit, 300); if (document.fonts) document.fonts.ready.then(fit); setTimeout(home, 500); setTimeout(home, 2000); }
-    // On a computer the tag takes the Adventurer's Tome button's spot (above the toolbar, level with the top of the header)
-    // and the toolbar drops down exactly as it does for a signed-in player.
-    { const de = document.documentElement, align = () => {
-        const lv = document.querySelector('.ident-top .lvlbox'), tb = document.querySelector('.ident-top .toolbar');
-        const lg = document.getElementById('pg-publogo');
-        if (de.classList.contains('mobile') || !lv || !tb || !lg) { de.classList.remove('pg-al'); tag.classList.remove('placed'); tag.style.left = tag.style.top = ''; return; }
-        // as big as fits above the toolbar without making the header any taller
-        // As big as fits between the top of the page and the toolbar (which stays level with the bottom of the level box),
-        // so the header is no taller than usual.
-        const lr = lv.getBoundingClientRect(), tbm = Math.round(lr.height - tb.offsetHeight);
-        de.style.setProperty('--pg-tbm', Math.max(26 + 8, tbm) + 'px');
-        // Measured where the buttons really are (not where they should be), so the gap above the logo (to the top of the
-        // page) and below it (to the buttons) come out the same on every screen.
-        const btns = [...tb.querySelectorAll('button, a')].map(b => b.getBoundingClientRect()).filter(r => r.width && r.height);
-        const tbTop = Math.round((btns.length ? Math.min(...btns.map(r => r.top)) : tb.getBoundingClientRect().top) + scrollY), gap = 7; // the top of the buttons themselves
-        const room = Math.min(64, Math.max(26, tbTop - 2 * gap)); if (lg._room !== room) { lg._room = room; lg.style.setProperty('--plh', room + 'px'); }
-        if (!tag.classList.contains('placed')) tag.classList.add('placed'); const lh = lg.offsetHeight;
-        const tr = tb.getBoundingClientRect(), x = Math.round(Math.min(tr.left + scrollX, document.documentElement.clientWidth + scrollX - 8 - lg.offsetWidth)); let y = Math.round((tbTop - lh) / 2);
-        const px = (el, k, v) => { if (el.style[k] !== v) el.style[k] = v; }; px(lg, 'left', x + 'px'); px(lg, 'top', y + 'px');
-        // then nudge it by where the die actually draws (browsers size it a little differently), so the die has the same gap above and below
-        { const d = lg.querySelector('.hl-d20'); if (d && !d.classList.contains('hl-rolling') && !PG_DIE.rolling) { const r = d.getBoundingClientRect(), dt = r.top + scrollY, db = r.bottom + scrollY, adj = Math.round(((tbTop - db) - dt) / 2);
-          if (adj) { y += adj; px(lg, 'top', y + 'px'); } } }
-        const pos = x + ',' + y + ',' + lh + ',' + tbTop;
-        // then who's viewing, then the View only tag
-        let nx = x + lg.offsetWidth + 12; const pb = document.getElementById('pg-pubpres');
-        if (pb && !pb.hidden) { px(pb, 'left', nx + 'px'); px(pb, 'top', (y + lh / 2) + 'px'); if (!pb.classList.contains('ready')) pb.classList.add('ready'); nx += pb.offsetWidth + 10; }
-        // (on a narrow window the tag tightens up, and never runs past the window's edge)
-        { const cw = document.documentElement.clientWidth + scrollX; tag.classList.toggle('wrap', nx + tag.offsetWidth > cw - 8 && !tag.classList.contains('wrap') ? true : tag.classList.contains('wrap') && nx + tag.offsetWidth * 1.2 <= cw - 8 ? false : tag.classList.contains('wrap'));
-          if (nx + tag.offsetWidth > cw - 8) nx = Math.max(8, cw - 8 - tag.offsetWidth); }
-        px(tag, 'left', nx + 'px'); px(tag, 'top', (y + lh / 2) + 'px');
-        if (pos === align.last) { if (!de.classList.contains('pg-al')) de.classList.add('pg-al'); } else { align.last = pos; requestAnimationFrame(align); } };
-      let q = 0; const soon = () => { if (!q) q = requestAnimationFrame(() => { q = 0; align(); }); }; window.pgPubPlace = soon;
-      new MutationObserver(soon).observe(document.body, { childList: true, subtree: true }); addEventListener('resize', soon); setInterval(align, 1500); soon(); }
+    // The usual Adventurer's Tome button (to the lobby, or sign in), with who's viewing and the Sample / View only tag
+    // beside it — laid out just like a signed-in player's sheet: in a row at the top of the toolbar on a computer, at the
+    // top of the page on a phone.
+    { const a = document.createElement('a'); a.href = PRETTY ? '/' : location.pathname; a.className = 'pg-hublink'; a.title = 'Go to Adventurer’s Tome'; a.innerHTML = '<img class="pg-hl-ic" src="/icon-32.png" alt="" aria-hidden="true">Adventurer’s Tome'; document.body.appendChild(a);
+      const de = document.documentElement, els = [a, pbox, tag];
+      const place = () => {
+        const tb = document.querySelector('.ident-top .toolbar'), lv = document.querySelector('.ident-top .lvlbox');
+        if (!de.classList.contains('mobile') && tb && lv) {
+          let r = tb.querySelector(':scope > .pg-hubrow'); if (!r) { r = document.createElement('div'); r.className = 'pg-hubrow'; tb.prepend(r); }
+          els.forEach(el => { if (el.parentElement !== r) r.appendChild(el); }); if (!pbox.classList.contains('ready')) pbox.classList.add('ready'); if (!tag.classList.contains('placed')) tag.classList.add('placed');
+          if (!de.classList.contains('pg-al')) de.classList.add('pg-al');
+          const lr = lv.getBoundingClientRect(), tr = tb.getBoundingClientRect(), lh = tr.left >= lr.right - 2 ? Math.round(lr.height) + 'px' : '0px';
+          if (de.style.getPropertyValue('--pg-lvh') !== lh) de.style.setProperty('--pg-lvh', lh); return; }
+        // phone (or still loading): the button sits at the top of the page, the viewers and tag just right of it
+        const r = document.querySelector('.pg-hubrow'); els.forEach(el => { if (el.parentElement !== document.body) document.body.appendChild(el); }); if (r) r.remove(); de.classList.remove('pg-al');
+        if (!a.offsetWidth) return;
+        let x = a.offsetLeft + a.offsetWidth + 8; const y = (a.offsetTop + a.offsetHeight / 2) + 'px', px = (el, k, v) => { if (el.style[k] !== v) el.style[k] = v; };
+        if (!pbox.hidden && pbox.offsetWidth) { px(pbox, 'left', x + 'px'); px(pbox, 'top', y); if (!pbox.classList.contains('ready')) pbox.classList.add('ready'); x += pbox.offsetWidth + 8; }
+        const room = de.clientWidth - 8 - x; tag.style.maxWidth = ''; tag.classList.remove('wrap');
+        if (tag.offsetWidth > room) { tag.classList.add('wrap'); tag.style.maxWidth = Math.max(96, room) + 'px'; }
+        px(tag, 'left', (tag.offsetWidth > room ? Math.max(8, de.clientWidth - 8 - tag.offsetWidth) : x) + 'px'); px(tag, 'top', y); if (!tag.classList.contains('placed')) tag.classList.add('placed'); };
+      let q = 0; const soon = () => { if (!q) q = requestAnimationFrame(() => { q = 0; place(); }); }; window.pgPubPlace = soon;
+      new MutationObserver(soon).observe(document.body, { childList: true, subtree: true }); addEventListener('resize', soon); setInterval(place, 1500); soon(); }
     try { const st = JSON.parse(txt); if (st && st.name) document.title = st.name + ' — Adventurer’s Tome'; } catch (e) {}
     return; }
   if (!PRETTY && !C && !G && !NEWQ && !PARTYQ && !JOINQ) { location.replace(location.pathname + '?g=' + (clean(lsGet(LAST_G)) || DEFAULT_G)); return; }
