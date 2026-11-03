@@ -3833,6 +3833,15 @@ function ptyRevert(st, r) {
   (r.items || []).forEach(([id, q]) => { const it = (st.inventory || []).find(x => x.id === id); if (!it) return; it.qty = (Number(it.qty) || 1) - q; if (it.qty <= 0) { st.inventory = st.inventory.filter(x => x !== it); st.attacks = (st.attacks || []).filter(a => a.item !== id); } });
   if (r.form) st.form = r.form[0];
 }
+// Knocked out / incapacitated while nobody has the sheet open: the same things the sheet does itself (PHB) — concentration,
+// Dodge and Bladesong end; knocked unconscious also ends Rage (and what lasts until the rage ends) and leaves you prone.
+function ptyKO(st, c) {
+  if (st.form) return;
+  const fx = st.effects || []; let keep = fx.filter(e => !/^bladesong$/i.test(e.name));
+  if (st.concentration) { keep = keep.filter(e => !e.conc); st.concentration = ''; }
+  st.conditions = (st.conditions || []).filter(x => x !== 'Dodging');
+  if (c === 'Unconscious') { keep = keep.filter(e => e.name !== 'Rage' && !e.rage); st.conditions = st.conditions.filter(x => x !== 'Raging'); if (!st.conditions.includes('Prone')) st.conditions.push('Prone'); }
+  st.effects = keep; }
 // Applied to a saved character nobody has open. Returns what to say, or null when it has to wait for the player.
 function ptyApplyState(st, m, card) {
   const d = m.data || {}, who = m.fromName || 'Someone', why = d.why || who, maxhp = Number(card && card.maxhp) || 1e9;
@@ -3843,7 +3852,7 @@ function ptyApplyState(st, m, card) {
     case 'heal': { const b = Number(st.hp.cur) || 0; st.hp.cur = d.amt === 'max' ? maxhp : Math.min(maxhp, b + (Number(d.amt) || 0)); if (b <= 0) up(); return `Healed ${st.hp.cur - b} HP (${why})`; }
     case 'temp': { const v = Number(d.amt) || 0; if (v > (Number(st.hp.temp) || 0)) st.hp.temp = v; return `${v} temporary HP (${why})`; }
     case 'damage': { let n = Number(d.amt) || 0; const t = Number(st.hp.temp) || 0, a = Math.min(t, n); st.hp.temp = t - a; n -= a; const b = Number(st.hp.cur) || 0; st.hp.cur = Math.max(0, b - n);
-      if (b > 0 && st.hp.cur === 0 && !st.conditions.includes('Unconscious')) st.conditions.push('Unconscious'); return `Took ${Number(d.amt) || 0} damage (${why})`; }
+      if (b > 0 && st.hp.cur === 0) { if (!st.conditions.includes('Unconscious')) st.conditions.push('Unconscious'); ptyKO(st, 'Unconscious'); } return `Took ${Number(d.amt) || 0} damage (${why})`; }
     case 'effect': { const fx = Object.assign({}, d.fx || {}); if (!fx.name) return ''; fx.from = fx.from || who; delete fx.conc;
       if (fx.wpn) { const at = (st.attacks || []).find(a => a.item && st.inventory.some(it => it.id === a.item && it.equipped && it.weapon)) || (st.attacks || []).find(a => a.item); if (at) fx.item = at.item; delete fx.wpn; }
       const old = st.effects.find(e => e.name === fx.name); if (old && old.maxHp) st.hp.cur = Math.max(0, st.hp.cur - Number(old.maxHp));
@@ -3858,7 +3867,7 @@ function ptyApplyState(st, m, card) {
       (d.fx || []).forEach(n => { if (st.effects.some(e => e.name === n)) { st.effects = st.effects.filter(e => e.name !== n); done.push(n); } });
       st.effects = st.effects.filter(e => !(e.conds && e.conds.length && !e.conds.some(c => st.conditions.includes(c))));
       return done.length ? `Ended ${done.join(', ')} (${why})` : ''; }
-    case 'cond': { if (!d.cond) return ''; if (!st.conditions.includes(d.cond)) st.conditions.push(d.cond); if (Number(d.rounds)) { st.condTurns = st.condTurns || {}; st.condTurns[d.cond] = Number(d.rounds); } return `${d.cond} (${why})`; }
+    case 'cond': { if (!d.cond) return ''; if (!st.conditions.includes(d.cond)) { st.conditions.push(d.cond); if (/^(Incapacitated|Paralyzed|Petrified|Stunned|Unconscious)$/.test(d.cond)) ptyKO(st, d.cond); } if (Number(d.rounds)) { st.condTurns = st.condTurns || {}; st.condTurns[d.cond] = Number(d.rounds); } return `${d.cond} (${why})`; }
     case 'revive': { st.hp.cur = Math.max(Number(st.hp.cur) || 0, d.hp === 'max' ? maxhp : Math.max(1, Number(d.hp) || 1)); st.death = { s: 0, f: 0 }; st.conditions = st.conditions.filter(c => c !== 'Unconscious'); return `Brought back with ${st.hp.cur} HP (${why})`; }
     case 'stabilize': { if ((Number(st.hp.cur) || 0) > 0) return ''; st.death = { s: 3, f: Math.min(2, Number((st.death || {}).f) || 0) }; return `Stabilized (${why})`; }
     case 'item': case 'loot': { const it = m.kind === 'item' ? Object.assign({}, d.item || {}) : { name: String(d.name || 'Item'), qty: Math.max(1, Number(d.qty) || 1), weight: 0, notes: d.notes || '', ptyLoot: String(d.name || '') };
