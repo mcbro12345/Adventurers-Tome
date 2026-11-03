@@ -694,7 +694,7 @@ function takeDamage(amt) {
   }
   const before = N(hp.cur);
   // Massive damage (PHB): damage left over after dropping to 0 that equals or beats your HP maximum kills outright.
-  if (d > 0 && d - Math.max(0, before) >= maxHp() && maxHp() > 0) { if (before > 0 && typeof ptyDeathWard === 'function' && ptyDeathWard()) { hp.cur = 1; update(); return; } hp.cur = 0; S.death.f = 3; if (!S.conditions.includes('Unconscious')) S.conditions.push('Unconscious'); update(); fxTrigger('zero');
+  if (d > 0 && d - Math.max(0, before) >= maxHp() && maxHp() > 0) { if (before > 0 && typeof ptyDeathWard === 'function' && ptyDeathWard()) { hp.cur = 1; update(); return; } hp.cur = 0; S.death.f = 3; if (!S.conditions.includes('Unconscious')) S.conditions.push('Unconscious'); if (!S.form) incapacitate('Unconscious'); update(); fxTrigger('zero');
     toast(`<div><b>Massive damage</b><div class="det">${d - Math.max(0, before)} damage left over after 0 HP is at least ${esc(who())}'s HP maximum (${maxHp()}) — instant death. If your DM rules otherwise, clear the death save failures.</div></div>`, 'fumble', 12000);
     if (conc) breakConc('died'); return; }
   if (before <= 0 && d > 0) { S.death.f = Math.min(3, N(S.death.f) + 1); update(); toast('Damage while at 0 HP — one death save failure (two on a crit).', 'fumble', 7000); return; }
@@ -702,7 +702,8 @@ function takeDamage(amt) {
   if (hp.cur === 0 && before > 0 && typeof ptyDeathWard === 'function' && ptyDeathWard()) hp.cur = 1;
   if (hp.cur === 0 && before > 0) {
     if (!S.conditions.includes('Unconscious')) S.conditions.push('Unconscious');
-    toast(`${esc(who())} drops to 0 HP — roll death saves.`, 'fumble', 7000);
+    const ko = S.form ? [] : incapacitate('Unconscious');
+    toast(`<div>${esc(who())} drops to 0 HP and falls unconscious — roll death saves.${ko.map(l => `<div class="det">${esc(l)}</div>`).join('')}</div>`, 'fumble', 9000);
     fxTrigger('zero');
     if (typeof ptyAurasOff === 'function' && Object.keys(S.ptyAuras || {}).length) ptyAurasOff('dropped to 0 HP');
     if (conc) { update(); breakConc('dropped to 0 HP'); return; }
@@ -750,6 +751,18 @@ function cleanupLinked() {
   if (S.form && S.form.effect && !names.has(S.form.effect)) S.form = null;
   if (S.conditions.includes('Raging') && !names.has('Rage')) { S.conditions = S.conditions.filter(c => c !== 'Raging'); rageEndFx(); }
   if (!names.has('Rage') && (S.effects || []).some(e => e.rage)) S.effects = S.effects.filter(e => !e.rage); // (Wild Surge effects end with the rage)
+}
+// Knocked out, stunned, paralyzed…: what ends or happens with it (PHB / SRD). Any of these incapacitate you, which ends a
+// Dodge and Bladesong (and concentration, handled by the caller); being knocked unconscious also ends a barbarian's Rage,
+// and an unconscious creature falls prone and drops what it holds.
+function incapacitate(c) {
+  const lines = [];
+  if (c === 'Unconscious' && ((S.effects || []).some(e => e.name === 'Rage') || S.conditions.includes('Raging'))) { S.effects = (S.effects || []).filter(e => e.name !== 'Rage'); lines.push('Your Rage ends'); }
+  if (S.conditions.includes('Dodging')) { S.conditions = S.conditions.filter(x => x !== 'Dodging'); lines.push('Your Dodge ends'); }
+  const blade = (S.effects || []).find(e => /^bladesong$/i.test(e.name)); if (blade) { S.effects = S.effects.filter(e => e !== blade); lines.push('Bladesong ends'); }
+  if (c === 'Unconscious') { if (!S.conditions.includes('Prone')) { S.conditions.push('Prone'); lines.push('You fall prone'); } lines.push('You drop whatever you’re holding'); }
+  cleanupLinked();
+  return lines;
 }
 function breakConc(reason) {
   const nm = S.concentration; if (!nm) return;
@@ -980,6 +993,7 @@ function toggleCondition(c) {
   if (on && S.condTurns) delete S.condTurns[c];
   if (on && S.condNotes) delete S.condNotes[c];
   pendingLabel = (on ? 'Remove ' : 'Add ') + c;
+  if (!on && ['Incapacitated', 'Paralyzed', 'Petrified', 'Stunned', 'Unconscious'].includes(c)) { const ko = incapacitate(c); if (ko.length) toast(`<div><b>${esc(c)}</b>${ko.map(l => `<div class="det">${esc(l)}</div>`).join('')}</div>`, 'fumble', 8000); }
   if (!on && ['Incapacitated', 'Paralyzed', 'Petrified', 'Stunned', 'Unconscious'].includes(c) && S.concentration) { save(); breakConc(c.toLowerCase()); return; }
   update(); render('vitals', 'combat');
 }
