@@ -935,6 +935,8 @@ function readyFire() {
 // concentration broken (failed save, knocked out, another concentration spell) → the readied spell is lost.
 function readySync(quiet) {
   const r = S.turn && S.turn.readied, hold = (S.effects || []).find(e => e.readied); let ch = false;
+  // (a spell readied before readied spells counted as concentration: start holding it now, unless you're concentrating on something else)
+  if (r && r.spell && !r.held && !hold && !S.concentration) { const hn = r.spell + ' (readied)'; S.effects = (S.effects || []).concat([{ name: hn, conc: true, readied: true }]); S.concentration = hn; r.held = true; return true; }
   if (r && r.spell && r.held && !hold) { S.turn.readied = null; ch = true; if (!quiet) setTimeout(() => readyLost(r, 'Your concentration broke'), 60); }
   else if (hold && !(r && r.spell && hold.name === r.spell + ' (readied)')) { S.effects = S.effects.filter(e => e !== hold); if (S.concentration === hold.name) S.concentration = ''; ch = true; }
   return ch; }
