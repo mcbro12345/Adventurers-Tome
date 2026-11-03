@@ -882,6 +882,8 @@ function fxApplyUse(u, name, lines) {
     if (e.buff && typeof e.buff.dmgDice === 'string' && e.buff.dmgDice.includes('{')) e.buff.dmgDice = fxRollExpr(e.buff.dmgDice);
     if (e.buff && typeof e.buff.note === 'string' && e.buff.note.includes('{')) e.buff.note = fxText(e.buff.note);
     // a concentration effect (Favored Foe, Dark Delirium…) takes over your concentration, like casting a concentration spell
+    // (an item casting a concentration spell — Stoneskin, Bless… — counts too, even if its effect wasn't marked)
+    if (!e.conc && (SPI(e.name) || {}).conc) e.conc = true;
     if (e.conc) { if (S.concentration && S.concentration !== e.name) { lines.push(`${S.concentration} ended (one concentration at a time)`); S.effects = (S.effects || []).filter(x => !x.conc); } S.concentration = e.name; }
     S.effects = (S.effects || []).filter(x => x.name !== e.name).concat([e]); lines.push(`${e.name} is active${e.rounds ? ' for ' + fmtRounds(e.rounds) : ''}${e.conc ? ' (concentration)' : ''}`); }
   if (u.cond && !S.conditions.includes(u.cond)) { S.conditions.push(u.cond); if (u.condRounds) { S.condTurns = S.condTurns || {}; S.condTurns[u.cond] = u.condRounds; } lines.push(`${u.cond}${u.condRounds ? ' for ' + u.condRounds + ' round' + (u.condRounds > 1 ? 's' : '') : ''}`); }
@@ -3508,7 +3510,7 @@ function calcText(key) {
     case 'speedtip': return (speedInfo().parts || []).join(' · ');
     case 'truehp': return `${N(S.hp.cur)}/${maxHp()}`;
     case 'ridersnote': { const r = S.riders || []; const x = extraDice(); return (r.length ? 'Next hit adds: ' + r.map(z => z.name + ' ' + z.dice).join(', ') + '. ' : '') + (x.length ? 'Every hit adds: ' + x.join(', ') + '.' : ''); }
-    case 'concnote': return S.concentration ? `Concentrating on ${esc(S.concentration)} <button class="ccbtn" data-act="concsave" title="Roll a concentration save (CON save)">Con save</button>` : '';
+    case 'concnote': return S.concentration ? 'Concentrating on ' + S.concentration : '';
     case 'ammo': { const am = ammoItem(S.attacks[a]); return am ? N(am.qty) + ' ammo' : ''; }
     case 'lvl': return String(totalLevel());
     case 'xpnext': return totalLevel() >= 20 ? 'max' : '/ ' + xpNext().toLocaleString();
@@ -3520,6 +3522,7 @@ function calcText(key) {
 function calcHTML(key) {
   const [k, a] = key.split(':');
   switch (k) {
+    case 'concnote': return S.concentration ? `Concentrating on ${esc(S.concentration)}${(S.effects || []).some(e => e.conc) ? '' : ` <button class="ccbtn" data-act="concsave" title="Roll a concentration save (CON save)">Con save</button>`}` : '';
     case 'sneakdot': { if (!S.inCombat) return '<span class="hint">once per turn</span>'; const u = !!(S.turn && S.turn.sneak); return `<span class="pips"><button class="pip${u ? ' spent' : ''}" data-act="sneaktog" aria-pressed="${u}" aria-label="Sneak Attack this turn" title="${u ? 'Used this turn — tap to mark it ready again' : 'Ready — once per turn'}"></button></span><span class="hint">${u ? 'Used this turn' : 'Ready this turn'}</span>`; }
     case 'hpring': {
       const f = S.form;
@@ -3540,7 +3543,7 @@ function calcHTML(key) {
     case 'fxchips': {
       const fx = S.effects || [];
       if (!fx.length) return '<span class="hint">No spells or effects running.</span>';
-      return fx.map((e, j) => `<span class="fxc${e.conc ? ' conc' : ''}${e.rounds != null && e.rounds <= 1 ? ' ending' : ''}" title="${esc(fxTip(e))}">${e.conc ? '<i class="cdot"></i>' : ''}<b>${esc(e.name)}</b>${e.ally ? ' (ally)' : ''}${e.from ? '<small class="fxfrom" title="Cast on you by someone else">↘</small>' : ''}${e.buff && N(e.buff.ac) && !e.ally ? ` +${N(e.buff.ac)} AC` : ''}<span class="left">${(e.rage && e.rounds == null ? "until rage ends" : fmtRounds(e.rounds))}</span>${e.repeat ? `<button class="rep" data-act="repeatfx" data-j="${j}" title="Roll ${esc(e.repeat.dice)} ${esc(e.repeat.type || '')}">${esc(String(e.repeat.dice).replace(/^1d/, 'd'))}</button>` : ''}<button data-act="endeffect" data-n="${esc(e.name)}" aria-label="End ${esc(e.name)}">✕</button></span>`).join('');
+      return fx.map((e, j) => `<span class="fxc${e.conc ? ' conc' : ''}${e.rounds != null && e.rounds <= 1 ? ' ending' : ''}" title="${esc(fxTip(e))}">${e.conc ? '<i class="cdot"></i>' : ''}<b>${esc(e.name)}</b>${e.ally ? ' (ally)' : ''}${e.from ? '<small class="fxfrom" title="Cast on you by someone else">↘</small>' : ''}${e.buff && N(e.buff.ac) && !e.ally ? ` +${N(e.buff.ac)} AC` : ''}<span class="left">${(e.readied ? 'until your next turn' : e.rage && e.rounds == null ? "until rage ends" : fmtRounds(e.rounds))}</span>${e.repeat ? `<button class="rep" data-act="repeatfx" data-j="${j}" title="Roll ${esc(e.repeat.dice)} ${esc(e.repeat.type || '')}">${esc(String(e.repeat.dice).replace(/^1d/, 'd'))}</button>` : ''}${e.conc && S.concentration ? `<button class="rep ccs" data-act="concsave" title="Roll a concentration save (CON save)">CON save</button>` : ''}<button data-act="endeffect" data-n="${esc(e.name)}" aria-label="End ${esc(e.name)}">✕</button></span>`).join('');
     }
     case 'slotsall': {
       let h = '';
@@ -3577,8 +3580,20 @@ function fxTip(e) {
   if (e.maxHp) t.push(`+${e.maxHp} max HP`); if (b.note) t.push(b.note);
   return t.join(' · ');
 }
+// Phones: stat tiles side by side get the same label height, so their numbers line up even when one label wraps
+// ("Passive Perception").
+function statRowsAlign() {
+  const ts = $$('.tile:is([data-zi="ac"],[data-zi="init"],[data-zi="speed"],[data-zi="prof"],[data-zi="passive"],[data-zi="hd"])');
+  ts.forEach(t => { const l = t.querySelector(':scope > .lbl'); if (l) l.style.minHeight = ''; });
+  if (!document.documentElement.classList.contains('mobile')) return;
+  const rows = {}; ts.forEach(t => { if (!t.offsetParent) return; const k = Math.round(t.getBoundingClientRect().top); (rows[k] = rows[k] || []).push(t); });
+  Object.values(rows).forEach(g => { const ls = g.map(t => t.querySelector(':scope > .lbl')).filter(Boolean); const h = Math.max(...ls.map(l => l.offsetHeight)); ls.forEach(l => { if (l.offsetHeight < h) l.style.minHeight = h + 'px'; }); });
+}
+addEventListener('resize', () => setTimeout(statRowsAlign, 50));
 function refresh() {
   if (!S.created) return;
+  requestAnimationFrame(statRowsAlign);
+  if (typeof readySync === 'function' && readySync()) { setTimeout(() => { save(); render(); }, 0); }
   $$('[data-calc]').forEach(el => { const t = calcText(el.dataset.calc); if (el.textContent !== t) el.textContent = t; });
   if (typeof fitSubtitle === 'function') fitSubtitle();
   fitCoins();
@@ -4709,16 +4724,21 @@ function readyPay(k, L) {
 function readyCommit(r) {
   closeModal(true);
   S.turn.used.action = true; S.turn.readied = r;
+  // Holding a readied spell takes concentration (PHB): it ends any other concentration, and if your concentration breaks the spell is lost.
+  let was = '';
+  if (r.spell) { const hn = r.spell + ' (readied)';
+    if (S.concentration && S.concentration !== hn) { was = S.concentration; S.effects = (S.effects || []).filter(e => !e.conc); }
+    S.effects = (S.effects || []).filter(e => !e.readied).concat([{ name: hn, conc: true, readied: true }]); S.concentration = hn; r.held = true; cleanupLinked(); }
   const paid = r.paid && r.paid.k !== 'none' ? (r.paid.k === 'slot' ? `${ORD[r.paid.L - 1]} slot` : r.paid.k === 'pact' ? 'pact slot' : r.paid.k === 'store' ? 'stored use' : 'free use') : '';
   pendingLabel = 'Ready: ' + r.name + (paid ? ` (${paid})` : ''); update(); render('combat');
-  toast(`<div><b>Readied:</b> ${esc(r.name)}${trig0(r)}${paid ? `<div class="det">${esc(paid.charAt(0).toUpperCase() + paid.slice(1))} spent now — concentrate to hold it.</div>` : ''}<div class="det">It's waiting in your Reaction column.</div></div>`, '', 7000);
+  toast(`<div><b>Readied:</b> ${esc(r.name)}${trig0(r)}${paid ? `<div class="det">${esc(paid.charAt(0).toUpperCase() + paid.slice(1))} spent now — concentrate to hold it.</div>` : ''}${was ? `<div class="det">Concentration on ${esc(was)} ends — you're concentrating on holding this now.</div>` : ''}<div class="det">It's waiting in your Reaction column.</div></div>`, '', 7000);
 }
 const trig0 = r => r.trigger ? `<div class="det">Trigger: ${esc(r.trigger)}</div>` : '';
 function readyFire() {
   const r = S.turn.readied; if (!r) return;
   if (incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take reactions.`, 'fumble'); return; }
   if ((S.turn.used || {}).reaction) { toast('Your reaction is already used — the readied action is lost.', 'fumble'); return; }
-  S.turn.readied = null;
+  S.turn.readied = null; readySync(true);
   if (r.k.startsWith('atk:')) { S.turn.used.reaction = true; pendingLabel = 'Readied attack'; attackRoll(N(r.k.slice(4)), true, { offTurn: true }); render('combat'); return; }
   if (r.k.startsWith('sp:')) { const i = N(r.k.slice(3)); if (S.spells[i] && S.spells[i].name === r.spell) { if (r.paid) READY_PAID = { i, L: r.paid.L }; render('combat'); castSpell(i, 'reaction'); return; } }
   S.turn.used.reaction = true;
@@ -4726,6 +4746,15 @@ function readyFire() {
   pendingLabel = 'Readied: ' + r.name; update(); render('combat');
   toast(`<div><b>${esc(r.name)}</b> — reaction spent.${r.trigger ? `<div class="det">Trigger: ${esc(r.trigger)}</div>` : ''}</div>`, '', 6000);
 }
+// Keeps the "<spell> (readied)" concentration in step with the readied action: released, dropped or run out → it ends;
+// concentration broken (failed save, knocked out, another concentration spell) → the readied spell is lost.
+function readySync(quiet) {
+  const r = S.turn && S.turn.readied, hold = (S.effects || []).find(e => e.readied); let ch = false;
+  // (a spell readied before readied spells counted as concentration: start holding it now, unless you're concentrating on something else)
+  if (r && r.spell && !r.held && !hold && !S.concentration) { const hn = r.spell + ' (readied)'; S.effects = (S.effects || []).concat([{ name: hn, conc: true, readied: true }]); S.concentration = hn; r.held = true; return true; }
+  if (r && r.spell && r.held && !hold) { S.turn.readied = null; ch = true; if (!quiet) setTimeout(() => readyLost(r, 'Your concentration broke'), 60); }
+  else if (hold && !(r && r.spell && hold.name === r.spell + ' (readied)')) { S.effects = S.effects.filter(e => e !== hold); if (S.concentration === hold.name) S.concentration = ''; ch = true; }
+  return ch; }
 // A readied spell that never goes off still used its slot.
 function readyLost(r, why) {
   if (r.spell && r.paid) { toast(`<div><b>${esc(r.spell)}</b> was never released.<div class="det">${esc(why)}. Its slot was spent when you readied it.</div></div>`, 'fumble', 8000); return; }
@@ -4953,6 +4982,8 @@ function riderAfter(ev, what, base) {
 let CASTING = null;
 function castSpell(i, col, force) {
   const sp = S.spells[i]; if (!sp) return;
+  // a known concentration spell is always concentration, however it got on the sheet (an item, a feat, an old copy)
+  if (!sp.conc && (SPI(sp.name) || {}).conc) sp.conc = true;
   col = mmCol(sp, col);
   const itm = spItem(sp); if (itm && !hbItemOn(itm) && !force) { toast(`${esc(sp.name)} needs <b>${esc(itm.name)}</b>${itm.attune && !itm.attuned ? ' (attuned)' : ''} ${itm.carried ? 'on you' : 'equipped'}.`, 'fumble', 7000, { label: 'Cast anyway', fn: () => castSpell(i, col, true) }); return; }
   if (incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take actions or reactions.`, 'fumble'); return; }

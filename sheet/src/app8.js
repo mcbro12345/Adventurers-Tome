@@ -180,6 +180,8 @@ function fxApplyUse(u, name, lines) {
     if (e.buff && typeof e.buff.dmgDice === 'string' && e.buff.dmgDice.includes('{')) e.buff.dmgDice = fxRollExpr(e.buff.dmgDice);
     if (e.buff && typeof e.buff.note === 'string' && e.buff.note.includes('{')) e.buff.note = fxText(e.buff.note);
     // a concentration effect (Favored Foe, Dark Delirium…) takes over your concentration, like casting a concentration spell
+    // (an item casting a concentration spell — Stoneskin, Bless… — counts too, even if its effect wasn't marked)
+    if (!e.conc && (SPI(e.name) || {}).conc) e.conc = true;
     if (e.conc) { if (S.concentration && S.concentration !== e.name) { lines.push(`${S.concentration} ended (one concentration at a time)`); S.effects = (S.effects || []).filter(x => !x.conc); } S.concentration = e.name; }
     S.effects = (S.effects || []).filter(x => x.name !== e.name).concat([e]); lines.push(`${e.name} is active${e.rounds ? ' for ' + fmtRounds(e.rounds) : ''}${e.conc ? ' (concentration)' : ''}`); }
   if (u.cond && !S.conditions.includes(u.cond)) { S.conditions.push(u.cond); if (u.condRounds) { S.condTurns = S.condTurns || {}; S.condTurns[u.cond] = u.condRounds; } lines.push(`${u.cond}${u.condRounds ? ' for ' + u.condRounds + ' round' + (u.condRounds > 1 ? 's' : '') : ''}`); }
