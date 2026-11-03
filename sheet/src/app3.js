@@ -1003,8 +1003,19 @@ function fxTip(e) {
   if (e.maxHp) t.push(`+${e.maxHp} max HP`); if (b.note) t.push(b.note);
   return t.join(' · ');
 }
+// Phones: stat tiles side by side get the same label height, so their numbers line up even when one label wraps
+// ("Passive Perception").
+function statRowsAlign() {
+  const ts = $$('.tile:is([data-zi="ac"],[data-zi="init"],[data-zi="speed"],[data-zi="prof"],[data-zi="passive"],[data-zi="hd"])');
+  ts.forEach(t => { const l = t.querySelector(':scope > .lbl'); if (l) l.style.minHeight = ''; });
+  if (!document.documentElement.classList.contains('mobile')) return;
+  const rows = {}; ts.forEach(t => { if (!t.offsetParent) return; const k = Math.round(t.getBoundingClientRect().top); (rows[k] = rows[k] || []).push(t); });
+  Object.values(rows).forEach(g => { const ls = g.map(t => t.querySelector(':scope > .lbl')).filter(Boolean); const h = Math.max(...ls.map(l => l.offsetHeight)); ls.forEach(l => { if (l.offsetHeight < h) l.style.minHeight = h + 'px'; }); });
+}
+addEventListener('resize', () => setTimeout(statRowsAlign, 50));
 function refresh() {
   if (!S.created) return;
+  requestAnimationFrame(statRowsAlign);
   if (typeof readySync === 'function' && readySync()) { setTimeout(() => { save(); render(); }, 0); }
   $$('[data-calc]').forEach(el => { const t = calcText(el.dataset.calc); if (el.textContent !== t) el.textContent = t; });
   if (typeof fitSubtitle === 'function') fitSubtitle();
