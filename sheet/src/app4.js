@@ -1,6 +1,8 @@
 
 // ---------- Click handling ----------
-document.addEventListener('click', e => rollGate(() => mainClick(e)));
+// (where the click happened is noted now: with dice you roll yourself, the click is run again once the roll is in, and by
+// then the button may have been redrawn and no longer be on the page)
+document.addEventListener('click', e => { try { e._pc = !!(e.target.closest && e.target.closest('#page-combat')); } catch (x) {} rollGate(() => mainClick(e)); });
 const TABSCROLL = {}; let tabFadeT = 0;
 function mainClick(e) {
   if (e.target.closest('#wizard')) return wizClick(e);
@@ -30,7 +32,7 @@ function mainClick(e) {
     case 'redoall': { const c = redo(REDO.length); closeModal(true); toast(`Redid ${c} change(s).`); break; }
     case 'layout': if (onPhone()) break; if (window.pgPhoneView && (window.PG_IN_PHONE || (!isMobile() && window.innerWidth >= 640))) { window.pgPhoneView(!window.PG_IN_PHONE); break; }
       LAYOUT_NOW = isMobile() ? 'desktop' : 'mobile'; applyLayout(); render(); window.scrollTo(0, 0); break;
-    case 'attack': attackRoll(i, !b.closest('#page-combat') || !S.inCombat); break;
+    case 'attack': attackRoll(i, !(e._pc || b.closest('#page-combat')) || !S.inCombat); break;
     case 'bonusatk': bonusAttack(i, b.dataset.kind); break;
     case 'equip': equipItem(i); break;
     case 'dupitem': { const src = S.inventory[i]; if (!src) break; const c = JSON.parse(JSON.stringify(src)); c.id = uid(); c.equipped = false; c.attuned = false; S.inventory.splice(i + 1, 0, c); pendingLabel = 'Duplicate ' + (src.name || 'item'); save(); render(); toast(`Duplicated “${esc(src.name || 'item')}”`); break; }
