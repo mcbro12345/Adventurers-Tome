@@ -1703,23 +1703,26 @@ function toast(html, cls = '', ms = 4500, action) {
     // (an add-on button — Divine Smite, Sneak Attack… — adds to this card and leaves it up; the others act and close it)
     b.onclick = ac.keep ? () => { rollGate(() => ac.fn(t, b)); } : () => { rollGate(ac.fn); t.remove(); }; box.appendChild(b); }); t.appendChild(box); } }
   // (a roll's card stays put until its × is pressed, so a stray tap can't lose it mid-argument; other notes go on a tap)
-  if (!/^\s*<(b class="total"|div class="rc-multi")/.test(html)) t.addEventListener('click', ev => { if (ev.target.tagName !== 'BUTTON') t.remove(); });
+  // (a "card" note — the concentration save prompt — shows in the middle like a roll, and stays until answered or closed)
+  const asCard = /(^|\s)card(\s|$)/.test(cls);
+  if (!/^\s*<(b class="total"|div class="rc-multi")/.test(html) && !asCard) t.addEventListener('click', ev => { if (ev.target.tagName !== 'BUTTON') t.remove(); });
   // Dice results get their own big card in the middle of the screen; everything else stays in the corner.
   const isRoll = /^\s*<(b class="total"|div class="rc-multi")/.test(html);
   let box = $('#toasts');
   if (isRoll || cls === 'manual') logRoll(t.innerHTML, cls); else logEvent(t.innerHTML, cls);
   if (isRoll && cls !== 'manual') statFlush();
   if (isRoll && cls !== 'manual') postSheetRoll(t);
-  if (isRoll) { box = $('#rolls'); if (!box) { box = document.createElement('div'); box.id = 'rolls'; box.setAttribute('aria-live', 'polite'); document.body.appendChild(box); } t.classList.add('rollcard'); ms = Math.max(ms, 6500); }
+  const rollLike = isRoll || asCard;
+  if (rollLike) { box = $('#rolls'); if (!box) { box = document.createElement('div'); box.id = 'rolls'; box.setAttribute('aria-live', 'polite'); document.body.appendChild(box); } t.classList.add('rollcard'); ms = Math.max(ms, 6500); }
   // A new roll while one is showing: like a carousel, the new card slides down into the top spot from just above, the
   // previous card(s) slide down a place to make room, and whichever card no longer fits slides on down and fades away.
-  const cap = isRoll ? (document.documentElement.classList.contains('mobile') ? 1 : 2) : document.documentElement.classList.contains('mobile') ? 2 : 5;
+  const cap = rollLike ? (document.documentElement.classList.contains('mobile') ? 1 : 2) : document.documentElement.classList.contains('mobile') ? 2 : 5;
   let rcOld = [];
-  if (isRoll) { const br = box.getBoundingClientRect(); rcOld = [...box.querySelectorAll(':scope > .rollcard:not(.rc-out)')].map(o => { const r = o.getBoundingClientRect(); const cs = getComputedStyle(o); return { o, top: o.offsetTop, left: o.offsetLeft, w: o.offsetWidth, y: o.offsetTop, tf: cs.transform === 'none' ? '' : cs.transform, op: cs.opacity }; }); }
+  if (rollLike) { const br = box.getBoundingClientRect(); rcOld = [...box.querySelectorAll(':scope > .rollcard:not(.rc-out)')].map(o => { const r = o.getBoundingClientRect(); const cs = getComputedStyle(o); return { o, top: o.offsetTop, left: o.offsetLeft, w: o.offsetWidth, y: o.offsetTop, tf: cs.transform === 'none' ? '' : cs.transform, op: cs.opacity }; }); }
   // (the card gets its final layout before it goes in, so the cards below know exactly how far to move)
-  if (isRoll) { t._at = Date.now(); rcDress(t); }
-  if (isRoll) box.prepend(t); else box.appendChild(t);
-  if (isRoll && rcOld.length) {
+  if (rollLike) { t._at = Date.now(); rcDress(t); }
+  if (rollLike) box.prepend(t); else box.appendChild(t);
+  if (rollLike && rcOld.length) {
     const still = !matchMedia('(prefers-reduced-motion: reduce)').matches, stay = rcOld.slice(0, cap - 1), go = rcOld.slice(cap - 1);
     go.forEach(({ o, top, left, w, tf, op }) => { clearTimeout(o._tm); if (!still) { o.remove(); return; } o.classList.add('rc-out', 'rc-slide'); Object.assign(o.style, { position: 'absolute', top: top + 'px', left: left + 'px', width: w + 'px', margin: '0', animation: 'none', zIndex: '-1' });
       const a = o.animate([{ transform: `translateY(0px) ${tf}`, opacity: op }, { transform: 'translateY(40px) scale(.9)', opacity: 0 }], { duration: 130, easing: 'cubic-bezier(.4,0,1,1)', fill: 'forwards' }); a.onfinish = () => o.remove(); }); // (gone quickly, before the card behind it slides into its place)
@@ -1729,7 +1732,7 @@ function toast(html, cls = '', ms = 4500, action) {
       t.style.animation = 'none'; t.animate([{ transform: 'translateY(-56px)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 380, delay: 150, easing: 'cubic-bezier(.16,1,.3,1)', fill: 'backwards' }); // (it follows a beat behind, so the two never blur together)
     }
   }
-  if (isRoll) {
+  if (rollLike) {
     // The math is always on the card (no button to open it), laid out under the numbers: one column per part (to hit,
     // damage…). The card stays until its × is pressed — or until a newer roll pushes it off the stack.
     // Settings → Dice can make cards fade on their own after a while (it waits while the pointer rests on the card)
@@ -3520,7 +3523,7 @@ function calcHTML(key) {
     case 'fxchips': {
       const fx = S.effects || [];
       if (!fx.length) return '<span class="hint">No spells or effects running.</span>';
-      return fx.map((e, j) => `<span class="fxc${e.conc ? ' conc' : ''}${e.rounds != null && e.rounds <= 1 ? ' ending' : ''}" title="${esc(fxTip(e))}">${e.conc ? '<i class="cdot"></i>' : ''}<b>${esc(e.name)}</b>${e.ally ? ' (ally)' : ''}${e.from ? '<small class="fxfrom" title="Cast on you by someone else">↘</small>' : ''}${e.buff && N(e.buff.ac) && !e.ally ? ` +${N(e.buff.ac)} AC` : ''}<span class="left">${(e.rage && e.rounds == null ? "until rage ends" : fmtRounds(e.rounds))}</span>${e.repeat ? `<button class="rep" data-act="repeatfx" data-j="${j}" title="Roll ${esc(e.repeat.dice)} ${esc(e.repeat.type || '')}">🎲 ${esc(e.repeat.dice)}</button>` : ''}<button data-act="endeffect" data-n="${esc(e.name)}" aria-label="End ${esc(e.name)}">✕</button></span>`).join('');
+      return fx.map((e, j) => `<span class="fxc${e.conc ? ' conc' : ''}${e.rounds != null && e.rounds <= 1 ? ' ending' : ''}" title="${esc(fxTip(e))}">${e.conc ? '<i class="cdot"></i>' : ''}<b>${esc(e.name)}</b>${e.ally ? ' (ally)' : ''}${e.from ? '<small class="fxfrom" title="Cast on you by someone else">↘</small>' : ''}${e.buff && N(e.buff.ac) && !e.ally ? ` +${N(e.buff.ac)} AC` : ''}<span class="left">${(e.rage && e.rounds == null ? "until rage ends" : fmtRounds(e.rounds))}</span>${e.repeat ? `<button class="rep" data-act="repeatfx" data-j="${j}" title="Roll ${esc(e.repeat.dice)} ${esc(e.repeat.type || '')}">${esc(String(e.repeat.dice).replace(/^1d/, 'd'))}</button>` : ''}<button data-act="endeffect" data-n="${esc(e.name)}" aria-label="End ${esc(e.name)}">✕</button></span>`).join('');
     }
     case 'slotsall': {
       let h = '';
@@ -3538,11 +3541,11 @@ function calcHTML(key) {
     case 'movebar': return `<i style="width:${Math.max(0, 100 - Math.max(0, N(S.turn.moved)) / Math.max(1, moveBudget()) * 100)}%"></i>`;
     case 'conds': {
       const ex = N(S.exhaustion);
-      return (S.rollAdv ? `<span class="cchip ${S.rollAdv === 'adv' ? 'advc' : 'disc'}"><span class="ccn">${S.rollAdv === 'adv' ? 'Advantage' : 'Disadvantage'} <small class="cturns">all d20 rolls</small></span><button data-act="rolladv" data-v="${S.rollAdv}" aria-label="Turn off">✕</button></span>` : '') + S.conditions.map((c, k) => `<span class="cchip"><span class="ccn">${esc(c)}</span><button class="notetip" data-tip="${k}" data-tipkind="cond" aria-label="What ${esc(c)} does">ⓘ</button>${(S.condTurns || {})[c] ? ` <small class="cturns">${durShort(N(S.condTurns[c]))}</small>` : ''}<button data-act="dropcond" data-c="${esc(c)}" aria-label="Remove ${esc(c)}">✕</button></span>`).join('') +
+      return (S.rollAdv ? `<span class="cchip ${S.rollAdv === 'adv' ? 'advc' : 'disc'}"><span class="ccn">${S.rollAdv === 'adv' ? 'Advantage' : 'Disadvantage'} <small class="cturns">all d20 rolls</small></span><button data-act="rolladv" data-v="${S.rollAdv}" aria-label="Turn off">✕</button></span>` : '') + S.conditions.map((c, k) => c === 'Raging' && (S.effects || []).some(e => e.name === 'Rage') ? '' : /* (Rage shows once, in Active Spells & Effects) */ `<span class="cchip"><span class="ccn">${esc(c)}</span><button class="notetip" data-tip="${k}" data-tipkind="cond" aria-label="What ${esc(c)} does">ⓘ</button>${(S.condTurns || {})[c] ? ` <small class="cturns">${durShort(N(S.condTurns[c]))}</small>` : ''}<button data-act="dropcond" data-c="${esc(c)}" aria-label="Remove ${esc(c)}">✕</button></span>`).join('') +
         Object.keys(S.tmpMods || {}).map(k => `<span class="cchip abt${tmv(k) > 0 ? ' pos' : ''}"><span class="ccn">${tmName(k)} ${fmt(tmv(k))}</span>${tmr(k) > 0 ? ` <small class="hint">${tmr(k)} rd</small>` : ''}<button data-act="tmpmodclear" data-k="${k}" aria-label="End ${tmName(k)} change">✕</button></span>`).join('') +
         Object.keys(S.abTemp || {}).map(a => { const r = N(S.abTempR); return `<span class="cchip abt"><span class="ccn">${a.toUpperCase()} ${baseScore(a)}→${score(a)}</span><button class="notetip" data-tip="ab:${a}" data-tipkind="cond" aria-label="About this ${ABN[a]} change">ⓘ</button>${r ? ` <small class="cturns">${durShort(r)}</small>` : ''}<button data-act="abtempclear" data-a="${a}" aria-label="End ${ABN[a]} change">✕</button></span>`; }).join('') +
         (ex ? `<span class="cchip exh"><span class="ccn">Exhaustion ${ex}</span><button class="notetip" data-tip="exh" data-tipkind="cond" aria-label="What exhaustion does">ⓘ</button><button data-act="exh" data-d="-1" aria-label="Less exhaustion">−</button><button data-act="exh" data-d="1" aria-label="More exhaustion">+</button></span>` : '') +
-        (S.conditions.length || ex || S.rollAdv || Object.keys(S.abTemp || {}).length || Object.keys(S.tmpMods || {}).length ? '' : '<span class="hint">None</span>');
+        (S.conditions.some(c => !(c === 'Raging' && (S.effects || []).some(e => e.name === 'Rage'))) || ex || S.rollAdv || Object.keys(S.abTemp || {}).length || Object.keys(S.tmpMods || {}).length ? '' : '<span class="hint">None</span>');
     }
   }
   return '';
@@ -4474,7 +4477,7 @@ function takeDamage(amt) {
   }
   const before = N(hp.cur);
   // Massive damage (PHB): damage left over after dropping to 0 that equals or beats your HP maximum kills outright.
-  if (d > 0 && d - Math.max(0, before) >= maxHp() && maxHp() > 0) { if (before > 0 && typeof ptyDeathWard === 'function' && ptyDeathWard()) { hp.cur = 1; update(); return; } hp.cur = 0; S.death.f = 3; if (!S.conditions.includes('Unconscious')) S.conditions.push('Unconscious'); update(); fxTrigger('zero');
+  if (d > 0 && d - Math.max(0, before) >= maxHp() && maxHp() > 0) { if (before > 0 && typeof ptyDeathWard === 'function' && ptyDeathWard()) { hp.cur = 1; update(); return; } hp.cur = 0; S.death.f = 3; if (!S.conditions.includes('Unconscious')) S.conditions.push('Unconscious'); if (!S.form) incapacitate('Unconscious'); update(); fxTrigger('zero');
     toast(`<div><b>Massive damage</b><div class="det">${d - Math.max(0, before)} damage left over after 0 HP is at least ${esc(who())}'s HP maximum (${maxHp()}) — instant death. If your DM rules otherwise, clear the death save failures.</div></div>`, 'fumble', 12000);
     if (conc) breakConc('died'); return; }
   if (before <= 0 && d > 0) { S.death.f = Math.min(3, N(S.death.f) + 1); update(); toast('Damage while at 0 HP — one death save failure (two on a crit).', 'fumble', 7000); return; }
@@ -4482,7 +4485,8 @@ function takeDamage(amt) {
   if (hp.cur === 0 && before > 0 && typeof ptyDeathWard === 'function' && ptyDeathWard()) hp.cur = 1;
   if (hp.cur === 0 && before > 0) {
     if (!S.conditions.includes('Unconscious')) S.conditions.push('Unconscious');
-    toast(`${esc(who())} drops to 0 HP — roll death saves.`, 'fumble', 7000);
+    const ko = S.form ? [] : incapacitate('Unconscious');
+    toast(`<div>${esc(who())} drops to 0 HP and falls unconscious — roll death saves.${ko.map(l => `<div class="det">${esc(l)}</div>`).join('')}</div>`, 'fumble', 9000);
     fxTrigger('zero');
     if (typeof ptyAurasOff === 'function' && Object.keys(S.ptyAuras || {}).length) ptyAurasOff('dropped to 0 HP');
     if (conc) { update(); breakConc('dropped to 0 HP'); return; }
@@ -4531,6 +4535,18 @@ function cleanupLinked() {
   if (S.conditions.includes('Raging') && !names.has('Rage')) { S.conditions = S.conditions.filter(c => c !== 'Raging'); rageEndFx(); }
   if (!names.has('Rage') && (S.effects || []).some(e => e.rage)) S.effects = S.effects.filter(e => !e.rage); // (Wild Surge effects end with the rage)
 }
+// Knocked out, stunned, paralyzed…: what ends or happens with it (PHB / SRD). Any of these incapacitate you, which ends a
+// Dodge and Bladesong (and concentration, handled by the caller); being knocked unconscious also ends a barbarian's Rage,
+// and an unconscious creature falls prone and drops what it holds.
+function incapacitate(c) {
+  const lines = [];
+  if (c === 'Unconscious' && ((S.effects || []).some(e => e.name === 'Rage') || S.conditions.includes('Raging'))) { S.effects = (S.effects || []).filter(e => e.name !== 'Rage'); lines.push('Your Rage ends'); }
+  if (S.conditions.includes('Dodging')) { S.conditions = S.conditions.filter(x => x !== 'Dodging'); lines.push('Your Dodge ends'); }
+  const blade = (S.effects || []).find(e => /^bladesong$/i.test(e.name)); if (blade) { S.effects = S.effects.filter(e => e !== blade); lines.push('Bladesong ends'); }
+  if (c === 'Unconscious') { if (!S.conditions.includes('Prone')) { S.conditions.push('Prone'); lines.push('You fall prone'); } lines.push('You drop whatever you’re holding'); }
+  cleanupLinked();
+  return lines;
+}
 function breakConc(reason) {
   const nm = S.concentration; if (!nm) return;
   S.concentration = ''; S.effects = (S.effects || []).filter(e => !e.conc);
@@ -4540,7 +4556,7 @@ function breakConc(reason) {
 function concCheck(dc) {
   const nm = S.concentration; if (!nm) return;
   const bonus = saveVal('con') + (hasFeat('War Caster') ? 0 : 0);
-  toast(`<div><b>Concentration check</b> for ${esc(nm)}<div class="det">DC ${dc} CON save · ${fmt(bonus)}${hasFeat('War Caster') ? ' · War Caster: advantage' : ''}</div></div>`, 'alert', 30000, [
+  toast(`<div><b>Concentration check</b> for ${esc(nm)}<div class="det">DC ${dc} CON save · ${fmt(bonus)}${hasFeat('War Caster') ? ' · War Caster: advantage' : ''}</div></div>`, 'alert card', 30000, [
     { label: 'Roll', fn: () => { if (S.concentration !== nm) { toast('No longer concentrating on that spell.'); return; } const ex = (hasFeat('War Caster') ? '2d20kh1' : d20Expr(bonus, 'save', 'con').expr.replace(/[+-]\d+.*$/, '')) + sgn(bonus - exD20()) + (blessed() ? '+1d4' : ''); const r = rollExpr(ex, { need: true, label: 'Concentration save' }); const ok = r.total >= dc; toast(`<b class="total">${r.total}</b><div><div>Concentration ${ok ? 'holds' : 'fails'} (DC ${dc})</div><div class="det">${esc(r.detail)}</div></div>`, ok ? 'crit' : 'fumble', 6000); if (!ok) breakConc('failed DC ' + dc); } },
     { label: 'Failed', fn: () => { if (S.concentration === nm) breakConc('failed DC ' + dc); } }]);
 }
@@ -4554,7 +4570,7 @@ function endEffect(n) {
 }
 function repeatEffect(j) {
   const e = S.effects[j]; if (!e || !e.repeat) return;
-  if (isInsp(e)) return inspUse(null, '');
+  if (isInsp(e)) return giftUse(null, '');
   const r = rollExpr(e.repeat.dice);
   toast(`<b class="total">${r.total}</b><div><div>${esc(e.name)} — ${e.repeat.heal ? 'healing' : esc(e.repeat.type || 'damage')}</div><div class="det">${esc(r.detail)}${e.repeat.save ? ' · ' + esc(e.repeat.save) : ''}</div></div>`, '', 7000);
 }
@@ -4562,15 +4578,14 @@ function repeatEffect(j) {
 // once. Rolling it ends it; after an attack, check or save the result offers to add it.
 const isInsp = e => !!(e && e.repeat && /inspiration/i.test(String(e.repeat.type || e.name || '')) && !e.ally);
 const inspFx = () => (S.effects || []).find(isInsp);
-function inspUse(base, label) {
+function giftUse(base, label) {
   const e = inspFx(); if (!e) { toast('No inspiration die to use.', 'fumble'); return; }
   const r = rollExpr(e.repeat.dice, { label: (label ? label + ': ' : '') + (e.repeat.type || e.name) }); if (!r) return;
-  console.log('A', S.effects.length); S.effects = S.effects.filter(x => x !== e); console.log('B', S.effects.length); pendingLabel = 'Use ' + e.name; save(); console.log('C', S.effects.length); render(); console.log('D', S.effects.length, window.sheetState() === S);
+  S.effects = S.effects.filter(x => x !== e); pendingLabel = 'Use ' + e.name; save(); render();
   const tot = base != null ? base + r.total : r.total;
   toast(`<b class="total">${tot}</b><div><div>${label ? esc(label) + ' + ' : ''}${esc(e.repeat.type || e.name)}</div><div class="det">${base != null ? base + ' + ' : ''}${esc(e.repeat.dice)} (${esc(r.detail)})</div><div class="det">${esc(e.name)} used</div></div>`, '', 8000, { label: 'Undo', fn: () => undo(1) });
 }
-window._inspFx = () => inspFx(); window._inspUse = (a,b) => inspUse(a,b);
-const inspAct = (base, label) => { const e = inspFx(); return e ? { label: `+ ${e.repeat.type || 'Inspiration'} (${String(e.repeat.dice).replace(/^1d/, 'd')})`, fn: () => inspUse(base, label) } : null; };
+const inspAct = (base, label) => { const e = inspFx(); return e ? { label: `+ ${e.repeat.type || 'Inspiration'} (${String(e.repeat.dice).replace(/^1d/, 'd')})`, fn: () => giftUse(base, label) } : null; };
 // Features that happen on their own as your turn comes round (Elder Champion's 10 HP, Survivor, Protective Spirit):
 // fx `onTurn: { use, onlyWhen, notZero, notIncap }`. Each one says what it did in a note.
 function turnStartFx() {
@@ -4761,6 +4776,7 @@ function toggleCondition(c) {
   if (on && S.condTurns) delete S.condTurns[c];
   if (on && S.condNotes) delete S.condNotes[c];
   pendingLabel = (on ? 'Remove ' : 'Add ') + c;
+  if (!on && ['Incapacitated', 'Paralyzed', 'Petrified', 'Stunned', 'Unconscious'].includes(c)) { const ko = incapacitate(c); if (ko.length) toast(`<div><b>${esc(c)}</b>${ko.map(l => `<div class="det">${esc(l)}</div>`).join('')}</div>`, 'fumble', 8000); }
   if (!on && ['Incapacitated', 'Paralyzed', 'Petrified', 'Stunned', 'Unconscious'].includes(c) && S.concentration) { save(); breakConc(c.toLowerCase()); return; }
   update(); render('vitals', 'combat');
 }
