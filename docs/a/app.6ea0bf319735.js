@@ -632,12 +632,15 @@ function atkDmgMod(a) {
   const ab = attackAb(a);
   const fit = a.item && S.inventory.find(x => x.id === a.item);
   let v = (ab && !a.noModDmg ? mod(ab) : 0) + N(a.magic) + forgeBonus(fit) + infWeapon(fit, a, 'dmg') + (a.effect ? 0 : buffSum('dmg')) + itemBuffs(a).reduce((t, b) => t + N(b.dmg), 0) + (a.kind === 'melee' && ab === 'str' ? buffSum('meleeDmg') : 0) + (a.kind === 'melee' ? fxSum('meleeDmg') : 0);
-  if (a.kind === 'melee' && fightingStyle('Dueling') && a.oneHanded) v += 2;
+  if (a.kind === 'melee' && fightingStyle('Dueling') && a.oneHanded && !(a.twoHand && atkVers(a))) v += 2;
   return v;
 }
 function martialDie() { const m = clsLv('monk'); return m >= 17 ? 'd10' : m >= 11 ? 'd8' : m >= 5 ? 'd6' : m >= 1 ? 'd4' : ''; }
+// A versatile weapon's two-handed damage ("versatile (1d10)"), or '' if the weapon isn't versatile.
+function atkVers(a) { const it = a && a.item && S.inventory.find(x => x.id === a.item), p = (it && it.weapon && it.weapon.props) || [], v = p.find(x => /^versatile/i.test(x)); return v ? ((v.match(/\d+d\d+/) || [])[0] || '') : ''; }
 function atkDice(a) {
   let d = a.dice || '';
+  if (a.twoHand && atkVers(a)) d = atkVers(a); // wielded in two hands
   const wb = wpnBind(a); if (wb && wb.wpn.die) d = /d\d+/.test(d) ? d.replace(/d\d+/, wb.wpn.die) : '1' + wb.wpn.die;
   if (a.monk && martialDie()) { const md = martialDie(), cur = (d.match(/d(\d+)/) || [0, 0])[1]; if (!d || N(md.slice(1)) > N(cur) || d === '1') d = '1' + md; }
   return d;
@@ -1675,7 +1678,7 @@ function d20(label, bonus, kind, ab, rows) {
   const note = [rm.mode !== 'normal' ? (rm.mode === 'adv' ? 'Advantage: ' : 'Disadvantage: ') + rm.why.join(', ') : '', bless ? 'Bless +1d4' : '', ex ? `Exhaustion −${ex}` : '', rm.auto ? 'Automatic failure (condition)' : ''].filter(Boolean).join(' · ');
   const n1 = kind === 'attack' && r.d20 === 1 ? nat1Roll() : null;
   if (['attack', 'save', 'check'].includes(kind)) LAST_D20 = { t: Date.now(), label, bonus, kind, ab, rows, total: r.skipped ? null : r.total };
-  toast(`<b class="total">${r.total}</b><div><div>${esc(label)}</div><div class="det dd">${esc(r.detail)}</div>${note ? `<div class="det">${esc(note)}</div>` : ''}${n1 ? `<div class="rc-n1"><b>Nat 1 Roll:</b> ${n1.total}</div>` : ''}${math}</div>`, r.d20 === 20 ? 'crit' : r.d20 === 1 ? 'fumble' : '');
+  toast(`<b class="total">${r.total}</b><div><div>${esc(label)}</div><div class="det dd">${esc(r.detail)}</div>${note ? `<div class="det">${esc(note)}</div>` : ''}${n1 ? `<div class="rc-n1"><b>Nat 1 Roll:</b> ${n1.total}</div>` : ''}${math}</div>`, r.d20 === 20 ? 'crit' : r.d20 === 1 ? 'fumble' : '', ['attack', 'save', 'check'].includes(kind) && !r.skipped && typeof inspAct === 'function' && inspFx() ? 9000 : undefined, ['attack', 'save', 'check'].includes(kind) && !r.skipped && typeof inspAct === 'function' ? inspAct(r.total, label) : null);
   return r;
 }
 const doubleDice = e => String(e || '').replace(/(\d*)d(\d+)/gi, (m, n, sd) => (2 * (N(n) || 1)) + 'd' + sd);
@@ -1700,23 +1703,26 @@ function toast(html, cls = '', ms = 4500, action) {
     // (an add-on button — Divine Smite, Sneak Attack… — adds to this card and leaves it up; the others act and close it)
     b.onclick = ac.keep ? () => { rollGate(() => ac.fn(t, b)); } : () => { rollGate(ac.fn); t.remove(); }; box.appendChild(b); }); t.appendChild(box); } }
   // (a roll's card stays put until its × is pressed, so a stray tap can't lose it mid-argument; other notes go on a tap)
-  if (!/^\s*<(b class="total"|div class="rc-multi")/.test(html)) t.addEventListener('click', ev => { if (ev.target.tagName !== 'BUTTON') t.remove(); });
+  // (a "card" note — the concentration save prompt — shows in the middle like a roll, and stays until answered or closed)
+  const asCard = /(^|\s)card(\s|$)/.test(cls);
+  if (!/^\s*<(b class="total"|div class="rc-multi")/.test(html) && !asCard) t.addEventListener('click', ev => { if (ev.target.tagName !== 'BUTTON') t.remove(); });
   // Dice results get their own big card in the middle of the screen; everything else stays in the corner.
   const isRoll = /^\s*<(b class="total"|div class="rc-multi")/.test(html);
   let box = $('#toasts');
   if (isRoll || cls === 'manual') logRoll(t.innerHTML, cls); else logEvent(t.innerHTML, cls);
   if (isRoll && cls !== 'manual') statFlush();
   if (isRoll && cls !== 'manual') postSheetRoll(t);
-  if (isRoll) { box = $('#rolls'); if (!box) { box = document.createElement('div'); box.id = 'rolls'; box.setAttribute('aria-live', 'polite'); document.body.appendChild(box); } t.classList.add('rollcard'); ms = Math.max(ms, 6500); }
+  const rollLike = isRoll || asCard;
+  if (rollLike) { box = $('#rolls'); if (!box) { box = document.createElement('div'); box.id = 'rolls'; box.setAttribute('aria-live', 'polite'); document.body.appendChild(box); } t.classList.add('rollcard'); ms = Math.max(ms, 6500); }
   // A new roll while one is showing: like a carousel, the new card slides down into the top spot from just above, the
   // previous card(s) slide down a place to make room, and whichever card no longer fits slides on down and fades away.
-  const cap = isRoll ? (document.documentElement.classList.contains('mobile') ? 1 : 2) : document.documentElement.classList.contains('mobile') ? 2 : 5;
+  const cap = rollLike ? (document.documentElement.classList.contains('mobile') ? 1 : 2) : document.documentElement.classList.contains('mobile') ? 2 : 5;
   let rcOld = [];
-  if (isRoll) { const br = box.getBoundingClientRect(); rcOld = [...box.querySelectorAll(':scope > .rollcard:not(.rc-out)')].map(o => { const r = o.getBoundingClientRect(); const cs = getComputedStyle(o); return { o, top: o.offsetTop, left: o.offsetLeft, w: o.offsetWidth, y: o.offsetTop, tf: cs.transform === 'none' ? '' : cs.transform, op: cs.opacity }; }); }
+  if (rollLike) { const br = box.getBoundingClientRect(); rcOld = [...box.querySelectorAll(':scope > .rollcard:not(.rc-out)')].map(o => { const r = o.getBoundingClientRect(); const cs = getComputedStyle(o); return { o, top: o.offsetTop, left: o.offsetLeft, w: o.offsetWidth, y: o.offsetTop, tf: cs.transform === 'none' ? '' : cs.transform, op: cs.opacity }; }); }
   // (the card gets its final layout before it goes in, so the cards below know exactly how far to move)
-  if (isRoll) { t._at = Date.now(); rcDress(t); }
-  if (isRoll) box.prepend(t); else box.appendChild(t);
-  if (isRoll && rcOld.length) {
+  if (rollLike) { t._at = Date.now(); rcDress(t); }
+  if (rollLike) box.prepend(t); else box.appendChild(t);
+  if (rollLike && rcOld.length) {
     const still = !matchMedia('(prefers-reduced-motion: reduce)').matches, stay = rcOld.slice(0, cap - 1), go = rcOld.slice(cap - 1);
     go.forEach(({ o, top, left, w, tf, op }) => { clearTimeout(o._tm); if (!still) { o.remove(); return; } o.classList.add('rc-out', 'rc-slide'); Object.assign(o.style, { position: 'absolute', top: top + 'px', left: left + 'px', width: w + 'px', margin: '0', animation: 'none', zIndex: '-1' });
       const a = o.animate([{ transform: `translateY(0px) ${tf}`, opacity: op }, { transform: 'translateY(40px) scale(.9)', opacity: 0 }], { duration: 130, easing: 'cubic-bezier(.4,0,1,1)', fill: 'forwards' }); a.onfinish = () => o.remove(); }); // (gone quickly, before the card behind it slides into its place)
@@ -1726,7 +1732,7 @@ function toast(html, cls = '', ms = 4500, action) {
       t.style.animation = 'none'; t.animate([{ transform: 'translateY(-56px)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 380, delay: 150, easing: 'cubic-bezier(.16,1,.3,1)', fill: 'backwards' }); // (it follows a beat behind, so the two never blur together)
     }
   }
-  if (isRoll) {
+  if (rollLike) {
     // The math is always on the card (no button to open it), laid out under the numbers: one column per part (to hit,
     // damage…). The card stays until its × is pressed — or until a newer roll pushes it off the stack.
     // Settings → Dice can make cards fade on their own after a while (it waits while the pointer rests on the card)
@@ -2206,6 +2212,9 @@ function tabPageAnim(prev, nt) {
   bar.addEventListener('click', e => { if (eat) { e.preventDefault(); e.stopPropagation(); } }, true);
 }
 
+// Versatile weapons: one hand or two (two uses the bigger damage die).
+const gripBtn = i => { const a = S.attacks[i]; if (!a || !atkVers(a)) return ''; const two = !!a.twoHand;
+  return `<button class="gripbtn${two ? ' on' : ''}" data-act="twohand" data-i="${i}" title="${two ? 'Held in two hands (' + esc(atkVers(a)) + '). Switch to one hand' : 'Held in one hand (' + esc(a.dice || '') + '). Switch to two hands (' + esc(atkVers(a)) + ')'}" aria-pressed="${two}">${two ? '2H' : '1H'}</button>`; };
 const atkBtn = (i, short) => `<button class="btn gold sm atkbtn" data-act="attack" data-i="${i}" title="Roll to hit and damage; a natural 20 doubles the damage dice">⚔${short ? '' : ' Attack'}</button>`;
 const AB_ATK = [['str', 'STR'], ['dex', 'DEX'], ['fin', 'Finesse (best)'], ['monk', 'Monk (best)'], ['spell', 'Spellcasting'], ['int', 'INT'], ['wis', 'WIS'], ['cha', 'CHA'], ['', '—']];
 function formAttacksHTML() {
@@ -2222,7 +2231,7 @@ function attacksHTML() {
     if (!atkShown(a)) return '';
     const open = UI.open['atk:' + i], am = ammoItem(a), wit = a.item && S.inventory.find(x => x.id === a.item), hasTip = String(a.notes || '').trim() || (wit && (String(wit.notes || '').trim() || wit.hb)) || !a.item; // (unarmed strikes and natural weapons get one too: to hit, damage and their animation)
     return `<div class="atk-row${open ? ' open' : ''}">
-      <span class="atk-namewrap"><button class="atk-name" data-act="toggle" data-key="atk:${i}" aria-expanded="${!!open}" title="Edit">${esc(a.name)} <span class="caret">${open ? '▴' : '▾'}</span></button>${hasTip ? `<button class="notetip" data-tip="${i}" data-tipkind="atk" aria-label="Notes for ${esc(a.name)}">ⓘ</button>` : ''}${wit && wit.attune ? `<span class="tag${wit.attuned ? ' oath' : ''}" title="${wit.attuned ? 'Attuned' : 'Needs attunement'}">${wit.attuned ? '◆' : '◇'}</span>` : ''}</span>${String(a.notes || '').trim() && !open ? `<div class="atk-notes mnote">${esc(a.notes)}</div>` : ''}${wit && wit.hb && !open && hbSummary(wit.hb, wit).length ? `<div class="atk-notes mnote hbn">⚙ ${esc(hbSummary(wit.hb, wit).join(' · '))}</div>` : ''}
+      <span class="atk-namewrap"><button class="atk-name" data-act="toggle" data-key="atk:${i}" aria-expanded="${!!open}" title="Edit">${esc(a.name)} <span class="caret">${open ? '▴' : '▾'}</span></button>${gripBtn(i)}${hasTip ? `<button class="notetip" data-tip="${i}" data-tipkind="atk" aria-label="Notes for ${esc(a.name)}">ⓘ</button>` : ''}${wit && wit.attune ? `<span class="tag${wit.attuned ? ' oath' : ''}" title="${wit.attuned ? 'Attuned' : 'Needs attunement'}">${wit.attuned ? '◆' : '◇'}</span>` : ''}</span>${String(a.notes || '').trim() && !open ? `<div class="atk-notes mnote">${esc(a.notes)}</div>` : ''}${wit && wit.hb && !open && hbSummary(wit.hb, wit).length ? `<div class="atk-notes mnote hbn">⚙ ${esc(hbSummary(wit.hb, wit).join(' · '))}</div>` : ''}
       <span class="atk-hit">${rollBtn('atk:' + i, a.name + ' attack')}</span>
       <span class="atk-dmg">${rollBtn('dmg:' + i, a.name + ' damage')}</span>
       <span class="atk-type muted">${esc(a.type || '')}${am ? `<b class="ammo" title="${esc(am.name)}" data-calc="ammo:${i}"></b>` : ''}</span>
@@ -2942,7 +2951,7 @@ function renderInventory() {
     const pms = typeof ptyAct === 'function' && ptyAct() ? ptyMembers() : [];
     const mvP = pms.length ? `<div class="menu mvmenu"><button class="mvto" data-act="menu" aria-haspopup="true" title="Move or give to a party member" aria-label="Move or give ${esc(it.name)}">⇄</button><div class="menu-list">${dests.length && (it.equipped || bags.length) ? `<div class="mlabel">Move to</div>${dests.map(([v, t]) => `<button data-act="moveto" data-i="${i}" data-to="${esc(v)}">${esc(t)}</button>`).join('')}` : ''}<div class="mlabel">Give to</div>${pms.map(m => `<button data-pa="giveto" data-id="${esc(m.id)}" data-i="${i}">${esc(m.name || 'A party member')}</button>`).join('')}</div></div>` : '';
     return `<div class="irow irow2${it.magic ? ' magic' : ''}" data-ii="${i}" data-q="${esc((it.name + ' ' + (it.notes || '') + ' ' + ((it.magic || {}).rarity || '')).toLowerCase())}">
-      <div class="iname-row" title="${esc(it.name)}"><span class="idrag" data-drag="${i}" title="Drag to reorder, or into another container" aria-hidden="true">⠿</span>${ta(`inventory.${i}.name`, { rows: 1, cls: 'iname', label: 'Item name' })}${String(it.notes || '').trim() || it.img ? `<button class="notetip" data-tip="${i}" aria-label="Notes for ${esc(it.name)}" title="">ⓘ</button>` : ''}</div>
+      <div class="iname-row" title="${esc(it.name)}"><span class="idrag" data-drag="${i}" title="Drag to reorder, or into another container" aria-hidden="true">⠿</span>${ta(`inventory.${i}.name`, { rows: 1, cls: 'iname', label: 'Item name' })}${String(it.notes || '').trim() || it.img ? `<button class="notetip" data-tip="${i}" aria-label="Notes for ${esc(it.name)}" title="">ⓘ</button>` : ''}${it.weapon ? (() => { const ai = S.attacks.findIndex(a => a.item === it.id); return ai >= 0 ? gripBtn(ai) : ''; })() : ''}</div>
       <div class="ictl">${invArrows(i)}<div class="qty"><button data-act="qty" data-i="${i}" data-d="-1" aria-label="One fewer">−</button>${inp(`inventory.${i}.qty`, { num: 1, cls: 'qtyin', label: 'Quantity' })}<button data-act="qty" data-i="${i}" data-d="1" aria-label="One more">+</button></div>
         ${it.equipped ? '' : `<button class="mvbtn eq" data-act="equip" data-i="${i}" title="Equip">Equip</button>`}${pms.length ? (mv.startsWith('<button class="mvbtn"') ? mv : '') + mvP : mv}
         <span class="grow"></span>
@@ -3291,7 +3300,7 @@ function oocHTML(comps) {
       <div class="ooc-col">
         ${comps}
         <div class="panel"><h2>Attacks</h2>
-          <table class="mini ooc-atk">${S.attacks.map((at, i) => { if (!atkShown(at)) return ''; const wi = at.item && S.inventory.find(x => x.id === at.item), tip = String(at.notes || '').trim() || (wi && (String(wi.notes || '').trim() || wi.hb)) || !at.item; return `<tr><td>${esc(at.name)}${tip ? `<button class="notetip" data-tip="${i}" data-tipkind="atk" aria-label="Notes for ${esc(at.name)}">ⓘ</button>` : ''}</td><td>${rollBtn('atk:' + i, at.name + ' attack')}</td><td>${rollBtn('dmg:' + i, at.name + ' damage')}</td><td>${atkBtn(i, true)}</td></tr>`; }).join('') || '<tr><td class="hint">No attacks — add weapons in Inventory.</td></tr>'}</table>
+          <table class="mini ooc-atk">${S.attacks.map((at, i) => { if (!atkShown(at)) return ''; const wi = at.item && S.inventory.find(x => x.id === at.item), tip = String(at.notes || '').trim() || (wi && (String(wi.notes || '').trim() || wi.hb)) || !at.item; return `<tr><td>${esc(at.name)}${tip ? `<button class="notetip" data-tip="${i}" data-tipkind="atk" aria-label="Notes for ${esc(at.name)}">ⓘ</button>` : ''}${gripBtn(i)}</td><td>${rollBtn('atk:' + i, at.name + ' attack')}</td><td>${rollBtn('dmg:' + i, at.name + ' damage')}</td><td>${atkBtn(i, true)}</td></tr>`; }).join('') || '<tr><td class="hint">No attacks — add weapons in Inventory.</td></tr>'}</table>
           ${clsLv('rogue') ? `<div class="row sarow" style="margin-top:6px"><button class="btn sm gold" data-act="sneak">Sneak Attack ${sneakDice()}</button><span class="sadotw" data-calc-html="sneakdot"></span></div>` : ''}${stunRowHTML()}</div>
         ${spells.length ? `<div class="panel"><h2>Spells</h2>${combatSpellsHTML('ooc', spells)}</div>` : ''}
       </div>
@@ -3327,7 +3336,7 @@ function renderCombat() {
     if (key === 'action') {
       body += hasteBlockHTML();
       body += `<div class="block"><div class="sect">Attack action <span class="atkpips" data-calc-html="atkpips" title="Attacks left this turn"></span><span class="grow"></span></div>
-        <table class="mini">${S.attacks.map((at, i) => { if (!atkShown(at) || at.bonus) return ''; const wi = at.item && S.inventory.find(x => x.id === at.item), tip = String(at.notes || '').trim() || (wi && (String(wi.notes || '').trim() || wi.hb)) || !at.item; const nmw = String(at.name).trim().split(/\s+/), lastW = nmw.pop(); return `<tr><td>${nmw.length ? esc(nmw.join(' ')) + ' ' : ''}<span class="nowrap">${esc(lastW)}${tip ? `<button class="notetip" data-tip="${i}" data-tipkind="atk" aria-label="Notes for ${esc(at.name)}">ⓘ</button>` : ''}</span></td><td>${rollBtn('atk:' + i, at.name + ' attack')}</td><td>${rollBtn('dmg:' + i, at.name + ' damage')}</td><td>${atkBtn(i, true)}</td></tr>`; }).join('') || '<tr><td class="hint">No attacks — add weapons in Inventory.</td></tr>'}</table>
+        <table class="mini">${S.attacks.map((at, i) => { if (!atkShown(at) || at.bonus) return ''; const wi = at.item && S.inventory.find(x => x.id === at.item), tip = String(at.notes || '').trim() || (wi && (String(wi.notes || '').trim() || wi.hb)) || !at.item; const nmw = String(at.name).trim().split(/\s+/), lastW = nmw.pop(); return `<tr><td>${nmw.length ? esc(nmw.join(' ')) + ' ' : ''}<span class="nowrap">${esc(lastW)}${tip ? `<button class="notetip" data-tip="${i}" data-tipkind="atk" aria-label="Notes for ${esc(at.name)}">ⓘ</button>` : ''}${gripBtn(i)}</span></td><td>${rollBtn('atk:' + i, at.name + ' attack')}</td><td>${rollBtn('dmg:' + i, at.name + ' damage')}</td><td>${atkBtn(i, true)}</td></tr>`; }).join('') || '<tr><td class="hint">No attacks — add weapons in Inventory.</td></tr>'}</table>
         <div class="hint" data-calc="ridersnote"></div>
         ${clsLv('rogue') ? `<div class="row sarow" style="margin-top:6px"><button class="btn sm gold" data-act="sneak">Sneak Attack ${sneakDice()}</button><span class="sadotw" data-calc-html="sneakdot"></span></div>` : ''}
         ${stunRowHTML()}${harmRowHTML()}
@@ -3514,7 +3523,7 @@ function calcHTML(key) {
     case 'fxchips': {
       const fx = S.effects || [];
       if (!fx.length) return '<span class="hint">No spells or effects running.</span>';
-      return fx.map((e, j) => `<span class="fxc${e.conc ? ' conc' : ''}${e.rounds != null && e.rounds <= 1 ? ' ending' : ''}" title="${esc(fxTip(e))}">${e.conc ? '<i class="cdot"></i>' : ''}<b>${esc(e.name)}</b>${e.ally ? ' (ally)' : ''}${e.from ? '<small class="fxfrom" title="Cast on you by someone else">↘</small>' : ''}${e.buff && N(e.buff.ac) && !e.ally ? ` +${N(e.buff.ac)} AC` : ''}<span class="left">${(e.rage && e.rounds == null ? "until rage ends" : fmtRounds(e.rounds))}</span>${e.repeat ? `<button class="rep" data-act="repeatfx" data-j="${j}" title="Roll ${esc(e.repeat.dice)} ${esc(e.repeat.type || '')}">🎲 ${esc(e.repeat.dice)}</button>` : ''}<button data-act="endeffect" data-n="${esc(e.name)}" aria-label="End ${esc(e.name)}">✕</button></span>`).join('');
+      return fx.map((e, j) => `<span class="fxc${e.conc ? ' conc' : ''}${e.rounds != null && e.rounds <= 1 ? ' ending' : ''}" title="${esc(fxTip(e))}">${e.conc ? '<i class="cdot"></i>' : ''}<b>${esc(e.name)}</b>${e.ally ? ' (ally)' : ''}${e.from ? '<small class="fxfrom" title="Cast on you by someone else">↘</small>' : ''}${e.buff && N(e.buff.ac) && !e.ally ? ` +${N(e.buff.ac)} AC` : ''}<span class="left">${(e.rage && e.rounds == null ? "until rage ends" : fmtRounds(e.rounds))}</span>${e.repeat ? `<button class="rep" data-act="repeatfx" data-j="${j}" title="Roll ${esc(e.repeat.dice)} ${esc(e.repeat.type || '')}">${esc(String(e.repeat.dice).replace(/^1d/, 'd'))}</button>` : ''}<button data-act="endeffect" data-n="${esc(e.name)}" aria-label="End ${esc(e.name)}">✕</button></span>`).join('');
     }
     case 'slotsall': {
       let h = '';
@@ -3532,11 +3541,11 @@ function calcHTML(key) {
     case 'movebar': return `<i style="width:${Math.max(0, 100 - Math.max(0, N(S.turn.moved)) / Math.max(1, moveBudget()) * 100)}%"></i>`;
     case 'conds': {
       const ex = N(S.exhaustion);
-      return (S.rollAdv ? `<span class="cchip ${S.rollAdv === 'adv' ? 'advc' : 'disc'}"><span class="ccn">${S.rollAdv === 'adv' ? 'Advantage' : 'Disadvantage'} <small class="cturns">all d20 rolls</small></span><button data-act="rolladv" data-v="${S.rollAdv}" aria-label="Turn off">✕</button></span>` : '') + S.conditions.map((c, k) => `<span class="cchip"><span class="ccn">${esc(c)}</span><button class="notetip" data-tip="${k}" data-tipkind="cond" aria-label="What ${esc(c)} does">ⓘ</button>${(S.condTurns || {})[c] ? ` <small class="cturns">${durShort(N(S.condTurns[c]))}</small>` : ''}<button data-act="dropcond" data-c="${esc(c)}" aria-label="Remove ${esc(c)}">✕</button></span>`).join('') +
+      return (S.rollAdv ? `<span class="cchip ${S.rollAdv === 'adv' ? 'advc' : 'disc'}"><span class="ccn">${S.rollAdv === 'adv' ? 'Advantage' : 'Disadvantage'} <small class="cturns">all d20 rolls</small></span><button data-act="rolladv" data-v="${S.rollAdv}" aria-label="Turn off">✕</button></span>` : '') + S.conditions.map((c, k) => c === 'Raging' && (S.effects || []).some(e => e.name === 'Rage') ? '' : /* (Rage shows once, in Active Spells & Effects) */ `<span class="cchip"><span class="ccn">${esc(c)}</span><button class="notetip" data-tip="${k}" data-tipkind="cond" aria-label="What ${esc(c)} does">ⓘ</button>${(S.condTurns || {})[c] ? ` <small class="cturns">${durShort(N(S.condTurns[c]))}</small>` : ''}<button data-act="dropcond" data-c="${esc(c)}" aria-label="Remove ${esc(c)}">✕</button></span>`).join('') +
         Object.keys(S.tmpMods || {}).map(k => `<span class="cchip abt${tmv(k) > 0 ? ' pos' : ''}"><span class="ccn">${tmName(k)} ${fmt(tmv(k))}</span>${tmr(k) > 0 ? ` <small class="hint">${tmr(k)} rd</small>` : ''}<button data-act="tmpmodclear" data-k="${k}" aria-label="End ${tmName(k)} change">✕</button></span>`).join('') +
         Object.keys(S.abTemp || {}).map(a => { const r = N(S.abTempR); return `<span class="cchip abt"><span class="ccn">${a.toUpperCase()} ${baseScore(a)}→${score(a)}</span><button class="notetip" data-tip="ab:${a}" data-tipkind="cond" aria-label="About this ${ABN[a]} change">ⓘ</button>${r ? ` <small class="cturns">${durShort(r)}</small>` : ''}<button data-act="abtempclear" data-a="${a}" aria-label="End ${ABN[a]} change">✕</button></span>`; }).join('') +
         (ex ? `<span class="cchip exh"><span class="ccn">Exhaustion ${ex}</span><button class="notetip" data-tip="exh" data-tipkind="cond" aria-label="What exhaustion does">ⓘ</button><button data-act="exh" data-d="-1" aria-label="Less exhaustion">−</button><button data-act="exh" data-d="1" aria-label="More exhaustion">+</button></span>` : '') +
-        (S.conditions.length || ex || S.rollAdv || Object.keys(S.abTemp || {}).length || Object.keys(S.tmpMods || {}).length ? '' : '<span class="hint">None</span>');
+        (S.conditions.some(c => !(c === 'Raging' && (S.effects || []).some(e => e.name === 'Rage'))) || ex || S.rollAdv || Object.keys(S.abTemp || {}).length || Object.keys(S.tmpMods || {}).length ? '' : '<span class="hint">None</span>');
     }
   }
   return '';
@@ -3774,7 +3783,9 @@ addEventListener('resize', invCtxShut); addEventListener('blur', invCtxShut);
 
 
 // ---------- Click handling ----------
-document.addEventListener('click', e => rollGate(() => mainClick(e)));
+// (where the click happened is noted now: with dice you roll yourself, the click is run again once the roll is in, and by
+// then the button may have been redrawn and no longer be on the page)
+document.addEventListener('click', e => { try { e._pc = !!(e.target.closest && e.target.closest('#page-combat')); } catch (x) {} rollGate(() => mainClick(e)); });
 const TABSCROLL = {}; let tabFadeT = 0;
 function mainClick(e) {
   if (e.target.closest('#wizard')) return wizClick(e);
@@ -3804,7 +3815,7 @@ function mainClick(e) {
     case 'redoall': { const c = redo(REDO.length); closeModal(true); toast(`Redid ${c} change(s).`); break; }
     case 'layout': if (onPhone()) break; if (window.pgPhoneView && (window.PG_IN_PHONE || (!isMobile() && window.innerWidth >= 640))) { window.pgPhoneView(!window.PG_IN_PHONE); break; }
       LAYOUT_NOW = isMobile() ? 'desktop' : 'mobile'; applyLayout(); render(); window.scrollTo(0, 0); break;
-    case 'attack': attackRoll(i, !b.closest('#page-combat') || !S.inCombat); break;
+    case 'attack': attackRoll(i, !(e._pc || b.closest('#page-combat')) || !S.inCombat); break;
     case 'bonusatk': bonusAttack(i, b.dataset.kind); break;
     case 'equip': equipItem(i); break;
     case 'dupitem': { const src = S.inventory[i]; if (!src) break; const c = JSON.parse(JSON.stringify(src)); c.id = uid(); c.equipped = false; c.attuned = false; S.inventory.splice(i + 1, 0, c); pendingLabel = 'Duplicate ' + (src.name || 'item'); save(); render(); toast(`Duplicated “${esc(src.name || 'item')}”`); break; }
@@ -3850,6 +3861,7 @@ function mainClick(e) {
     case 'del': delItem(b.dataset.list, i); break;
     case 'up': { const L = getP(b.dataset.list); if (i > 0) { [L[i - 1], L[i]] = [L[i], L[i - 1]]; save(); render(); } break; }
     // Features tab rows open and close in place (no redraw), so they can slide open.
+    case 'twohand': { const a = S.attacks[i]; if (!a) return; a.twoHand = !a.twoHand; pendingLabel = (a.twoHand ? 'Two hands: ' : 'One hand: ') + a.name; save(); render(); toast(`<b>${esc(a.name)}</b> in ${a.twoHand ? 'two hands' : 'one hand'} — ${esc(atkDmgText(a))}${a.type ? ' ' + esc(a.type) : ''}`, '', 3500); return; }
     case 'ftog': { const k = b.dataset.key, row = b.closest('.frow'), v = row ? !row.classList.contains('open') : !UI.open[k]; UI.open[k] = v; saveUI(); if (row) { row.classList.toggle('open', v); b.setAttribute('aria-expanded', v); const bd = row.querySelector('.fl-body'); if (bd) bd.inert = !v; } return; }
     case 'toggle': {
       UI.open[b.dataset.key] = !UI.open[b.dataset.key]; saveUI(); pendingLabel = null;
@@ -4288,7 +4300,7 @@ function attackRoll(i, free, opt) {
   if (!nat1 && a.kind === 'melee' && stunStrikeFeat() && stunKiLeft() > 0) acts.push({ keep: true, cls: 't-add', grp: 'stun', label: 'Stunning Strike (1 ki)', title: 'The creature you hit makes a CON save or is stunned', fn: (t, b) => { stunningStrike(); b.remove(); } });
   xr.filter(x => x.refund).forEach(x => acts.push({ label: `Missed — get ${x.what === 'Divine Smite' ? 'the slot' : 'the ki'} back`, fn: () => { x.refund(); pendingLabel = x.what + ' not used'; update(); render(); toast(`${x.what} is ready again for your next hit.`); } }));
   rh.always.forEach(x => acts.push({ label: `Missed — get ${x.src.name} back`, fn: () => { x.src.refund(); pendingLabel = x.src.name + ' not used'; update(); render(); toast(`${esc(x.src.name)} is back.`); } }));
-  acts.push(...rh.acts);
+  acts.push(...rh.acts); { const ia = typeof inspAct === 'function' && !nat1 ? inspAct(h.total, nm + ' to hit') : null; if (ia) acts.push(ia); }
   // What you can still add now that you know it hit: Divine Smite, Sneak Attack, Hand of Harm (each adds to this card).
   if (!nat1) acts.push(...atkAddOns(a, nm, crit, isWeapon, rm, opt, { total, byType, mainT, sneak: sr ? sr.total : 0 }, xr.filter(x => x.what).map(x => x.what)));
   if (sr && !opt.offTurn) acts.push({ label: 'Missed — Sneak Attack not used', fn: () => { S.turn.sneak = false; pendingLabel = 'Sneak Attack not used'; update(); refresh(); toast('Sneak Attack is ready again this turn.'); } });
@@ -4465,7 +4477,7 @@ function takeDamage(amt) {
   }
   const before = N(hp.cur);
   // Massive damage (PHB): damage left over after dropping to 0 that equals or beats your HP maximum kills outright.
-  if (d > 0 && d - Math.max(0, before) >= maxHp() && maxHp() > 0) { if (before > 0 && typeof ptyDeathWard === 'function' && ptyDeathWard()) { hp.cur = 1; update(); return; } hp.cur = 0; S.death.f = 3; if (!S.conditions.includes('Unconscious')) S.conditions.push('Unconscious'); update(); fxTrigger('zero');
+  if (d > 0 && d - Math.max(0, before) >= maxHp() && maxHp() > 0) { if (before > 0 && typeof ptyDeathWard === 'function' && ptyDeathWard()) { hp.cur = 1; update(); return; } hp.cur = 0; S.death.f = 3; if (!S.conditions.includes('Unconscious')) S.conditions.push('Unconscious'); if (!S.form) incapacitate('Unconscious'); update(); fxTrigger('zero');
     toast(`<div><b>Massive damage</b><div class="det">${d - Math.max(0, before)} damage left over after 0 HP is at least ${esc(who())}'s HP maximum (${maxHp()}) — instant death. If your DM rules otherwise, clear the death save failures.</div></div>`, 'fumble', 12000);
     if (conc) breakConc('died'); return; }
   if (before <= 0 && d > 0) { S.death.f = Math.min(3, N(S.death.f) + 1); update(); toast('Damage while at 0 HP — one death save failure (two on a crit).', 'fumble', 7000); return; }
@@ -4473,7 +4485,8 @@ function takeDamage(amt) {
   if (hp.cur === 0 && before > 0 && typeof ptyDeathWard === 'function' && ptyDeathWard()) hp.cur = 1;
   if (hp.cur === 0 && before > 0) {
     if (!S.conditions.includes('Unconscious')) S.conditions.push('Unconscious');
-    toast(`${esc(who())} drops to 0 HP — roll death saves.`, 'fumble', 7000);
+    const ko = S.form ? [] : incapacitate('Unconscious');
+    toast(`<div>${esc(who())} drops to 0 HP and falls unconscious — roll death saves.${ko.map(l => `<div class="det">${esc(l)}</div>`).join('')}</div>`, 'fumble', 9000);
     fxTrigger('zero');
     if (typeof ptyAurasOff === 'function' && Object.keys(S.ptyAuras || {}).length) ptyAurasOff('dropped to 0 HP');
     if (conc) { update(); breakConc('dropped to 0 HP'); return; }
@@ -4522,6 +4535,18 @@ function cleanupLinked() {
   if (S.conditions.includes('Raging') && !names.has('Rage')) { S.conditions = S.conditions.filter(c => c !== 'Raging'); rageEndFx(); }
   if (!names.has('Rage') && (S.effects || []).some(e => e.rage)) S.effects = S.effects.filter(e => !e.rage); // (Wild Surge effects end with the rage)
 }
+// Knocked out, stunned, paralyzed…: what ends or happens with it (PHB / SRD). Any of these incapacitate you, which ends a
+// Dodge and Bladesong (and concentration, handled by the caller); being knocked unconscious also ends a barbarian's Rage,
+// and an unconscious creature falls prone and drops what it holds.
+function incapacitate(c) {
+  const lines = [];
+  if (c === 'Unconscious' && ((S.effects || []).some(e => e.name === 'Rage') || S.conditions.includes('Raging'))) { S.effects = (S.effects || []).filter(e => e.name !== 'Rage'); lines.push('Your Rage ends'); }
+  if (S.conditions.includes('Dodging')) { S.conditions = S.conditions.filter(x => x !== 'Dodging'); lines.push('Your Dodge ends'); }
+  const blade = (S.effects || []).find(e => /^bladesong$/i.test(e.name)); if (blade) { S.effects = S.effects.filter(e => e !== blade); lines.push('Bladesong ends'); }
+  if (c === 'Unconscious') { if (!S.conditions.includes('Prone')) { S.conditions.push('Prone'); lines.push('You fall prone'); } lines.push('You drop whatever you’re holding'); }
+  cleanupLinked();
+  return lines;
+}
 function breakConc(reason) {
   const nm = S.concentration; if (!nm) return;
   S.concentration = ''; S.effects = (S.effects || []).filter(e => !e.conc);
@@ -4531,9 +4556,9 @@ function breakConc(reason) {
 function concCheck(dc) {
   const nm = S.concentration; if (!nm) return;
   const bonus = saveVal('con') + (hasFeat('War Caster') ? 0 : 0);
-  toast(`<div><b>Concentration check</b> for ${esc(nm)}<div class="det">DC ${dc} CON save · ${fmt(bonus)}${hasFeat('War Caster') ? ' · War Caster: advantage' : ''}</div></div>`, 'alert', 30000, [
-    { label: 'Roll', fn: () => { if (S.concentration !== nm) { toast('No longer concentrating on that spell.'); return; } const ex = (hasFeat('War Caster') ? '2d20kh1' : d20Expr(bonus, 'save', 'con').expr.replace(/[+-]\d+.*$/, '')) + sgn(bonus - exD20()) + (blessed() ? '+1d4' : ''); const r = rollExpr(ex, { need: true, label: 'Concentration save' }); const ok = r.total >= dc; toast(`<b class="total">${r.total}</b><div><div>Concentration ${ok ? 'holds' : 'fails'} (DC ${dc})</div><div class="det">${esc(r.detail)}</div></div>`, ok ? 'crit' : 'fumble', 6000); if (!ok) breakConc('failed DC ' + dc); } },
-    { label: 'Failed', fn: () => { if (S.concentration === nm) breakConc('failed DC ' + dc); } }]);
+  toast(`<div class="cc-main"><div class="rc-lbl">Concentration save</div><div class="rc-name">${esc(nm)}</div><div class="cc-sub">CON save ${fmt(bonus)}${hasFeat('War Caster') ? ' · advantage (War Caster)' : ''}</div></div><div class="cc-dc"><small>DC</small><b>${dc}</b></div>`, 'card cc', 30000, [
+    { label: 'Roll save', cls: 'cc-roll', fn: () => { if (S.concentration !== nm) { toast('No longer concentrating on that spell.'); return; } const ex = (hasFeat('War Caster') ? '2d20kh1' : d20Expr(bonus, 'save', 'con').expr.replace(/[+-]\d+.*$/, '')) + sgn(bonus - exD20()) + (blessed() ? '+1d4' : ''); const r = rollExpr(ex, { need: true, label: 'Concentration save' }); const ok = r.total >= dc; toast(`<b class="total">${r.total}</b><div><div>Concentration ${ok ? 'holds' : 'fails'} (DC ${dc})</div><div class="det">${esc(r.detail)}</div></div>`, ok ? 'crit' : 'fumble', 6000); if (!ok) breakConc('failed DC ' + dc); } },
+    { label: 'I failed it', cls: 'cc-fail', fn: () => { if (S.concentration === nm) breakConc('failed DC ' + dc); } }]);
 }
 function endEffect(n) {
   (S.effects || []).filter(x => x.name === n).forEach(x => { if (typeof poolSettle === 'function') poolSettle(x); });
@@ -4545,9 +4570,22 @@ function endEffect(n) {
 }
 function repeatEffect(j) {
   const e = S.effects[j]; if (!e || !e.repeat) return;
+  if (isInsp(e)) return giftUse(null, '');
   const r = rollExpr(e.repeat.dice);
   toast(`<b class="total">${r.total}</b><div><div>${esc(e.name)} — ${e.repeat.heal ? 'healing' : esc(e.repeat.type || 'damage')}</div><div class="det">${esc(r.detail)}${e.repeat.save ? ' · ' + esc(e.repeat.save) : ''}</div></div>`, '', 7000);
 }
+// Inspiration you were given (Bardic Inspiration from the effects list or sent by a bard in your party): one die, used
+// once. Rolling it ends it; after an attack, check or save the result offers to add it.
+const isInsp = e => !!(e && e.repeat && /inspiration/i.test(String(e.repeat.type || e.name || '')) && !e.ally);
+const inspFx = () => (S.effects || []).find(isInsp);
+function giftUse(base, label) {
+  const e = inspFx(); if (!e) { toast('No inspiration die to use.', 'fumble'); return; }
+  const r = rollExpr(e.repeat.dice, { label: (label ? label + ': ' : '') + (e.repeat.type || e.name) }); if (!r) return;
+  S.effects = S.effects.filter(x => x !== e); pendingLabel = 'Use ' + e.name; save(); render();
+  const tot = base != null ? base + r.total : r.total;
+  toast(`<b class="total">${tot}</b><div><div>${label ? esc(label) + ' + ' : ''}${esc(e.repeat.type || e.name)}</div><div class="det">${base != null ? base + ' + ' : ''}${esc(e.repeat.dice)} (${esc(r.detail)})</div><div class="det">${esc(e.name)} used</div></div>`, '', 8000, { label: 'Undo', fn: () => undo(1) });
+}
+const inspAct = (base, label) => { const e = inspFx(); return e ? { label: `+ ${e.repeat.type || 'Inspiration'} (${String(e.repeat.dice).replace(/^1d/, 'd')})`, fn: () => giftUse(base, label) } : null; };
 // Features that happen on their own as your turn comes round (Elder Champion's 10 HP, Survivor, Protective Spirit):
 // fx `onTurn: { use, onlyWhen, notZero, notIncap }`. Each one says what it did in a note.
 function turnStartFx() {
@@ -4738,6 +4776,7 @@ function toggleCondition(c) {
   if (on && S.condTurns) delete S.condTurns[c];
   if (on && S.condNotes) delete S.condNotes[c];
   pendingLabel = (on ? 'Remove ' : 'Add ') + c;
+  if (!on && ['Incapacitated', 'Paralyzed', 'Petrified', 'Stunned', 'Unconscious'].includes(c)) { const ko = incapacitate(c); if (ko.length) toast(`<div><b>${esc(c)}</b>${ko.map(l => `<div class="det">${esc(l)}</div>`).join('')}</div>`, 'fumble', 8000); }
   if (!on && ['Incapacitated', 'Paralyzed', 'Petrified', 'Stunned', 'Unconscious'].includes(c) && S.concentration) { save(); breakConc(c.toLowerCase()); return; }
   update(); render('vitals', 'combat');
 }
