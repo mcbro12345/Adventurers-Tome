@@ -5038,4 +5038,9 @@ html.mobile :is(#page-features, #page-infusions) .fl-acts .btn.fxact { min-heigh
 .cspg-hrow > .gdrag-off { z-index: auto; }
 /* Story tab: alignment, faith (and player, in the single-file sheet) above the personality traits. */
 .story-id { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 12px; }
+.setrow .set-ctl { flex: 0 0 min(200px, 55%); margin-left: auto; } .setrow .set-ctl .f { width: 100% !important; max-width: none !important; min-width: 0 !important; box-sizing: border-box; }
+/* Top-right icon buttons: an even icon size in the 28px inside of the button, so the icon lands on whole pixels and sits dead centre. */
+.devbtn svg, .devbtn.logbtn svg { width: 18px; height: 18px; display: block; }
+/* The line under the name breaks only between its parts (each part's spaces are non-breaking; see fitSubtitle). */
+.namebox .subtitle { overflow-wrap: normal; word-break: normal; overflow-x: hidden; max-width: 100%; box-sizing: border-box; }
 

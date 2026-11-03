@@ -814,15 +814,17 @@ window.addEventListener('resize', () => $$('input.f.name').forEach(fitNameFont))
 // The line under the name (race · class · background) never runs past two lines on a computer: a long one gets smaller
 // type instead, so the top bar is the same height for every character. (Remembered per text and width.)
 let SUB_K = '';
+// The line under the name wraps only between its parts (race · class · …), never inside one. If a part is too long for a
+// line of its own it shrinks to fit. It can run to three lines before it shrinks (past that, at the smallest size, it stops
+// after three and the whole of it shows on hover).
 function fitSubtitle() { const el = $('.namebox .subtitle'); if (!el) return;
-  if (isMobile()) { if (el.style.fontSize) el.style.fontSize = ''; SUB_K = ''; return; }
-  const k = el.textContent + '|' + (el.parentElement ? el.parentElement.clientWidth : 0) + '|' + document.documentElement.style.fontSize; if (k === SUB_K && el._fit) return; SUB_K = k; el._fit = 1;
-  el.style.fontSize = ''; if (!el.textContent || !el.offsetParent) return; const base = parseFloat(getComputedStyle(el).fontSize) || 15;
+  const k = el.textContent + '|' + (el.parentElement ? el.parentElement.clientWidth : 0) + '|' + document.documentElement.style.fontSize + '|' + isMobile(); if (k === SUB_K && el._fit) return; SUB_K = k; el._fit = 1;
+  el.style.fontSize = ''; el.classList.remove('sub2'); el.removeAttribute('title'); if (!el.textContent || !el.offsetParent) return;
+  const base = parseFloat(getComputedStyle(el).fontSize) || 15;
+  const over = () => el.scrollWidth > el.clientWidth + 0.5;
   const lines = () => { const cs = getComputedStyle(el), lh = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.2; return Math.round(el.clientHeight / lh); };
-  el.classList.remove('sub2'); el.removeAttribute('title');
-  let px = base; while (lines() > 2 && px > base * 0.72) { px -= 0.5; el.style.fontSize = px + 'px'; }
-  // (still more than two lines at the smallest size: it stops after two, and the whole of it shows on hover)
-  if (lines() > 2) { el.classList.add('sub2'); el.title = el.textContent; } }
+  let px = base; while ((over() || lines() > 3) && px > base * 0.6) { px -= 0.5; el.style.fontSize = px + 'px'; }
+  if (lines() > 3) { el.classList.add('sub2'); el.title = el.textContent; } }
 window.addEventListener('resize', () => { SUB_K = ''; fitSubtitle(); });
 
 // Desktop header stays one row: when the toolbar would wrap, its buttons drop their words and keep their icons.

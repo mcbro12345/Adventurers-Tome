@@ -4049,7 +4049,7 @@ html.mwin .skman { display: grid; grid-template-columns: 1fr 1fr; column-gap: 22
 /* Header with Player/Race/Background/Alignment/Faith all off: the whole row drops so its bottom lines up with the portrait's bottom */
 html:not(.mobile) .ident.noid { padding-bottom: 0 !important; margin-bottom: 0 !important; }
 html:not(.mobile) .ident.noid .ident-top { align-items: flex-end !important; padding-bottom: 0 !important; margin-bottom: 0 !important; }
-html:not(.mobile) .ident.noid .namebox { align-self: flex-end; }
+html:not(.mobile) .ident.noid .namebox { align-self: center; position: relative; top: -2px; } /* name and the line under it centred on the portrait */
 html:not(.mobile) .ident.noid .subtitle { margin-bottom: -4px; }
 /* The info button on condition chips sits dead centre on the chip */
 .cchip .notetip { display: inline-flex !important; align-items: center; justify-content: center; align-self: center; width: 16px; height: 16px; padding: 0; margin: 0 0 0 3px; line-height: 16px; vertical-align: middle; }
@@ -5036,4 +5036,12 @@ html.mobile :is(#page-features, #page-infusions) .fl-acts .btn.fxact { min-heigh
 /* The grip sits above the header button that starts under it, so it gets the grab cursor and the press. */
 .cspg-hrow > .gdrag, .cgmov > .cgdrag { z-index: 3; }
 .cspg-hrow > .gdrag-off { z-index: auto; }
+/* Story tab: alignment, faith (and player, in the single-file sheet) above the personality traits. */
+.story-id { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 12px; }
+.setrow .set-ctl { flex: 0 0 min(200px, 55%); margin-left: auto; } .setrow .set-ctl .f { width: 100% !important; max-width: none !important; min-width: 0 !important; box-sizing: border-box; }
+/* Top-right icon buttons: an even icon size in the 28px inside of the button, so the icon lands on whole pixels and sits dead centre. */
+.devbtn svg, .devbtn.logbtn svg { width: 18px; height: 18px; display: block; }
+/* The line under the name never wraps: the sheet shrinks it to fit (see fitSubtitle). */
+.namebox .subtitle, html:not(.mobile) .namebox .subtitle { white-space: nowrap !important; overflow: hidden; text-overflow: clip; display: block; max-width: 100%; box-sizing: border-box; }
+.namebox .subtitle.subcut { text-overflow: ellipsis; }
 

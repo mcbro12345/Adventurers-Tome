@@ -1927,15 +1927,15 @@ function zoneOrder(zone, ids) {
 function renderHeader() {
   const dark = document.documentElement.getAttribute('data-theme') === 'dark';
   const pic = S.portrait || PLACEHOLDER, xp = ST('advancement') === 'xp';
-  const idf = [ST('showPlayer') ? (window.SHEET_PAGES ? `<div class="fld"><span class="lbl">Player</span><span class="identtxt" title="Comes from the player list on your party page">${esc(S.player || '—')}</span></div>` : fld('Player', inp('player', { fit: 8, ph: 'Player' }))) : '', ST('showRace') ? `<div class="fld"><span class="lbl">Race</span><span class="identtxt" title="Change your race in Settings">${esc(S.raceName || '—')}</span></div>` : '', ST('showBackground') ? `<div class="fld"><span class="lbl">Background</span><span class="identtxt" title="Change your background in Settings">${esc(S.backgroundName || '—')}</span></div>` : '',
-    ST('showAlignment') ? fld('Alignment', sel('alignment', [['', '—']].concat(DND.alignments.map(a => [a, a])))) : '', ST('showFaith') ? fld('Faith', inp('faith', { ph: '—', fit: 8 })) : ''].join('');
+  // (alignment, faith and player now ride along in the line under the name; they're edited on the Story tab)
+  const idf = '';
   $('#sec-header').innerHTML = `
   <div class="banner-row"><div class="portrait-wrap"><img id="portraitImg" src="${esc(pic)}" alt="${esc((S.name || 'Character') + '’s portrait')}">
     <label class="portrait-edit" tabindex="0" data-act="portrait" title="Change portrait" aria-label="Change portrait"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/></svg></label></div>${inspHTML()}</div>
   <div class="ident${idf ? '' : ' noid'}"><h1 class="sr-only">${esc(S.name || 'Character sheet')}</h1>
     <div class="ident-top">
       <img class="mini-portrait" src="${esc(pic)}" alt="" data-act="portrait">
-      <div class="namebox">${ST('showName') ? inp('name', { cls: 'name', label: 'Character name', ph: 'Character name', fit: 10 }) : ''}
+      <div class="namebox">${inp('name', { cls: 'name', label: 'Character name', ph: 'Character name', fit: 10 })}
         <div class="subtitle" data-calc="subtitle"></div></div>
       <div class="lvlbox${xpReady() ? ' ready' : ''}" id="lvlbox">
         <div class="lvlnum"><span class="lbl">Level</span><b data-calc="lvl"></b></div>
@@ -3116,7 +3116,7 @@ function renderStory() {
   $('#page-story').innerHTML = `
   <div class="story">
     <div class="stack">
-      <div class="panel" ${PID('personality')}><h2>Personality</h2><div class="traits">
+      <div class="panel" ${PID('personality')}><h2>Personality</h2><div class="story-id">${fld('Alignment', sel('alignment', [['', '—']].concat(DND.alignments.map(a => [a, a]))))}${fld('Faith', inp('faith', { ph: 'Deity or belief' }))}${window.SHEET_PAGES ? '' : fld('Player', inp('player', { ph: 'Who plays this character' }))}</div><div class="traits">
         ${fld('Personality Traits', ta('traits.personality', { rows: 2 }))}${fld('Ideals', ta('traits.ideals', { rows: 2 }))}
         ${fld('Bonds', ta('traits.bonds', { rows: 2 }))}${fld('Flaws', ta('traits.flaws', { rows: 2 }))}</div></div>
       <div class="panel" ${PID('appearance')}><h2>Appearance</h2><div class="appear">${['age', 'height', 'weight', 'eyes', 'skin', 'hair'].map(k => fld(k[0].toUpperCase() + k.slice(1), inp('appearance.' + k))).join('')}</div></div>
@@ -3445,7 +3445,8 @@ function calcText(key) {
     case 'ammo': { const am = ammoItem(S.attacks[a]); return am ? N(am.qty) + ' ammo' : ''; }
     case 'lvl': return String(totalLevel());
     case 'xpnext': return totalLevel() >= 20 ? 'max' : '/ ' + xpNext().toLocaleString();
-    case 'subtitle': return [S.raceName, classLabel(), S.backgroundName].filter(Boolean).join(' · ');
+    // (only what the character has: race, class, background, alignment, faith, and who plays them)
+    case 'subtitle': return [S.raceName, classLabel(), S.backgroundName, S.alignment, String(S.faith || '').trim() ? (/^(faith|follower|servant|devotee|priest)\b/i.test(String(S.faith).trim()) ? S.faith : 'Faith of ' + String(S.faith).trim()) : '', S.player ? 'played by ' + S.player : ''].map(x => String(x || '').trim()).filter(Boolean).map(x => x.replace(/ /g, '\u00a0')).join(' · '); // (each part stays on one line; the line only breaks between parts)
   }
   return '';
 }
@@ -5895,11 +5896,12 @@ function openSettings(tab) {
     ${pane('char', `
       ${row('Race', `<button class="btn sm" data-act="changerace">Change…</button>`, esc(S.raceName || '—'))}
       ${row('Background', `<button class="btn sm" data-act="changebg">Change…</button>`, esc(S.backgroundName || '—'))}
+      ${row('Alignment', `<span class="set-ctl">${sel('alignment', [['', '—']].concat(DND.alignments.map(a => [a, a])))}</span>`, '')}
+      ${row('Faith', `<span class="set-ctl">${inp('faith', { ph: 'Deity or belief', label: 'Faith' })}</span>`, 'Shows under your name as “Faith of …”')}
       ${subclassSettingsHTML()}
       ${row('Leveling', opt('advancement', [['milestone', 'Milestone'], ['xp', 'XP']]), '')}
       ${row('Ability blocks', opt('abilityStyle', [['mod', 'Modifier big'], ['score', 'Score big']]))}
       ${row('Spell sorting', opt('combatSpellSort', [['level', 'Grouped by level'], ['purpose', 'Grouped by purpose'], ['custom', 'My own categories (set up on the Spells tab)']]))}
-      <div class="setrow chkrow"><span><b>Show in header</b></span><span class="chkset">${[['showName', 'Name'], ['showPlayer', 'Player'], ['showRace', 'Race'], ['showBackground', 'Background'], ['showAlignment', 'Alignment'], ['showFaith', 'Faith']].map(([k, t]) => `<label class="checkline"><input type="checkbox" data-set="${k}"${ST(k) ? ' checked' : ''}> ${t}</label>`).join('')}</span></div>
       ${booksHTML()}
 `)}
     ${pane('dice', `
@@ -8051,18 +8053,26 @@ function spgHead(col, g, mode, n, open, first, last) {
 // Dragging a whole group (desktop): a copy of its header follows the pointer; drop it between other groups.
 // While it moves the group folds up to just its header (so an open one is easy to place); it opens again when dropped.
 let GDRAG = null;
+// Fold the dragged group to its header, keeping the header where it was on screen (so it stays under the pointer).
+function gFold(d) { const h = d.grp.firstElementChild, t0 = h ? h.getBoundingClientRect().top : 0; d.grp.classList.add('bdrag-src', 'gfold'); d.ghost.style.visibility = ''; d.line.hidden = false; const t1 = h ? h.getBoundingClientRect().top : 0; if (t1 !== t0) scrollBy(0, t1 - t0); }
 document.addEventListener('pointerdown', e => {
-  const h = e.target.closest && e.target.closest('.gdrag'); if (!h || e.button > 0 || isMobile()) return;
+  // (by its grip, or anywhere on its header except the edit / delete buttons: a plain click still folds or opens it)
+  let h = e.target.closest && e.target.closest('.gdrag');
+  if (!h && e.target.closest) { const hr = e.target.closest('#page-spells .spg > .cspg-hrow'); if (hr && !e.target.closest('.cath-tools, input, select, textarea, a')) h = hr.querySelector('.gdrag'); }
+  if (!h || e.button > 0 || isMobile()) return;
   const grp = h.closest('.spg'); if (!grp) return; e.preventDefault();
   const hd = grp.querySelector(':scope > .cspg-hrow'), r = hd.getBoundingClientRect(), ghost = document.createElement('div');
   ghost.className = 'bdrag-ghost cspg spg-ghost'; ghost.style.setProperty('--g', getComputedStyle(grp).getPropertyValue('--g')); ghost.appendChild(hd.cloneNode(true));
   Object.assign(ghost.style, { width: r.width + 'px', left: r.left + 'px', top: r.top + 'px' }); document.body.appendChild(ghost);
   const line = document.createElement('div'); line.className = 'spg-drop'; grp.before(line);
-  grp.classList.add('bdrag-src', 'gfold'); GDRAG = { k: h.dataset.gdrag, grp, ghost, line, dx: e.clientX - r.left, dy: e.clientY - r.top, before: null, moved: false };
+  ghost.style.visibility = 'hidden'; line.hidden = true; // (shown once it really moves)
+  GDRAG = { k: h.dataset.gdrag, grp, ghost, line, dx: e.clientX - r.left, dy: e.clientY - r.top, x0: e.clientX, y0: e.clientY, before: null, moved: false };
   document.body.classList.add('idragging');
 });
 document.addEventListener('pointermove', e => {
-  const d = GDRAG; if (!d) return; e.preventDefault(); d.moved = true;
+  const d = GDRAG; if (!d) return; e.preventDefault();
+  // (it folds once it's really moving, not on the press itself)
+  if (!d.moved) { if (Math.hypot(e.clientX - d.x0, e.clientY - d.y0) < 4) return; gFold(d); } d.moved = true;
   d.ghost.style.left = (e.clientX - d.dx) + 'px'; d.ghost.style.top = (e.clientY - d.dy) + 'px';
   const groups = [...d.grp.parentElement.querySelectorAll(':scope > .spg')].filter(g => g.dataset.gk !== 'c:none');
   let tgt = null; for (const g of groups) { const b = g.getBoundingClientRect(); if (e.clientY < b.top + Math.min(b.height, 60) / 2) { tgt = g; break; } }
@@ -8070,8 +8080,10 @@ document.addEventListener('pointermove', e => {
   d.before = tgt ? tgt.dataset.gk : null;
   const edge = 60; if (e.clientY < edge) scrollBy(0, -12); else if (e.clientY > innerHeight - edge) scrollBy(0, 12);
 }, { passive: false });
+// After a real drag the release isn't also a click on the header (which would fold or open it).
+function gNoClick() { const kill = ev => { ev.stopPropagation(); ev.preventDefault(); }; addEventListener('click', kill, true); setTimeout(() => removeEventListener('click', kill, true), 0); }
 function gdragEnd(cancel) {
-  const d = GDRAG; if (!d) return; GDRAG = null; document.body.classList.remove('idragging'); d.ghost.remove(); d.line.remove(); d.grp.classList.remove('bdrag-src', 'gfold');
+  const d = GDRAG; if (!d) return; GDRAG = null; if (d.moved) gNoClick(); document.body.classList.remove('idragging'); d.ghost.remove(); d.line.remove(); d.grp.classList.remove('bdrag-src', 'gfold');
   if (cancel || !d.moved || d.before === d.k) return;
   // Dropping right after itself changes nothing.
   const sib = [...d.grp.parentElement.querySelectorAll(':scope > .spg')], at = sib.indexOf(d.grp); if (sib[at + 1] && sib[at + 1].dataset.gk === d.before) return;
@@ -8107,17 +8119,21 @@ function cgStep(col, k, d) {
 }
 let CGDRAG = null;
 document.addEventListener('pointerdown', e => {
-  const h = e.target.closest && e.target.closest('.cgdrag'); if (!h || e.button > 0 || isMobile()) return;
+  let h = e.target.closest && e.target.closest('.cgdrag');
+  if (!h && e.target.closest) { const hd = e.target.closest('.cgmov > .cspg-h'); if (hd && !e.target.closest('input, select, textarea, a, .cath-tools')) h = hd.parentElement.querySelector(':scope > .cgdrag'); }
+  if (!h || e.button > 0 || isMobile()) return;
   const grp = h.closest('.cgmov'); if (!grp) return; e.preventDefault(); e.stopPropagation();
   const hd = grp.querySelector(':scope > .cspg-h') || grp, r = hd.getBoundingClientRect(), ghost = document.createElement('div');
   ghost.className = 'bdrag-ghost cspg spg-ghost ' + [...grp.classList].filter(c => /^g-/.test(c)).join(' '); const st = grp.getAttribute('style'); if (st) ghost.setAttribute('style', st); ghost.appendChild(hd.cloneNode(true));
   Object.assign(ghost.style, { position: 'fixed', width: r.width + 'px', left: r.left + 'px', top: r.top + 'px' }); document.body.appendChild(ghost);
   const line = document.createElement('div'); line.className = 'spg-drop'; grp.before(line);
-  grp.classList.add('bdrag-src', 'gfold'); CGDRAG = { grp, col: grp.dataset.cgcol, ghost, line, dx: e.clientX - r.left, dy: e.clientY - r.top, before: grp, moved: false };
+  ghost.style.visibility = 'hidden'; line.hidden = true; // (shown once it really moves)
+  CGDRAG = { grp, col: grp.dataset.cgcol, ghost, line, dx: e.clientX - r.left, dy: e.clientY - r.top, x0: e.clientX, y0: e.clientY, before: grp, moved: false };
   document.body.classList.add('idragging');
 }, true);
 document.addEventListener('pointermove', e => {
-  const d = CGDRAG; if (!d) return; e.preventDefault(); d.moved = true;
+  const d = CGDRAG; if (!d) return; e.preventDefault();
+  if (!d.moved) { if (Math.hypot(e.clientX - d.x0, e.clientY - d.y0) < 4) return; gFold(d); } d.moved = true;
   d.ghost.style.left = (e.clientX - d.dx) + 'px'; d.ghost.style.top = (e.clientY - d.dy) + 'px';
   const groups = [...d.grp.parentElement.querySelectorAll(':scope > .cgmov')];
   let tgt = null; for (const g of groups) { const b = g.getBoundingClientRect(); if (e.clientY < b.top + Math.min(b.height, 50) / 2) { tgt = g; break; } }
@@ -8125,7 +8141,7 @@ document.addEventListener('pointermove', e => {
   const edge = 60; if (e.clientY < edge) scrollBy(0, -12); else if (e.clientY > innerHeight - edge) scrollBy(0, 12);
 }, { passive: false });
 function cgdragEnd(cancel) {
-  const d = CGDRAG; if (!d) return; CGDRAG = null; document.body.classList.remove('idragging'); d.ghost.remove(); d.line.remove(); d.grp.classList.remove('bdrag-src', 'gfold');
+  const d = CGDRAG; if (!d) return; CGDRAG = null; if (d.moved) gNoClick(); document.body.classList.remove('idragging'); d.ghost.remove(); d.line.remove(); d.grp.classList.remove('bdrag-src', 'gfold');
   if (cancel || !d.moved) return;
   const keys = [...d.grp.parentElement.querySelectorAll(':scope > .cgmov')].map(g => g.dataset.cgk).filter(k => k !== d.grp.dataset.cgk);
   let at = d.before && d.before !== d.grp ? keys.indexOf(d.before.dataset.cgk) : -1; if (d.before === d.grp) return; if (at < 0) at = keys.length;

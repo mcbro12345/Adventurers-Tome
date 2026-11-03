@@ -1927,15 +1927,15 @@ function zoneOrder(zone, ids) {
 function renderHeader() {
   const dark = document.documentElement.getAttribute('data-theme') === 'dark';
   const pic = S.portrait || PLACEHOLDER, xp = ST('advancement') === 'xp';
-  const idf = [ST('showPlayer') ? (window.SHEET_PAGES ? `<div class="fld"><span class="lbl">Player</span><span class="identtxt" title="Comes from the player list on your party page">${esc(S.player || '—')}</span></div>` : fld('Player', inp('player', { fit: 8, ph: 'Player' }))) : '', ST('showRace') ? `<div class="fld"><span class="lbl">Race</span><span class="identtxt" title="Change your race in Settings">${esc(S.raceName || '—')}</span></div>` : '', ST('showBackground') ? `<div class="fld"><span class="lbl">Background</span><span class="identtxt" title="Change your background in Settings">${esc(S.backgroundName || '—')}</span></div>` : '',
-    ST('showAlignment') ? fld('Alignment', sel('alignment', [['', '—']].concat(DND.alignments.map(a => [a, a])))) : '', ST('showFaith') ? fld('Faith', inp('faith', { ph: '—', fit: 8 })) : ''].join('');
+  // (alignment, faith and player now ride along in the line under the name; they're edited on the Story tab)
+  const idf = '';
   $('#sec-header').innerHTML = `
   <div class="banner-row"><div class="portrait-wrap"><img id="portraitImg" src="${esc(pic)}" alt="${esc((S.name || 'Character') + '’s portrait')}">
     <label class="portrait-edit" tabindex="0" data-act="portrait" title="Change portrait" aria-label="Change portrait"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/></svg></label></div>${inspHTML()}</div>
   <div class="ident${idf ? '' : ' noid'}"><h1 class="sr-only">${esc(S.name || 'Character sheet')}</h1>
     <div class="ident-top">
       <img class="mini-portrait" src="${esc(pic)}" alt="" data-act="portrait">
-      <div class="namebox">${ST('showName') ? inp('name', { cls: 'name', label: 'Character name', ph: 'Character name', fit: 10 }) : ''}
+      <div class="namebox">${inp('name', { cls: 'name', label: 'Character name', ph: 'Character name', fit: 10 })}
         <div class="subtitle" data-calc="subtitle"></div></div>
       <div class="lvlbox${xpReady() ? ' ready' : ''}" id="lvlbox">
         <div class="lvlnum"><span class="lbl">Level</span><b data-calc="lvl"></b></div>
@@ -3116,7 +3116,7 @@ function renderStory() {
   $('#page-story').innerHTML = `
   <div class="story">
     <div class="stack">
-      <div class="panel" ${PID('personality')}><h2>Personality</h2><div class="traits">
+      <div class="panel" ${PID('personality')}><h2>Personality</h2><div class="story-id">${fld('Alignment', sel('alignment', [['', '—']].concat(DND.alignments.map(a => [a, a]))))}${fld('Faith', inp('faith', { ph: 'Deity or belief' }))}${window.SHEET_PAGES ? '' : fld('Player', inp('player', { ph: 'Who plays this character' }))}</div><div class="traits">
         ${fld('Personality Traits', ta('traits.personality', { rows: 2 }))}${fld('Ideals', ta('traits.ideals', { rows: 2 }))}
         ${fld('Bonds', ta('traits.bonds', { rows: 2 }))}${fld('Flaws', ta('traits.flaws', { rows: 2 }))}</div></div>
       <div class="panel" ${PID('appearance')}><h2>Appearance</h2><div class="appear">${['age', 'height', 'weight', 'eyes', 'skin', 'hair'].map(k => fld(k[0].toUpperCase() + k.slice(1), inp('appearance.' + k))).join('')}</div></div>
@@ -3445,7 +3445,8 @@ function calcText(key) {
     case 'ammo': { const am = ammoItem(S.attacks[a]); return am ? N(am.qty) + ' ammo' : ''; }
     case 'lvl': return String(totalLevel());
     case 'xpnext': return totalLevel() >= 20 ? 'max' : '/ ' + xpNext().toLocaleString();
-    case 'subtitle': return [S.raceName, classLabel(), S.backgroundName].filter(Boolean).join(' · ');
+    // (only what the character has: race, class, background, alignment, faith, and who plays them)
+    case 'subtitle': return [S.raceName, classLabel(), S.backgroundName, S.alignment, String(S.faith || '').trim() ? (/^(faith|follower|servant|devotee|priest)\b/i.test(String(S.faith).trim()) ? S.faith : 'Faith of ' + String(S.faith).trim()) : '', S.player ? 'played by ' + S.player : ''].map(x => String(x || '').trim()).filter(Boolean).map(x => x.replace(/ /g, '\u00a0')).join(' · '); // (each part stays on one line; the line only breaks between parts)
   }
   return '';
 }
@@ -5895,11 +5896,12 @@ function openSettings(tab) {
     ${pane('char', `
       ${row('Race', `<button class="btn sm" data-act="changerace">Change…</button>`, esc(S.raceName || '—'))}
       ${row('Background', `<button class="btn sm" data-act="changebg">Change…</button>`, esc(S.backgroundName || '—'))}
+      ${row('Alignment', `<span class="set-ctl">${sel('alignment', [['', '—']].concat(DND.alignments.map(a => [a, a])))}</span>`, '')}
+      ${row('Faith', `<span class="set-ctl">${inp('faith', { ph: 'Deity or belief', label: 'Faith' })}</span>`, 'Shows under your name as “Faith of …”')}
       ${subclassSettingsHTML()}
       ${row('Leveling', opt('advancement', [['milestone', 'Milestone'], ['xp', 'XP']]), '')}
       ${row('Ability blocks', opt('abilityStyle', [['mod', 'Modifier big'], ['score', 'Score big']]))}
       ${row('Spell sorting', opt('combatSpellSort', [['level', 'Grouped by level'], ['purpose', 'Grouped by purpose'], ['custom', 'My own categories (set up on the Spells tab)']]))}
-      <div class="setrow chkrow"><span><b>Show in header</b></span><span class="chkset">${[['showName', 'Name'], ['showPlayer', 'Player'], ['showRace', 'Race'], ['showBackground', 'Background'], ['showAlignment', 'Alignment'], ['showFaith', 'Faith']].map(([k, t]) => `<label class="checkline"><input type="checkbox" data-set="${k}"${ST(k) ? ' checked' : ''}> ${t}</label>`).join('')}</span></div>
       ${booksHTML()}
 `)}
     ${pane('dice', `
@@ -6652,15 +6654,17 @@ window.addEventListener('resize', () => $$('input.f.name').forEach(fitNameFont))
 // The line under the name (race · class · background) never runs past two lines on a computer: a long one gets smaller
 // type instead, so the top bar is the same height for every character. (Remembered per text and width.)
 let SUB_K = '';
+// The line under the name wraps only between its parts (race · class · …), never inside one. If a part is too long for a
+// line of its own it shrinks to fit; on a computer it also shrinks to keep to two lines (past that it stops after two,
+// and the whole of it shows on hover).
 function fitSubtitle() { const el = $('.namebox .subtitle'); if (!el) return;
-  if (isMobile()) { if (el.style.fontSize) el.style.fontSize = ''; SUB_K = ''; return; }
-  const k = el.textContent + '|' + (el.parentElement ? el.parentElement.clientWidth : 0) + '|' + document.documentElement.style.fontSize; if (k === SUB_K && el._fit) return; SUB_K = k; el._fit = 1;
-  el.style.fontSize = ''; if (!el.textContent || !el.offsetParent) return; const base = parseFloat(getComputedStyle(el).fontSize) || 15;
+  const k = el.textContent + '|' + (el.parentElement ? el.parentElement.clientWidth : 0) + '|' + document.documentElement.style.fontSize + '|' + isMobile(); if (k === SUB_K && el._fit) return; SUB_K = k; el._fit = 1;
+  el.style.fontSize = ''; el.classList.remove('sub2'); el.removeAttribute('title'); if (!el.textContent || !el.offsetParent) return;
+  const base = parseFloat(getComputedStyle(el).fontSize) || 15, mob = isMobile();
+  const over = () => el.scrollWidth > el.clientWidth + 0.5;
   const lines = () => { const cs = getComputedStyle(el), lh = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.2; return Math.round(el.clientHeight / lh); };
-  el.classList.remove('sub2'); el.removeAttribute('title');
-  let px = base; while (lines() > 2 && px > base * 0.72) { px -= 0.5; el.style.fontSize = px + 'px'; }
-  // (still more than two lines at the smallest size: it stops after two, and the whole of it shows on hover)
-  if (lines() > 2) { el.classList.add('sub2'); el.title = el.textContent; } }
+  let px = base; while ((over() || (!mob && lines() > 2)) && px > base * 0.6) { px -= 0.5; el.style.fontSize = px + 'px'; }
+  if (!mob && lines() > 2) { el.classList.add('sub2'); el.title = el.textContent; } }
 window.addEventListener('resize', () => { SUB_K = ''; fitSubtitle(); });
 
 // Desktop header stays one row: when the toolbar would wrap, its buttons drop their words and keep their icons.

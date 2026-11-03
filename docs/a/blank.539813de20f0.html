@@ -5053,6 +5053,9 @@ html.mobile :is(#page-features, #page-infusions) .fl-acts .btn.fxact { min-heigh
 .cspg-hrow > .gdrag-off { z-index: auto; }
 /* Story tab: alignment, faith (and player, in the single-file sheet) above the personality traits. */
 .story-id { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 12px; }
+.setrow .set-ctl { flex: 0 0 min(200px, 55%); margin-left: auto; } .setrow .set-ctl .f { width: 100% !important; max-width: none !important; min-width: 0 !important; box-sizing: border-box; }
+/* Top-right icon buttons: an even icon size in the 28px inside of the button, so the icon lands on whole pixels and sits dead centre. */
+.devbtn svg, .devbtn.logbtn svg { width: 18px; height: 18px; display: block; }
 
 </style>
 </head>
@@ -15632,7 +15635,7 @@ function calcText(key) {
     case 'lvl': return String(totalLevel());
     case 'xpnext': return totalLevel() >= 20 ? 'max' : '/ ' + xpNext().toLocaleString();
     // (only what the character has: race, class, background, alignment, faith, and who plays them)
-    case 'subtitle': return [S.raceName, classLabel(), S.backgroundName, S.alignment, S.faith, S.player ? 'played by ' + S.player : ''].map(x => String(x || '').trim()).filter(Boolean).join(' · ');
+    case 'subtitle': return [S.raceName, classLabel(), S.backgroundName, S.alignment, String(S.faith || '').trim() ? (/^(faith|follower|servant|devotee|priest)\b/i.test(String(S.faith).trim()) ? S.faith : 'Faith of ' + String(S.faith).trim()) : '', S.player ? 'played by ' + S.player : ''].map(x => String(x || '').trim()).filter(Boolean).map(x => x.replace(/ /g, '\u00a0')).join(' · '); // (each part stays on one line; the line only breaks between parts)
   }
   return '';
 }
@@ -18082,6 +18085,8 @@ function openSettings(tab) {
     ${pane('char', `
       ${row('Race', `<button class="btn sm" data-act="changerace">Change…</button>`, esc(S.raceName || '—'))}
       ${row('Background', `<button class="btn sm" data-act="changebg">Change…</button>`, esc(S.backgroundName || '—'))}
+      ${row('Alignment', `<span class="set-ctl">${sel('alignment', [['', '—']].concat(DND.alignments.map(a => [a, a])))}</span>`, '')}
+      ${row('Faith', `<span class="set-ctl">${inp('faith', { ph: 'Deity or belief', label: 'Faith' })}</span>`, 'Shows under your name as “Faith of …”')}
       ${subclassSettingsHTML()}
       ${row('Leveling', opt('advancement', [['milestone', 'Milestone'], ['xp', 'XP']]), '')}
       ${row('Ability blocks', opt('abilityStyle', [['mod', 'Modifier big'], ['score', 'Score big']]))}
