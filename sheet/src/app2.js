@@ -248,23 +248,26 @@ function toast(html, cls = '', ms = 4500, action) {
     // (an add-on button — Divine Smite, Sneak Attack… — adds to this card and leaves it up; the others act and close it)
     b.onclick = ac.keep ? () => { rollGate(() => ac.fn(t, b)); } : () => { rollGate(ac.fn); t.remove(); }; box.appendChild(b); }); t.appendChild(box); } }
   // (a roll's card stays put until its × is pressed, so a stray tap can't lose it mid-argument; other notes go on a tap)
-  if (!/^\s*<(b class="total"|div class="rc-multi")/.test(html)) t.addEventListener('click', ev => { if (ev.target.tagName !== 'BUTTON') t.remove(); });
+  // (a "card" note — the concentration save prompt — shows in the middle like a roll, and stays until answered or closed)
+  const asCard = /(^|\s)card(\s|$)/.test(cls);
+  if (!/^\s*<(b class="total"|div class="rc-multi")/.test(html) && !asCard) t.addEventListener('click', ev => { if (ev.target.tagName !== 'BUTTON') t.remove(); });
   // Dice results get their own big card in the middle of the screen; everything else stays in the corner.
   const isRoll = /^\s*<(b class="total"|div class="rc-multi")/.test(html);
   let box = $('#toasts');
   if (isRoll || cls === 'manual') logRoll(t.innerHTML, cls); else logEvent(t.innerHTML, cls);
   if (isRoll && cls !== 'manual') statFlush();
   if (isRoll && cls !== 'manual') postSheetRoll(t);
-  if (isRoll) { box = $('#rolls'); if (!box) { box = document.createElement('div'); box.id = 'rolls'; box.setAttribute('aria-live', 'polite'); document.body.appendChild(box); } t.classList.add('rollcard'); ms = Math.max(ms, 6500); }
+  const rollLike = isRoll || asCard;
+  if (rollLike) { box = $('#rolls'); if (!box) { box = document.createElement('div'); box.id = 'rolls'; box.setAttribute('aria-live', 'polite'); document.body.appendChild(box); } t.classList.add('rollcard'); ms = Math.max(ms, 6500); }
   // A new roll while one is showing: like a carousel, the new card slides down into the top spot from just above, the
   // previous card(s) slide down a place to make room, and whichever card no longer fits slides on down and fades away.
-  const cap = isRoll ? (document.documentElement.classList.contains('mobile') ? 1 : 2) : document.documentElement.classList.contains('mobile') ? 2 : 5;
+  const cap = rollLike ? (document.documentElement.classList.contains('mobile') ? 1 : 2) : document.documentElement.classList.contains('mobile') ? 2 : 5;
   let rcOld = [];
-  if (isRoll) { const br = box.getBoundingClientRect(); rcOld = [...box.querySelectorAll(':scope > .rollcard:not(.rc-out)')].map(o => { const r = o.getBoundingClientRect(); const cs = getComputedStyle(o); return { o, top: o.offsetTop, left: o.offsetLeft, w: o.offsetWidth, y: o.offsetTop, tf: cs.transform === 'none' ? '' : cs.transform, op: cs.opacity }; }); }
+  if (rollLike) { const br = box.getBoundingClientRect(); rcOld = [...box.querySelectorAll(':scope > .rollcard:not(.rc-out)')].map(o => { const r = o.getBoundingClientRect(); const cs = getComputedStyle(o); return { o, top: o.offsetTop, left: o.offsetLeft, w: o.offsetWidth, y: o.offsetTop, tf: cs.transform === 'none' ? '' : cs.transform, op: cs.opacity }; }); }
   // (the card gets its final layout before it goes in, so the cards below know exactly how far to move)
-  if (isRoll) { t._at = Date.now(); rcDress(t); }
-  if (isRoll) box.prepend(t); else box.appendChild(t);
-  if (isRoll && rcOld.length) {
+  if (rollLike) { t._at = Date.now(); rcDress(t); }
+  if (rollLike) box.prepend(t); else box.appendChild(t);
+  if (rollLike && rcOld.length) {
     const still = !matchMedia('(prefers-reduced-motion: reduce)').matches, stay = rcOld.slice(0, cap - 1), go = rcOld.slice(cap - 1);
     go.forEach(({ o, top, left, w, tf, op }) => { clearTimeout(o._tm); if (!still) { o.remove(); return; } o.classList.add('rc-out', 'rc-slide'); Object.assign(o.style, { position: 'absolute', top: top + 'px', left: left + 'px', width: w + 'px', margin: '0', animation: 'none', zIndex: '-1' });
       const a = o.animate([{ transform: `translateY(0px) ${tf}`, opacity: op }, { transform: 'translateY(40px) scale(.9)', opacity: 0 }], { duration: 130, easing: 'cubic-bezier(.4,0,1,1)', fill: 'forwards' }); a.onfinish = () => o.remove(); }); // (gone quickly, before the card behind it slides into its place)
@@ -274,7 +277,7 @@ function toast(html, cls = '', ms = 4500, action) {
       t.style.animation = 'none'; t.animate([{ transform: 'translateY(-56px)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 380, delay: 150, easing: 'cubic-bezier(.16,1,.3,1)', fill: 'backwards' }); // (it follows a beat behind, so the two never blur together)
     }
   }
-  if (isRoll) {
+  if (rollLike) {
     // The math is always on the card (no button to open it), laid out under the numbers: one column per part (to hit,
     // damage…). The card stays until its × is pressed — or until a newer roll pushes it off the stack.
     // Settings → Dice can make cards fade on their own after a while (it waits while the pointer rests on the card)

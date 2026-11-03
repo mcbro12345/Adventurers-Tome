@@ -773,7 +773,7 @@ function breakConc(reason) {
 function concCheck(dc) {
   const nm = S.concentration; if (!nm) return;
   const bonus = saveVal('con') + (hasFeat('War Caster') ? 0 : 0);
-  toast(`<div><b>Concentration check</b> for ${esc(nm)}<div class="det">DC ${dc} CON save · ${fmt(bonus)}${hasFeat('War Caster') ? ' · War Caster: advantage' : ''}</div></div>`, 'alert', 30000, [
+  toast(`<div><b>Concentration check</b> for ${esc(nm)}<div class="det">DC ${dc} CON save · ${fmt(bonus)}${hasFeat('War Caster') ? ' · War Caster: advantage' : ''}</div></div>`, 'alert card', 30000, [
     { label: 'Roll', fn: () => { if (S.concentration !== nm) { toast('No longer concentrating on that spell.'); return; } const ex = (hasFeat('War Caster') ? '2d20kh1' : d20Expr(bonus, 'save', 'con').expr.replace(/[+-]\d+.*$/, '')) + sgn(bonus - exD20()) + (blessed() ? '+1d4' : ''); const r = rollExpr(ex, { need: true, label: 'Concentration save' }); const ok = r.total >= dc; toast(`<b class="total">${r.total}</b><div><div>Concentration ${ok ? 'holds' : 'fails'} (DC ${dc})</div><div class="det">${esc(r.detail)}</div></div>`, ok ? 'crit' : 'fumble', 6000); if (!ok) breakConc('failed DC ' + dc); } },
     { label: 'Failed', fn: () => { if (S.concentration === nm) breakConc('failed DC ' + dc); } }]);
 }
