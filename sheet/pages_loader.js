@@ -65,7 +65,7 @@ function pgGo(url, replace) { try { sessionStorage.setItem('pg-nav', String(Date
   if (cur && cur.classList.contains('pg-leave')) return; // already on the way out
   // A page with the drifting dice: the page fades away first and leaves the dice where they are, then the loading
   // screen's background comes in underneath its own copy of them (in step, so they never move or flicker)
-  if (window.PG_LOAD_HTML && (!cur || onCard) && document.querySelector('body > .pg-bgd, #pg-load:not(.pg-leave) > .pg-bgd') && window.pgBgdMake && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  if (window.PG_LOAD_HTML && !onCard && !cur && document.querySelector('body > .pg-bgd, #pg-load:not(.pg-leave) > .pg-bgd') && window.pgBgdMake && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
     try { sessionStorage.setItem('pg-bgd', String(Date.now())); } catch (x) {}
     const de = document.documentElement; de.classList.add('pg-dk-fade', 'pg-dk-hide');
     setTimeout(() => { const t = document.createElement('div'); t.innerHTML = window.PG_LOAD_HTML; const el = t.firstElementChild; el.classList.add('pg-leave', 'pg-leave-dk'); el.style.zIndex = '10000'; el.style.animation = 'none';
@@ -911,9 +911,12 @@ function wireDie(root) {
         requestAnimationFrame(() => requestAnimationFrame(() => { parts.forEach(c => { c.style.opacity = '0'; });
           setTimeout(() => { el.remove(); de.classList.remove('pg-dk-solo'); de.classList.add('pg-dk-fade'); void document.body.offsetWidth; de.classList.remove('pg-dk-hide'); pgRevealPanels(); setTimeout(() => de.classList.remove('pg-dk-fade'), 500); }, 320); }));
         return; }
-      const cur = getComputedStyle(el).opacity; el.style.animation = 'none'; el.style.opacity = cur; el.style.pointerEvents = 'none'; el.style.zIndex = '9999'; el.style.transition = 'opacity .6s ease'; void el.offsetWidth;
+      // the die and its words go first, then the screen itself fades off the page (never the two showing through each other)
+      const cur = getComputedStyle(el).opacity; el.style.animation = 'none'; el.style.opacity = cur; el.style.pointerEvents = 'none'; el.style.zIndex = '9999'; el.style.transition = 'opacity .45s ease';
+      const kids = [...el.children].filter(c => !c.classList.contains('pg-bgd')); kids.forEach(c => { c.style.transition = 'opacity .18s ease'; }); void el.offsetWidth;
       de.classList.remove('pg-loading'); setTimeout(() => de.classList.remove('pg-instant'), 700);
-      requestAnimationFrame(() => requestAnimationFrame(() => { el.style.opacity = '0'; pgRevealPanels(); setTimeout(() => el.remove(), 650); })); }); }
+      requestAnimationFrame(() => requestAnimationFrame(() => { kids.forEach(c => { c.style.opacity = '0'; });
+        setTimeout(() => { el.style.opacity = '0'; pgRevealPanels(); setTimeout(() => el.remove(), 500); }, 190); })); }); }
   document.addEventListener('click', e => { const a = e.target.closest && e.target.closest('a[href]'); if (!a || e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || (a.target && a.target !== '_self') || a.hasAttribute('download')) return;
     let u; try { u = new URL(a.href, location.href); } catch (x) { return; } if (u.origin !== location.origin || (u.pathname === location.pathname && u.search === location.search)) return;
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) return; e.preventDefault(); pgGo(u.href); });
