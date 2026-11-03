@@ -223,7 +223,7 @@ function d20(label, bonus, kind, ab, rows) {
   const note = [rm.mode !== 'normal' ? (rm.mode === 'adv' ? 'Advantage: ' : 'Disadvantage: ') + rm.why.join(', ') : '', bless ? 'Bless +1d4' : '', ex ? `Exhaustion −${ex}` : '', rm.auto ? 'Automatic failure (condition)' : ''].filter(Boolean).join(' · ');
   const n1 = kind === 'attack' && r.d20 === 1 ? nat1Roll() : null;
   if (['attack', 'save', 'check'].includes(kind)) LAST_D20 = { t: Date.now(), label, bonus, kind, ab, rows, total: r.skipped ? null : r.total };
-  toast(`<b class="total">${r.total}</b><div><div>${esc(label)}</div><div class="det dd">${esc(r.detail)}</div>${note ? `<div class="det">${esc(note)}</div>` : ''}${n1 ? `<div class="rc-n1"><b>Nat 1 Roll:</b> ${n1.total}</div>` : ''}${math}</div>`, r.d20 === 20 ? 'crit' : r.d20 === 1 ? 'fumble' : '');
+  toast(`<b class="total">${r.total}</b><div><div>${esc(label)}</div><div class="det dd">${esc(r.detail)}</div>${note ? `<div class="det">${esc(note)}</div>` : ''}${n1 ? `<div class="rc-n1"><b>Nat 1 Roll:</b> ${n1.total}</div>` : ''}${math}</div>`, r.d20 === 20 ? 'crit' : r.d20 === 1 ? 'fumble' : '', ['attack', 'save', 'check'].includes(kind) && !r.skipped && typeof inspAct === 'function' && inspFx() ? 9000 : undefined, ['attack', 'save', 'check'].includes(kind) && !r.skipped && typeof inspAct === 'function' ? inspAct(r.total, label) : null);
   return r;
 }
 const doubleDice = e => String(e || '').replace(/(\d*)d(\d+)/gi, (m, n, sd) => (2 * (N(n) || 1)) + 'd' + sd);

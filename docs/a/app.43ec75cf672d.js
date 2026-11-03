@@ -1678,7 +1678,7 @@ function d20(label, bonus, kind, ab, rows) {
   const note = [rm.mode !== 'normal' ? (rm.mode === 'adv' ? 'Advantage: ' : 'Disadvantage: ') + rm.why.join(', ') : '', bless ? 'Bless +1d4' : '', ex ? `Exhaustion −${ex}` : '', rm.auto ? 'Automatic failure (condition)' : ''].filter(Boolean).join(' · ');
   const n1 = kind === 'attack' && r.d20 === 1 ? nat1Roll() : null;
   if (['attack', 'save', 'check'].includes(kind)) LAST_D20 = { t: Date.now(), label, bonus, kind, ab, rows, total: r.skipped ? null : r.total };
-  toast(`<b class="total">${r.total}</b><div><div>${esc(label)}</div><div class="det dd">${esc(r.detail)}</div>${note ? `<div class="det">${esc(note)}</div>` : ''}${n1 ? `<div class="rc-n1"><b>Nat 1 Roll:</b> ${n1.total}</div>` : ''}${math}</div>`, r.d20 === 20 ? 'crit' : r.d20 === 1 ? 'fumble' : '');
+  toast(`<b class="total">${r.total}</b><div><div>${esc(label)}</div><div class="det dd">${esc(r.detail)}</div>${note ? `<div class="det">${esc(note)}</div>` : ''}${n1 ? `<div class="rc-n1"><b>Nat 1 Roll:</b> ${n1.total}</div>` : ''}${math}</div>`, r.d20 === 20 ? 'crit' : r.d20 === 1 ? 'fumble' : '', ['attack', 'save', 'check'].includes(kind) && !r.skipped && typeof inspAct === 'function' && inspFx() ? 9000 : undefined, ['attack', 'save', 'check'].includes(kind) && !r.skipped && typeof inspAct === 'function' ? inspAct(r.total, label) : null);
   return r;
 }
 const doubleDice = e => String(e || '').replace(/(\d*)d(\d+)/gi, (m, n, sd) => (2 * (N(n) || 1)) + 'd' + sd);
@@ -3520,7 +3520,7 @@ function calcHTML(key) {
     case 'fxchips': {
       const fx = S.effects || [];
       if (!fx.length) return '<span class="hint">No spells or effects running.</span>';
-      return fx.map((e, j) => `<span class="fxc${e.conc ? ' conc' : ''}${e.rounds != null && e.rounds <= 1 ? ' ending' : ''}" title="${esc(fxTip(e))}">${e.conc ? '<i class="cdot"></i>' : ''}<b>${esc(e.name)}</b>${e.ally ? ' (ally)' : ''}${e.from ? '<small class="fxfrom" title="Cast on you by someone else">↘</small>' : ''}${e.buff && N(e.buff.ac) && !e.ally ? ` +${N(e.buff.ac)} AC` : ''}<span class="left">${(e.rage && e.rounds == null ? "until rage ends" : fmtRounds(e.rounds))}</span>${e.repeat ? `<button class="rep" data-act="repeatfx" data-j="${j}" title="Roll ${esc(e.repeat.dice)} ${esc(e.repeat.type || '')}">🎲 ${esc(e.repeat.dice)}</button>` : ''}<button data-act="endeffect" data-n="${esc(e.name)}" aria-label="End ${esc(e.name)}">✕</button></span>`).join('');
+      return fx.map((e, j) => `<span class="fxc${e.conc ? ' conc' : ''}${e.rounds != null && e.rounds <= 1 ? ' ending' : ''}" title="${esc(fxTip(e))}">${e.conc ? '<i class="cdot"></i>' : ''}<b>${esc(e.name)}</b>${e.ally ? ' (ally)' : ''}${e.from ? '<small class="fxfrom" title="Cast on you by someone else">↘</small>' : ''}${e.buff && N(e.buff.ac) && !e.ally ? ` +${N(e.buff.ac)} AC` : ''}<span class="left">${(e.rage && e.rounds == null ? "until rage ends" : fmtRounds(e.rounds))}</span>${e.repeat ? `<button class="rep" data-act="repeatfx" data-j="${j}" title="Roll ${esc(e.repeat.dice)} ${esc(e.repeat.type || '')}">${esc(String(e.repeat.dice).replace(/^1d/, 'd'))}</button>` : ''}<button data-act="endeffect" data-n="${esc(e.name)}" aria-label="End ${esc(e.name)}">✕</button></span>`).join('');
     }
     case 'slotsall': {
       let h = '';
@@ -3780,7 +3780,9 @@ addEventListener('resize', invCtxShut); addEventListener('blur', invCtxShut);
 
 
 // ---------- Click handling ----------
-document.addEventListener('click', e => rollGate(() => mainClick(e)));
+// (where the click happened is noted now: with dice you roll yourself, the click is run again once the roll is in, and by
+// then the button may have been redrawn and no longer be on the page)
+document.addEventListener('click', e => { try { e._pc = !!(e.target.closest && e.target.closest('#page-combat')); } catch (x) {} rollGate(() => mainClick(e)); });
 const TABSCROLL = {}; let tabFadeT = 0;
 function mainClick(e) {
   if (e.target.closest('#wizard')) return wizClick(e);
@@ -3810,7 +3812,7 @@ function mainClick(e) {
     case 'redoall': { const c = redo(REDO.length); closeModal(true); toast(`Redid ${c} change(s).`); break; }
     case 'layout': if (onPhone()) break; if (window.pgPhoneView && (window.PG_IN_PHONE || (!isMobile() && window.innerWidth >= 640))) { window.pgPhoneView(!window.PG_IN_PHONE); break; }
       LAYOUT_NOW = isMobile() ? 'desktop' : 'mobile'; applyLayout(); render(); window.scrollTo(0, 0); break;
-    case 'attack': attackRoll(i, !b.closest('#page-combat') || !S.inCombat); break;
+    case 'attack': attackRoll(i, !(e._pc || b.closest('#page-combat')) || !S.inCombat); break;
     case 'bonusatk': bonusAttack(i, b.dataset.kind); break;
     case 'equip': equipItem(i); break;
     case 'dupitem': { const src = S.inventory[i]; if (!src) break; const c = JSON.parse(JSON.stringify(src)); c.id = uid(); c.equipped = false; c.attuned = false; S.inventory.splice(i + 1, 0, c); pendingLabel = 'Duplicate ' + (src.name || 'item'); save(); render(); toast(`Duplicated “${esc(src.name || 'item')}”`); break; }
@@ -4295,7 +4297,7 @@ function attackRoll(i, free, opt) {
   if (!nat1 && a.kind === 'melee' && stunStrikeFeat() && stunKiLeft() > 0) acts.push({ keep: true, cls: 't-add', grp: 'stun', label: 'Stunning Strike (1 ki)', title: 'The creature you hit makes a CON save or is stunned', fn: (t, b) => { stunningStrike(); b.remove(); } });
   xr.filter(x => x.refund).forEach(x => acts.push({ label: `Missed — get ${x.what === 'Divine Smite' ? 'the slot' : 'the ki'} back`, fn: () => { x.refund(); pendingLabel = x.what + ' not used'; update(); render(); toast(`${x.what} is ready again for your next hit.`); } }));
   rh.always.forEach(x => acts.push({ label: `Missed — get ${x.src.name} back`, fn: () => { x.src.refund(); pendingLabel = x.src.name + ' not used'; update(); render(); toast(`${esc(x.src.name)} is back.`); } }));
-  acts.push(...rh.acts);
+  acts.push(...rh.acts); { const ia = typeof inspAct === 'function' && !nat1 ? inspAct(h.total, nm + ' to hit') : null; if (ia) acts.push(ia); }
   // What you can still add now that you know it hit: Divine Smite, Sneak Attack, Hand of Harm (each adds to this card).
   if (!nat1) acts.push(...atkAddOns(a, nm, crit, isWeapon, rm, opt, { total, byType, mainT, sneak: sr ? sr.total : 0 }, xr.filter(x => x.what).map(x => x.what)));
   if (sr && !opt.offTurn) acts.push({ label: 'Missed — Sneak Attack not used', fn: () => { S.turn.sneak = false; pendingLabel = 'Sneak Attack not used'; update(); refresh(); toast('Sneak Attack is ready again this turn.'); } });
@@ -4472,7 +4474,7 @@ function takeDamage(amt) {
   }
   const before = N(hp.cur);
   // Massive damage (PHB): damage left over after dropping to 0 that equals or beats your HP maximum kills outright.
-  if (d > 0 && d - Math.max(0, before) >= maxHp() && maxHp() > 0) { if (before > 0 && typeof ptyDeathWard === 'function' && ptyDeathWard()) { hp.cur = 1; update(); return; } hp.cur = 0; S.death.f = 3; if (!S.conditions.includes('Unconscious')) S.conditions.push('Unconscious'); update(); fxTrigger('zero');
+  if (d > 0 && d - Math.max(0, before) >= maxHp() && maxHp() > 0) { if (before > 0 && typeof ptyDeathWard === 'function' && ptyDeathWard()) { hp.cur = 1; update(); return; } hp.cur = 0; S.death.f = 3; if (!S.conditions.includes('Unconscious')) S.conditions.push('Unconscious'); if (!S.form) incapacitate('Unconscious'); update(); fxTrigger('zero');
     toast(`<div><b>Massive damage</b><div class="det">${d - Math.max(0, before)} damage left over after 0 HP is at least ${esc(who())}'s HP maximum (${maxHp()}) — instant death. If your DM rules otherwise, clear the death save failures.</div></div>`, 'fumble', 12000);
     if (conc) breakConc('died'); return; }
   if (before <= 0 && d > 0) { S.death.f = Math.min(3, N(S.death.f) + 1); update(); toast('Damage while at 0 HP — one death save failure (two on a crit).', 'fumble', 7000); return; }
@@ -4480,7 +4482,8 @@ function takeDamage(amt) {
   if (hp.cur === 0 && before > 0 && typeof ptyDeathWard === 'function' && ptyDeathWard()) hp.cur = 1;
   if (hp.cur === 0 && before > 0) {
     if (!S.conditions.includes('Unconscious')) S.conditions.push('Unconscious');
-    toast(`${esc(who())} drops to 0 HP — roll death saves.`, 'fumble', 7000);
+    const ko = S.form ? [] : incapacitate('Unconscious');
+    toast(`<div>${esc(who())} drops to 0 HP and falls unconscious — roll death saves.${ko.map(l => `<div class="det">${esc(l)}</div>`).join('')}</div>`, 'fumble', 9000);
     fxTrigger('zero');
     if (typeof ptyAurasOff === 'function' && Object.keys(S.ptyAuras || {}).length) ptyAurasOff('dropped to 0 HP');
     if (conc) { update(); breakConc('dropped to 0 HP'); return; }
@@ -4529,6 +4532,18 @@ function cleanupLinked() {
   if (S.conditions.includes('Raging') && !names.has('Rage')) { S.conditions = S.conditions.filter(c => c !== 'Raging'); rageEndFx(); }
   if (!names.has('Rage') && (S.effects || []).some(e => e.rage)) S.effects = S.effects.filter(e => !e.rage); // (Wild Surge effects end with the rage)
 }
+// Knocked out, stunned, paralyzed…: what ends or happens with it (PHB / SRD). Any of these incapacitate you, which ends a
+// Dodge and Bladesong (and concentration, handled by the caller); being knocked unconscious also ends a barbarian's Rage,
+// and an unconscious creature falls prone and drops what it holds.
+function incapacitate(c) {
+  const lines = [];
+  if (c === 'Unconscious' && ((S.effects || []).some(e => e.name === 'Rage') || S.conditions.includes('Raging'))) { S.effects = (S.effects || []).filter(e => e.name !== 'Rage'); lines.push('Your Rage ends'); }
+  if (S.conditions.includes('Dodging')) { S.conditions = S.conditions.filter(x => x !== 'Dodging'); lines.push('Your Dodge ends'); }
+  const blade = (S.effects || []).find(e => /^bladesong$/i.test(e.name)); if (blade) { S.effects = S.effects.filter(e => e !== blade); lines.push('Bladesong ends'); }
+  if (c === 'Unconscious') { if (!S.conditions.includes('Prone')) { S.conditions.push('Prone'); lines.push('You fall prone'); } lines.push('You drop whatever you’re holding'); }
+  cleanupLinked();
+  return lines;
+}
 function breakConc(reason) {
   const nm = S.concentration; if (!nm) return;
   S.concentration = ''; S.effects = (S.effects || []).filter(e => !e.conc);
@@ -4552,9 +4567,22 @@ function endEffect(n) {
 }
 function repeatEffect(j) {
   const e = S.effects[j]; if (!e || !e.repeat) return;
+  if (isInsp(e)) return giftUse(null, '');
   const r = rollExpr(e.repeat.dice);
   toast(`<b class="total">${r.total}</b><div><div>${esc(e.name)} — ${e.repeat.heal ? 'healing' : esc(e.repeat.type || 'damage')}</div><div class="det">${esc(r.detail)}${e.repeat.save ? ' · ' + esc(e.repeat.save) : ''}</div></div>`, '', 7000);
 }
+// Inspiration you were given (Bardic Inspiration from the effects list or sent by a bard in your party): one die, used
+// once. Rolling it ends it; after an attack, check or save the result offers to add it.
+const isInsp = e => !!(e && e.repeat && /inspiration/i.test(String(e.repeat.type || e.name || '')) && !e.ally);
+const inspFx = () => (S.effects || []).find(isInsp);
+function giftUse(base, label) {
+  const e = inspFx(); if (!e) { toast('No inspiration die to use.', 'fumble'); return; }
+  const r = rollExpr(e.repeat.dice, { label: (label ? label + ': ' : '') + (e.repeat.type || e.name) }); if (!r) return;
+  S.effects = S.effects.filter(x => x !== e); pendingLabel = 'Use ' + e.name; save(); render();
+  const tot = base != null ? base + r.total : r.total;
+  toast(`<b class="total">${tot}</b><div><div>${label ? esc(label) + ' + ' : ''}${esc(e.repeat.type || e.name)}</div><div class="det">${base != null ? base + ' + ' : ''}${esc(e.repeat.dice)} (${esc(r.detail)})</div><div class="det">${esc(e.name)} used</div></div>`, '', 8000, { label: 'Undo', fn: () => undo(1) });
+}
+const inspAct = (base, label) => { const e = inspFx(); return e ? { label: `+ ${e.repeat.type || 'Inspiration'} (${String(e.repeat.dice).replace(/^1d/, 'd')})`, fn: () => giftUse(base, label) } : null; };
 // Features that happen on their own as your turn comes round (Elder Champion's 10 HP, Survivor, Protective Spirit):
 // fx `onTurn: { use, onlyWhen, notZero, notIncap }`. Each one says what it did in a note.
 function turnStartFx() {
@@ -4745,6 +4773,7 @@ function toggleCondition(c) {
   if (on && S.condTurns) delete S.condTurns[c];
   if (on && S.condNotes) delete S.condNotes[c];
   pendingLabel = (on ? 'Remove ' : 'Add ') + c;
+  if (!on && ['Incapacitated', 'Paralyzed', 'Petrified', 'Stunned', 'Unconscious'].includes(c)) { const ko = incapacitate(c); if (ko.length) toast(`<div><b>${esc(c)}</b>${ko.map(l => `<div class="det">${esc(l)}</div>`).join('')}</div>`, 'fumble', 8000); }
   if (!on && ['Incapacitated', 'Paralyzed', 'Petrified', 'Stunned', 'Unconscious'].includes(c) && S.concentration) { save(); breakConc(c.toLowerCase()); return; }
   update(); render('vitals', 'combat');
 }

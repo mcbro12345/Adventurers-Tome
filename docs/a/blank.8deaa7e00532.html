@@ -13894,7 +13894,7 @@ function d20(label, bonus, kind, ab, rows) {
   const note = [rm.mode !== 'normal' ? (rm.mode === 'adv' ? 'Advantage: ' : 'Disadvantage: ') + rm.why.join(', ') : '', bless ? 'Bless +1d4' : '', ex ? `Exhaustion −${ex}` : '', rm.auto ? 'Automatic failure (condition)' : ''].filter(Boolean).join(' · ');
   const n1 = kind === 'attack' && r.d20 === 1 ? nat1Roll() : null;
   if (['attack', 'save', 'check'].includes(kind)) LAST_D20 = { t: Date.now(), label, bonus, kind, ab, rows, total: r.skipped ? null : r.total };
-  toast(`<b class="total">${r.total}</b><div><div>${esc(label)}</div><div class="det dd">${esc(r.detail)}</div>${note ? `<div class="det">${esc(note)}</div>` : ''}${n1 ? `<div class="rc-n1"><b>Nat 1 Roll:</b> ${n1.total}</div>` : ''}${math}</div>`, r.d20 === 20 ? 'crit' : r.d20 === 1 ? 'fumble' : '');
+  toast(`<b class="total">${r.total}</b><div><div>${esc(label)}</div><div class="det dd">${esc(r.detail)}</div>${note ? `<div class="det">${esc(note)}</div>` : ''}${n1 ? `<div class="rc-n1"><b>Nat 1 Roll:</b> ${n1.total}</div>` : ''}${math}</div>`, r.d20 === 20 ? 'crit' : r.d20 === 1 ? 'fumble' : '', ['attack', 'save', 'check'].includes(kind) && !r.skipped && typeof inspAct === 'function' && inspFx() ? 9000 : undefined, ['attack', 'save', 'check'].includes(kind) && !r.skipped && typeof inspAct === 'function' ? inspAct(r.total, label) : null);
   return r;
 }
 const doubleDice = e => String(e || '').replace(/(\d*)d(\d+)/gi, (m, n, sd) => (2 * (N(n) || 1)) + 'd' + sd);
@@ -15996,7 +15996,9 @@ addEventListener('resize', invCtxShut); addEventListener('blur', invCtxShut);
 
 
 // ---------- Click handling ----------
-document.addEventListener('click', e => rollGate(() => mainClick(e)));
+// (where the click happened is noted now: with dice you roll yourself, the click is run again once the roll is in, and by
+// then the button may have been redrawn and no longer be on the page)
+document.addEventListener('click', e => { try { e._pc = !!(e.target.closest && e.target.closest('#page-combat')); } catch (x) {} rollGate(() => mainClick(e)); });
 const TABSCROLL = {}; let tabFadeT = 0;
 function mainClick(e) {
   if (e.target.closest('#wizard')) return wizClick(e);
@@ -16026,7 +16028,7 @@ function mainClick(e) {
     case 'redoall': { const c = redo(REDO.length); closeModal(true); toast(`Redid ${c} change(s).`); break; }
     case 'layout': if (onPhone()) break; if (window.pgPhoneView && (window.PG_IN_PHONE || (!isMobile() && window.innerWidth >= 640))) { window.pgPhoneView(!window.PG_IN_PHONE); break; }
       LAYOUT_NOW = isMobile() ? 'desktop' : 'mobile'; applyLayout(); render(); window.scrollTo(0, 0); break;
-    case 'attack': attackRoll(i, !b.closest('#page-combat') || !S.inCombat); break;
+    case 'attack': attackRoll(i, !(e._pc || b.closest('#page-combat')) || !S.inCombat); break;
     case 'bonusatk': bonusAttack(i, b.dataset.kind); break;
     case 'equip': equipItem(i); break;
     case 'dupitem': { const src = S.inventory[i]; if (!src) break; const c = JSON.parse(JSON.stringify(src)); c.id = uid(); c.equipped = false; c.attuned = false; S.inventory.splice(i + 1, 0, c); pendingLabel = 'Duplicate ' + (src.name || 'item'); save(); render(); toast(`Duplicated “${esc(src.name || 'item')}”`); break; }
@@ -16511,7 +16513,7 @@ function attackRoll(i, free, opt) {
   if (!nat1 && a.kind === 'melee' && stunStrikeFeat() && stunKiLeft() > 0) acts.push({ keep: true, cls: 't-add', grp: 'stun', label: 'Stunning Strike (1 ki)', title: 'The creature you hit makes a CON save or is stunned', fn: (t, b) => { stunningStrike(); b.remove(); } });
   xr.filter(x => x.refund).forEach(x => acts.push({ label: `Missed — get ${x.what === 'Divine Smite' ? 'the slot' : 'the ki'} back`, fn: () => { x.refund(); pendingLabel = x.what + ' not used'; update(); render(); toast(`${x.what} is ready again for your next hit.`); } }));
   rh.always.forEach(x => acts.push({ label: `Missed — get ${x.src.name} back`, fn: () => { x.src.refund(); pendingLabel = x.src.name + ' not used'; update(); render(); toast(`${esc(x.src.name)} is back.`); } }));
-  acts.push(...rh.acts);
+  acts.push(...rh.acts); { const ia = typeof inspAct === 'function' && !nat1 ? inspAct(h.total, nm + ' to hit') : null; if (ia) acts.push(ia); }
   // What you can still add now that you know it hit: Divine Smite, Sneak Attack, Hand of Harm (each adds to this card).
   if (!nat1) acts.push(...atkAddOns(a, nm, crit, isWeapon, rm, opt, { total, byType, mainT, sneak: sr ? sr.total : 0 }, xr.filter(x => x.what).map(x => x.what)));
   if (sr && !opt.offTurn) acts.push({ label: 'Missed — Sneak Attack not used', fn: () => { S.turn.sneak = false; pendingLabel = 'Sneak Attack not used'; update(); refresh(); toast('Sneak Attack is ready again this turn.'); } });
@@ -16768,9 +16770,23 @@ function endEffect(n) {
 }
 function repeatEffect(j) {
   const e = S.effects[j]; if (!e || !e.repeat) return;
+  if (isInsp(e)) return inspUse(null, '');
   const r = rollExpr(e.repeat.dice);
   toast(`<b class="total">${r.total}</b><div><div>${esc(e.name)} — ${e.repeat.heal ? 'healing' : esc(e.repeat.type || 'damage')}</div><div class="det">${esc(r.detail)}${e.repeat.save ? ' · ' + esc(e.repeat.save) : ''}</div></div>`, '', 7000);
 }
+// Inspiration you were given (Bardic Inspiration from the effects list or sent by a bard in your party): one die, used
+// once. Rolling it ends it; after an attack, check or save the result offers to add it.
+const isInsp = e => !!(e && e.repeat && /inspiration/i.test(String(e.repeat.type || e.name || '')) && !e.ally);
+const inspFx = () => (S.effects || []).find(isInsp);
+function inspUse(base, label) {
+  const e = inspFx(); if (!e) { toast('No inspiration die to use.', 'fumble'); return; }
+  const r = rollExpr(e.repeat.dice, { label: (label ? label + ': ' : '') + (e.repeat.type || e.name) }); if (!r) return;
+  S.effects = S.effects.filter(x => x !== e); pendingLabel = 'Use ' + e.name; save(); render();
+  const tot = base != null ? base + r.total : r.total;
+  toast(`<b class="total">${tot}</b><div><div>${label ? esc(label) + ' + ' : ''}${esc(e.repeat.type || e.name)}</div><div class="det">${base != null ? base + ' + ' : ''}${esc(e.repeat.dice)} (${esc(r.detail)})</div><div class="det">${esc(e.name)} used</div></div>`, '', 8000, { label: 'Undo', fn: () => undo(1) });
+}
+window._inspFx = () => inspFx(); window._inspUse = (a,b) => inspUse(a,b);
+const inspAct = (base, label) => { const e = inspFx(); return e ? { label: `+ ${e.repeat.type || 'Inspiration'} (${String(e.repeat.dice).replace(/^1d/, 'd')})`, fn: () => inspUse(base, label) } : null; };
 // Features that happen on their own as your turn comes round (Elder Champion's 10 HP, Survivor, Protective Spirit):
 // fx `onTurn: { use, onlyWhen, notZero, notIncap }`. Each one says what it did in a note.
 function turnStartFx() {
