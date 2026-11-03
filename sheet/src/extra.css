@@ -4375,6 +4375,6 @@ html.mobile :is(#page-features, #page-infusions) .fl-acts .btn.fxact { min-heigh
 /* The line under the name breaks only between its parts (each part's spaces are non-breaking; see fitSubtitle). */
 .namebox .subtitle { overflow-wrap: normal; word-break: normal; overflow-x: hidden; max-width: 100%; box-sizing: border-box; }
 .namebox .subtitle.sub2, html:not(.mobile) .namebox .subtitle.sub2 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; }
-/* Companion cards (Combat and Creatures tabs): their plain buttons (Dismiss, Switch type…) get a fill and edge so they read as buttons on the card. */
-.comp2 .btn.ghost, .cm-card .btn.ghost, .comp2 .btn:not(.gold):not(.red):not(.ghost) { background: var(--field) !important; border: 1px solid var(--line) !important; color: var(--ink); }
-@media (hover: hover) { .comp2 .btn.ghost:hover:not([disabled]), .cm-card .btn.ghost:hover:not([disabled]) { border-color: var(--gold) !important; } }
+/* Companion cards in the Combat columns sit on the column's lighter card colour, so their inner boxes (AC/speed, type,
+   attacks, notes) take the darker field colour to stand out, as they do on the Creatures tab. */
+.comp2.incol .csts, .comp2.incol .cmode, .comp2.incol .cacts, .comp2.incol .cnotes { background: var(--field); border-color: var(--line); }
