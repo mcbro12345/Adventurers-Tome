@@ -657,18 +657,26 @@ function spgHead(col, g, mode, n, open, first, last) {
 // Dragging a whole group (desktop): a copy of its header follows the pointer; drop it between other groups.
 // While it moves the group folds up to just its header (so an open one is easy to place); it opens again when dropped.
 let GDRAG = null;
+// Fold the dragged group to its header, keeping the header where it was on screen (so it stays under the pointer).
+function gFold(d) { const h = d.grp.firstElementChild, t0 = h ? h.getBoundingClientRect().top : 0; d.grp.classList.add('bdrag-src', 'gfold'); d.ghost.style.visibility = ''; d.line.hidden = false; const t1 = h ? h.getBoundingClientRect().top : 0; if (t1 !== t0) scrollBy(0, t1 - t0); }
 document.addEventListener('pointerdown', e => {
-  const h = e.target.closest && e.target.closest('.gdrag'); if (!h || e.button > 0 || isMobile()) return;
+  // (by its grip, or anywhere on its header except the edit / delete buttons: a plain click still folds or opens it)
+  let h = e.target.closest && e.target.closest('.gdrag');
+  if (!h && e.target.closest) { const hr = e.target.closest('#page-spells .spg > .cspg-hrow'); if (hr && !e.target.closest('.cath-tools, input, select, textarea, a')) h = hr.querySelector('.gdrag'); }
+  if (!h || e.button > 0 || isMobile()) return;
   const grp = h.closest('.spg'); if (!grp) return; e.preventDefault();
   const hd = grp.querySelector(':scope > .cspg-hrow'), r = hd.getBoundingClientRect(), ghost = document.createElement('div');
   ghost.className = 'bdrag-ghost cspg spg-ghost'; ghost.style.setProperty('--g', getComputedStyle(grp).getPropertyValue('--g')); ghost.appendChild(hd.cloneNode(true));
   Object.assign(ghost.style, { width: r.width + 'px', left: r.left + 'px', top: r.top + 'px' }); document.body.appendChild(ghost);
   const line = document.createElement('div'); line.className = 'spg-drop'; grp.before(line);
-  grp.classList.add('bdrag-src', 'gfold'); GDRAG = { k: h.dataset.gdrag, grp, ghost, line, dx: e.clientX - r.left, dy: e.clientY - r.top, before: null, moved: false };
+  ghost.style.visibility = 'hidden'; line.hidden = true; // (shown once it really moves)
+  GDRAG = { k: h.dataset.gdrag, grp, ghost, line, dx: e.clientX - r.left, dy: e.clientY - r.top, x0: e.clientX, y0: e.clientY, before: null, moved: false };
   document.body.classList.add('idragging');
 });
 document.addEventListener('pointermove', e => {
-  const d = GDRAG; if (!d) return; e.preventDefault(); d.moved = true;
+  const d = GDRAG; if (!d) return; e.preventDefault();
+  // (it folds once it's really moving, not on the press itself)
+  if (!d.moved) { if (Math.hypot(e.clientX - d.x0, e.clientY - d.y0) < 4) return; gFold(d); } d.moved = true;
   d.ghost.style.left = (e.clientX - d.dx) + 'px'; d.ghost.style.top = (e.clientY - d.dy) + 'px';
   const groups = [...d.grp.parentElement.querySelectorAll(':scope > .spg')].filter(g => g.dataset.gk !== 'c:none');
   let tgt = null; for (const g of groups) { const b = g.getBoundingClientRect(); if (e.clientY < b.top + Math.min(b.height, 60) / 2) { tgt = g; break; } }
@@ -676,8 +684,10 @@ document.addEventListener('pointermove', e => {
   d.before = tgt ? tgt.dataset.gk : null;
   const edge = 60; if (e.clientY < edge) scrollBy(0, -12); else if (e.clientY > innerHeight - edge) scrollBy(0, 12);
 }, { passive: false });
+// After a real drag the release isn't also a click on the header (which would fold or open it).
+function gNoClick() { const kill = ev => { ev.stopPropagation(); ev.preventDefault(); }; addEventListener('click', kill, true); setTimeout(() => removeEventListener('click', kill, true), 0); }
 function gdragEnd(cancel) {
-  const d = GDRAG; if (!d) return; GDRAG = null; document.body.classList.remove('idragging'); d.ghost.remove(); d.line.remove(); d.grp.classList.remove('bdrag-src', 'gfold');
+  const d = GDRAG; if (!d) return; GDRAG = null; if (d.moved) gNoClick(); document.body.classList.remove('idragging'); d.ghost.remove(); d.line.remove(); d.grp.classList.remove('bdrag-src', 'gfold');
   if (cancel || !d.moved || d.before === d.k) return;
   // Dropping right after itself changes nothing.
   const sib = [...d.grp.parentElement.querySelectorAll(':scope > .spg')], at = sib.indexOf(d.grp); if (sib[at + 1] && sib[at + 1].dataset.gk === d.before) return;
@@ -713,17 +723,21 @@ function cgStep(col, k, d) {
 }
 let CGDRAG = null;
 document.addEventListener('pointerdown', e => {
-  const h = e.target.closest && e.target.closest('.cgdrag'); if (!h || e.button > 0 || isMobile()) return;
+  let h = e.target.closest && e.target.closest('.cgdrag');
+  if (!h && e.target.closest) { const hd = e.target.closest('.cgmov > .cspg-h'); if (hd && !e.target.closest('input, select, textarea, a, .cath-tools')) h = hd.parentElement.querySelector(':scope > .cgdrag'); }
+  if (!h || e.button > 0 || isMobile()) return;
   const grp = h.closest('.cgmov'); if (!grp) return; e.preventDefault(); e.stopPropagation();
   const hd = grp.querySelector(':scope > .cspg-h') || grp, r = hd.getBoundingClientRect(), ghost = document.createElement('div');
   ghost.className = 'bdrag-ghost cspg spg-ghost ' + [...grp.classList].filter(c => /^g-/.test(c)).join(' '); const st = grp.getAttribute('style'); if (st) ghost.setAttribute('style', st); ghost.appendChild(hd.cloneNode(true));
   Object.assign(ghost.style, { position: 'fixed', width: r.width + 'px', left: r.left + 'px', top: r.top + 'px' }); document.body.appendChild(ghost);
   const line = document.createElement('div'); line.className = 'spg-drop'; grp.before(line);
-  grp.classList.add('bdrag-src', 'gfold'); CGDRAG = { grp, col: grp.dataset.cgcol, ghost, line, dx: e.clientX - r.left, dy: e.clientY - r.top, before: grp, moved: false };
+  ghost.style.visibility = 'hidden'; line.hidden = true; // (shown once it really moves)
+  CGDRAG = { grp, col: grp.dataset.cgcol, ghost, line, dx: e.clientX - r.left, dy: e.clientY - r.top, x0: e.clientX, y0: e.clientY, before: grp, moved: false };
   document.body.classList.add('idragging');
 }, true);
 document.addEventListener('pointermove', e => {
-  const d = CGDRAG; if (!d) return; e.preventDefault(); d.moved = true;
+  const d = CGDRAG; if (!d) return; e.preventDefault();
+  if (!d.moved) { if (Math.hypot(e.clientX - d.x0, e.clientY - d.y0) < 4) return; gFold(d); } d.moved = true;
   d.ghost.style.left = (e.clientX - d.dx) + 'px'; d.ghost.style.top = (e.clientY - d.dy) + 'px';
   const groups = [...d.grp.parentElement.querySelectorAll(':scope > .cgmov')];
   let tgt = null; for (const g of groups) { const b = g.getBoundingClientRect(); if (e.clientY < b.top + Math.min(b.height, 50) / 2) { tgt = g; break; } }
@@ -731,7 +745,7 @@ document.addEventListener('pointermove', e => {
   const edge = 60; if (e.clientY < edge) scrollBy(0, -12); else if (e.clientY > innerHeight - edge) scrollBy(0, 12);
 }, { passive: false });
 function cgdragEnd(cancel) {
-  const d = CGDRAG; if (!d) return; CGDRAG = null; document.body.classList.remove('idragging'); d.ghost.remove(); d.line.remove(); d.grp.classList.remove('bdrag-src', 'gfold');
+  const d = CGDRAG; if (!d) return; CGDRAG = null; if (d.moved) gNoClick(); document.body.classList.remove('idragging'); d.ghost.remove(); d.line.remove(); d.grp.classList.remove('bdrag-src', 'gfold');
   if (cancel || !d.moved) return;
   const keys = [...d.grp.parentElement.querySelectorAll(':scope > .cgmov')].map(g => g.dataset.cgk).filter(k => k !== d.grp.dataset.cgk);
   let at = d.before && d.before !== d.grp ? keys.indexOf(d.before.dataset.cgk) : -1; if (d.before === d.grp) return; if (at < 0) at = keys.length;

@@ -1875,11 +1875,11 @@ const R20_LOGO = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAARcAAAB4CAIAAABX
 const ICON = {
   image: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>',
   clock: '<svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
-  log: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>',
+  log: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><g transform="translate(.5 0)"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></g></svg>',
   hist: '<svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>',
   sun: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
   moon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>',
-  bug: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 7.5V6a3 3 0 0 1 6 0v1.5"/><rect x="7" y="7.5" width="10" height="12.5" rx="5"/><path d="M12 11v9M3.5 13H7M17 13h3.5M4.5 8l2.6 1.8M19.5 8l-2.6 1.8M4.5 19.5l2.8-2M19.5 19.5l-2.8-2"/></svg>',
+  bug: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(0 .5)"><path d="M9 7.5V6a3 3 0 0 1 6 0v1.5"/><rect x="7" y="7.5" width="10" height="12.5" rx="5"/><path d="M12 11v9M3.5 13H7M17 13h3.5M4.5 8l2.6 1.8M19.5 8l-2.6 1.8M4.5 19.5l2.8-2M19.5 19.5l-2.8-2"/></g></svg>',
   phone: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M11 18.5h2"/></svg>',
   fsIn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>',
   fsOut: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg>',
@@ -1903,7 +1903,7 @@ function toolbarHTML() {
     settings: `<button class="tbtn" data-zi="settings" data-act="settings" title="Settings">${ICON.gear}<span class="tl">Settings</span></button>`,
     save: `<div class="savegrp" data-zi="save"><span class="save-state${/synced|view only/i.test(UI.saveState || '') ? ' live' : ''}" id="saveState" title="${esc(UI.saveState || 'Auto-saves')}">${syncHTML(UI.saveState || 'Auto-saves')}</span></div>`,
     dice: `<button class="devbtn dicebtn" data-zi="dice" data-act="diceroller" title="Dice roller" aria-label="Dice roller"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 2.5l8.5 4.9v9.2L12 21.5l-8.5-4.9V7.4z"/><path d="M12 7.5l4.3 7.4H7.7zM12 2.5v5M20.5 7.4l-4.2 7.5M3.5 7.4l4.2 7.5M12 21.5l-4.3-6.6M12 21.5l4.3-6.6"/></svg></button>`,
-    ...({ chat: `<button class="devbtn chatbtn" data-zi="chat" data-act="chatwin" title="Party chat" aria-label="Party chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 10h8M8 13h5"/></svg></button>` }),
+    ...({ chat: `<button class="devbtn chatbtn" data-zi="chat" data-act="chatwin" title="Party chat" aria-label="Party chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(0 -.5)"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 10h8M8 13h5"/></g></svg></button>` }),
     rolllog: `<button class="devbtn logbtn" data-zi="rolllog" data-act="rolllog" title="Log — every roll, plus everything else that popped up" aria-label="Log">${ICON.log}</button>`,
     // (on a phone it sits next to Log; on a computer, after the layout switch)
     ...(isMobile() && window.SHEET_PAGES ? { bug: `<button class="devbtn bugbtn" data-zi="bug" data-act="bugreport" title="Bugs, ideas &amp; feedback" aria-label="Bugs, ideas and feedback">${ICON.bug}</button>` } : {}),
@@ -2841,7 +2841,6 @@ function renderFeatures() {
         + (r.extraSubs || []).map(xk => c.subclasses[xk] ? `<span class="subname">+ ${esc(c.subclasses[xk].name)}${N((r.extraSubLv || {})[xk]) ? ` <small class="hint">(${N(r.extraSubLv[xk])} lv)</small>` : ''}</span>` : '').join('')
         + loose.map(([n, v]) => `<span class="ftag">${esc(n)}: <b>${esc(v)}</b></span>`).join('');
     }
-    if (g === 'feat') extra = `<button class="btn sm" data-act="addfeat">+ Add feat</button>`;
     return extra;
   };
   // Known infusions live on the Infusions tab (they only do something once an item is infused).
@@ -2852,7 +2851,7 @@ function renderFeatures() {
   const sections = [...new Set(order.concat(groups))].filter(g => groups.includes(g) && (shown.some(([f]) => featGroup(f) === g) || (g === 'feat' && ff === 'all' && !q))).map(g => `<section class="fgroup"><h3 class="subh fghead"><span class="sh-dot"></span><span class="fgname">${esc(gname(g))}</span>${head(g)}</h3>
     <div class="fgrid">${shown.filter(([f]) => featGroup(f) === g).map(([f, i]) => card(f, i)).join('') || (g === 'feat' ? '<p class="hint">No feats yet. Feats from level-ups are added automatically.</p>' : '')}</div></section>`).join('');
   $('#page-features').innerHTML = `
-  <div class="panel" ${PID('featlist')}><h2><span class="grow">Features &amp; Traits</span><span class="hint lvhint" style="text-transform:none;letter-spacing:0">Total level ${totalLevel()} · proficiency ${fmt(PB())}</span><button class="btn sm" data-act="hbnew" data-k="feat">+ Homebrew feature</button></h2>
+  <div class="panel" ${PID('featlist')}><h2><span class="grow">Features &amp; Traits</span><span class="hint lvhint" style="text-transform:none;letter-spacing:0">Total level ${totalLevel()} · proficiency ${fmt(PB())}</span><span class="fl-hbtns"><button class="btn sm" data-act="addfeat">+ Add feat</button><button class="btn sm" data-act="hbnew" data-k="feat">+ Homebrew feature</button></span></h2>
     <div class="filters" style="margin-top:0"><input class="f featq" id="featQ" placeholder="Search features…" value="${esc(UI.featQ || '')}" aria-label="Search features"><button class="chip${ff === 'all' ? ' on' : ''}" data-act="featfilter" data-f="all">All</button>${groups.filter(g => g !== 'feat' || S.features.some(f => featGroup(f) === 'feat')).map(g => `<button class="chip${ff === g ? ' on' : ''}" data-act="featfilter" data-f="${g}">${esc(gname(g))}</button>`).join('')}</div>
     ${sections || '<p class="hint">No features match.</p>'}
     <p class="hint">Features from your class, race, background and feats are added and updated automatically as you level. Tap a feature to read it in full or edit it.</p></div>`;
@@ -3998,7 +3997,7 @@ function mainClick(e) {
     case 'useitem': useItem(i, b.dataset.col); break;
     case 'ispdel': { const it = S.inventory[i]; const n = it.spells.splice(N(b.dataset.j), 1)[0]; pendingLabel = `${it.name}: remove ${n}`; rebuildAuto(); save(); render(); break; }
     case 'hbnew': openHomebrew(b.dataset.k); return;
-    case 'itempaste': openItemPaste(); return;
+    case 'itempaste': openItemPaste(b.dataset.i != null ? N(b.dataset.i) : -1); return;
     case 'hbbopen': openHomebrew(b.dataset.k, N(b.dataset.i)); return;
     case 'hbopen': UI.open['hb:' + b.dataset.key] = !UI.open['hb:' + b.dataset.key]; render(); break;
     case 'addspells': openSpellPicker(b.dataset.cls); pendingLabel = null; return;
@@ -8050,6 +8049,7 @@ function spgHead(col, g, mode, n, open, first, last) {
   return `<div class="cspg-hrow"${mode === 'custom' ? ` data-cat="${esc(g.cat)}"` : ''}>${mv ? `<span class="gdrag" data-gdrag="${esc(g.k)}" title="Drag to rearrange" aria-hidden="true">⠿</span>` : ''}${cGroupHead(col, g.k, esc(g.name), esc(String(g.icon)), n, open)}${tools}</div>`;
 }
 // Dragging a whole group (desktop): a copy of its header follows the pointer; drop it between other groups.
+// While it moves the group folds up to just its header (so an open one is easy to place); it opens again when dropped.
 let GDRAG = null;
 document.addEventListener('pointerdown', e => {
   const h = e.target.closest && e.target.closest('.gdrag'); if (!h || e.button > 0 || isMobile()) return;
@@ -8058,7 +8058,7 @@ document.addEventListener('pointerdown', e => {
   ghost.className = 'bdrag-ghost cspg spg-ghost'; ghost.style.setProperty('--g', getComputedStyle(grp).getPropertyValue('--g')); ghost.appendChild(hd.cloneNode(true));
   Object.assign(ghost.style, { width: r.width + 'px', left: r.left + 'px', top: r.top + 'px' }); document.body.appendChild(ghost);
   const line = document.createElement('div'); line.className = 'spg-drop'; grp.before(line);
-  grp.classList.add('bdrag-src'); GDRAG = { k: h.dataset.gdrag, grp, ghost, line, dx: e.clientX - r.left, dy: e.clientY - r.top, before: null, moved: false };
+  grp.classList.add('bdrag-src', 'gfold'); GDRAG = { k: h.dataset.gdrag, grp, ghost, line, dx: e.clientX - r.left, dy: e.clientY - r.top, before: null, moved: false };
   document.body.classList.add('idragging');
 });
 document.addEventListener('pointermove', e => {
@@ -8071,7 +8071,7 @@ document.addEventListener('pointermove', e => {
   const edge = 60; if (e.clientY < edge) scrollBy(0, -12); else if (e.clientY > innerHeight - edge) scrollBy(0, 12);
 }, { passive: false });
 function gdragEnd(cancel) {
-  const d = GDRAG; if (!d) return; GDRAG = null; document.body.classList.remove('idragging'); d.ghost.remove(); d.line.remove(); d.grp.classList.remove('bdrag-src');
+  const d = GDRAG; if (!d) return; GDRAG = null; document.body.classList.remove('idragging'); d.ghost.remove(); d.line.remove(); d.grp.classList.remove('bdrag-src', 'gfold');
   if (cancel || !d.moved || d.before === d.k) return;
   // Dropping right after itself changes nothing.
   const sib = [...d.grp.parentElement.querySelectorAll(':scope > .spg')], at = sib.indexOf(d.grp); if (sib[at + 1] && sib[at + 1].dataset.gk === d.before) return;
@@ -8113,7 +8113,7 @@ document.addEventListener('pointerdown', e => {
   ghost.className = 'bdrag-ghost cspg spg-ghost ' + [...grp.classList].filter(c => /^g-/.test(c)).join(' '); const st = grp.getAttribute('style'); if (st) ghost.setAttribute('style', st); ghost.appendChild(hd.cloneNode(true));
   Object.assign(ghost.style, { position: 'fixed', width: r.width + 'px', left: r.left + 'px', top: r.top + 'px' }); document.body.appendChild(ghost);
   const line = document.createElement('div'); line.className = 'spg-drop'; grp.before(line);
-  grp.classList.add('bdrag-src'); CGDRAG = { grp, col: grp.dataset.cgcol, ghost, line, dx: e.clientX - r.left, dy: e.clientY - r.top, before: grp, moved: false };
+  grp.classList.add('bdrag-src', 'gfold'); CGDRAG = { grp, col: grp.dataset.cgcol, ghost, line, dx: e.clientX - r.left, dy: e.clientY - r.top, before: grp, moved: false };
   document.body.classList.add('idragging');
 }, true);
 document.addEventListener('pointermove', e => {
@@ -8125,7 +8125,7 @@ document.addEventListener('pointermove', e => {
   const edge = 60; if (e.clientY < edge) scrollBy(0, -12); else if (e.clientY > innerHeight - edge) scrollBy(0, 12);
 }, { passive: false });
 function cgdragEnd(cancel) {
-  const d = CGDRAG; if (!d) return; CGDRAG = null; document.body.classList.remove('idragging'); d.ghost.remove(); d.line.remove(); d.grp.classList.remove('bdrag-src');
+  const d = CGDRAG; if (!d) return; CGDRAG = null; document.body.classList.remove('idragging'); d.ghost.remove(); d.line.remove(); d.grp.classList.remove('bdrag-src', 'gfold');
   if (cancel || !d.moved) return;
   const keys = [...d.grp.parentElement.querySelectorAll(':scope > .cgmov')].map(g => g.dataset.cgk).filter(k => k !== d.grp.dataset.cgk);
   let at = d.before && d.before !== d.grp ? keys.indexOf(d.before.dataset.cgk) : -1; if (d.before === d.grp) return; if (at < 0) at = keys.length;
@@ -10963,7 +10963,7 @@ function hbbPaint() {
   const K = HBB.kind, title = { item: 'item', feat: 'feature', spell: 'spell' }[K];
   const basic = K === 'item' ? hbbItemBasic() : K === 'feat' ? hbbFeatBasic() : hbbSpellBasic();
   const adv = HBB.adv ? `<div class="hbb-adv">${K === 'item' ? hbbItemAdv() : K === 'feat' ? hbbFeatAdv() : hbbSpellAdv()}<p class="hint hbb-fhint">Numbers can be formulas: <code>prof</code>, <code>wis</code>, <code>level</code>, <code>1d6+prof</code>. Separate several entries with commas.</p></div>` : '';
-  box.innerHTML = `<div class="hbb-head"><h3>${HBB.isNew ? 'New homebrew ' + title : 'Edit ' + esc(HBB.d.name || title)}</h3><label class="hbb-switch" title="Show every option the sheet can automate"><input type="checkbox" data-hbbadv${HBB.adv ? ' checked' : ''}><span class="tr"><i></i></span><span>Advanced</span></label></div>
+  box.innerHTML = `<div class="hbb-head"><h3>${HBB.isNew ? 'New homebrew ' + title : 'Edit ' + esc(HBB.d.name || title)}</h3>${K === 'item' && !HBB.read ? `<button type="button" class="btn sm hbb-paste" data-act="itempaste"${HBB.isNew ? '' : ` data-i="${HBB.idx}"`} title="Paste an item from a book, PDF or D&amp;D Beyond and it fills this in">Paste an item…</button>` : ''}<label class="hbb-switch" title="Show every option the sheet can automate"><input type="checkbox" data-hbbadv${HBB.adv ? ' checked' : ''}><span class="tr"><i></i></span><span>Advanced</span></label></div>
     ${HBB.read ? `<div class="hbb-read"><b>Read from the pasted text</b><ul>${HBB.read.done.map(l => `<li>✓ ${esc(l)}</li>`).join('')}${HBB.read.left.map(l => `<li class="warn">! ${esc(l)}</li>`).join('')}</ul><small class="hint">Check it below, then add it. Anything else it does stays in “What it does”.</small></div>` : ''}
     <div class="hbb-body">${basic}${adv}</div>
     <div class="actions hbb-acts">${K === 'item' ? `<label class="hbb-chk sm" title="So you (and your party) can add it again from Add an item → Homebrew"><input type="checkbox" data-hbb="_keep"${HBB.d._keep ? ' checked' : ''}><span><b>Also save to my homebrew items</b></span></label>` : ''}<span class="grow"></span><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-hbbsave>${HBB.isNew ? 'Create ' + title : 'Save'}</button></div>`;
@@ -11223,14 +11223,20 @@ function hbbRiderFields(kind) {
 }
 
 // Paste an item's text from a book / PDF / D&D Beyond → the builder, filled in, to check and add.
-function openItemPaste() {
+// From the builder itself (idx = the inventory item being edited) it fills that item in, and Cancel goes back to the builder.
+function openItemPaste(idx) {
+  idx = idx >= 0 && S.inventory[idx] ? idx : -1; const back = HBB && HBB.kind === 'item' ? HBB : null;
+  const reopen = () => { if (!back) return; setTimeout(() => { HBB = back; openModal('<div id="hbb"></div>', () => { HBB = null; }, true); hbbPaint(); }, 0); };
   openModal(`<h3>Paste an item</h3><p class="hint">Paste a magic item — its name, the type line (“Weapon (longsword), rare (requires attunement)”), then its text. Bonuses, charges, spells, extra damage, resistances and speeds become automation you can check before adding it.</p>
     <textarea class="f" id="ipaste" rows="10" aria-label="Item text" placeholder="Ring of Protection&#10;Ring, rare (requires attunement)&#10;You gain a +1 bonus to AC and saving throws while wearing this ring."></textarea>
-    <div class="actions"><span class="grow"></span><button class="btn" data-act="close">Cancel</button><button class="btn gold" id="ipasteGo">Read item</button></div>`, null, true);
+    <div class="actions"><span class="grow"></span><button class="btn" data-act="close">Cancel</button><button class="btn gold" id="ipasteGo">Read item</button></div>`, reopen, true);
   setTimeout(() => { const t = $('#ipaste'); if (t) t.focus(); }, 30);
   $('#ipasteGo').onclick = () => { const v = $('#ipaste').value; if (!v.trim()) return; const ctx = { weapons: DND.weapons, armor: DND.armor, spells: DND.spells.map(x => x.name) }, r = ItemParse.parse(v, ctx);
     if (!r) { toast('That didn’t look like an item — the first line should be its name.', 'fumble'); return; }
-    const it = ItemParse.toItem(r.spec, ctx); it.id = uid(); closeModal(true); openHomebrew('item', -1, it, { done: r.done, left: r.left }); };
+    let it = ItemParse.toItem(r.spec, ctx); it.id = uid();
+    // (filling in an item you already have keeps where it is and whether it's worn, attuned or infused)
+    if (idx >= 0) { const cur = S.inventory[idx]; it = Object.assign({}, cur, it, { id: cur.id, qty: cur.qty, equipped: cur.equipped, attuned: cur.attuned, carried: cur.carried, bag: cur.bag, infusion: cur.infusion }); }
+    closeModal(true); openHomebrew('item', idx, it, { done: r.done, left: r.left }); };
 }
 
 // ==== ITEMPARSE START — shared with the DM's Desk (desk/build.sh copies this block into desk.js; edit it only here) ====
@@ -11663,6 +11669,8 @@ function renderFeatModal() {
   openModal(`<h3>Add a feat</h3><p class="hint" style="margin:0 0 8px">For feats from your DM, a background or a race. Feats taken at level up are added there automatically.</p>
     <div id="featm">${choiceUI(CH, 'feat', { type: 'feat', n: 1 })}</div>
     <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="featok">Add feat</button></div>`, null, true);
+  // the same searchable feat list as character creation and level up (and the follow-up choices as lists too)
+  wz3FeatLists('#modal-body', sheetFeatOK); wz3ChoiceLists('#modal-body');
 }
 function featModalOK() {
   const n = ansList(FEATM.ans, 'feat')[0]; if (!n) { toast('Choose a feat first.'); return; }

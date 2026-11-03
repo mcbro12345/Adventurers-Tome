@@ -4364,3 +4364,6 @@ html.mobile :is(#page-features, #page-infusions) .fl-acts .btn.fxact { min-heigh
 .hbb-head .hbb-paste { white-space: nowrap; }
 /* A group being dragged folds to its header while it moves (it opens again once dropped). */
 .spg.gfold > :not(.cspg-hrow), .cgmov.gfold > :not(.cspg-h):not(.cgdrag) { display: none !important; }
+/* The grip sits above the header button that starts under it, so it gets the grab cursor and the press. */
+.cspg-hrow > .gdrag, .cgmov > .cgdrag { z-index: 3; }
+.cspg-hrow > .gdrag-off { z-index: auto; }
