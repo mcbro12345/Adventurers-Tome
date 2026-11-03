@@ -938,7 +938,7 @@ function calcText(key) {
     case 'lvl': return String(totalLevel());
     case 'xpnext': return totalLevel() >= 20 ? 'max' : '/ ' + xpNext().toLocaleString();
     // (only what the character has: race, class, background, alignment, faith, and who plays them)
-    case 'subtitle': return [S.raceName, classLabel(), S.backgroundName, S.alignment, S.faith, S.player ? 'played by ' + S.player : ''].map(x => String(x || '').trim()).filter(Boolean).join(' · ');
+    case 'subtitle': return [S.raceName, classLabel(), S.backgroundName, S.alignment, String(S.faith || '').trim() ? (/^(faith|follower|servant|devotee|priest)\b/i.test(String(S.faith).trim()) ? S.faith : 'Faith of ' + String(S.faith).trim()) : '', S.player ? 'played by ' + S.player : ''].map(x => String(x || '').trim()).filter(Boolean).join(' · ');
   }
   return '';
 }

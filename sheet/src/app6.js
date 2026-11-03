@@ -56,6 +56,8 @@ function openSettings(tab) {
     ${pane('char', `
       ${row('Race', `<button class="btn sm" data-act="changerace">Change…</button>`, esc(S.raceName || '—'))}
       ${row('Background', `<button class="btn sm" data-act="changebg">Change…</button>`, esc(S.backgroundName || '—'))}
+      ${row('Alignment', `<span class="set-ctl">${sel('alignment', [['', '—']].concat(DND.alignments.map(a => [a, a])))}</span>`, '')}
+      ${row('Faith', `<span class="set-ctl">${inp('faith', { ph: 'Deity or belief', label: 'Faith' })}</span>`, 'Shows under your name as “Faith of …”')}
       ${subclassSettingsHTML()}
       ${row('Leveling', opt('advancement', [['milestone', 'Milestone'], ['xp', 'XP']]), '')}
       ${row('Ability blocks', opt('abilityStyle', [['mod', 'Modifier big'], ['score', 'Score big']]))}

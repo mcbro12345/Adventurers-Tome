@@ -4049,7 +4049,7 @@ html.mwin .skman { display: grid; grid-template-columns: 1fr 1fr; column-gap: 22
 /* Header with Player/Race/Background/Alignment/Faith all off: the whole row drops so its bottom lines up with the portrait's bottom */
 html:not(.mobile) .ident.noid { padding-bottom: 0 !important; margin-bottom: 0 !important; }
 html:not(.mobile) .ident.noid .ident-top { align-items: flex-end !important; padding-bottom: 0 !important; margin-bottom: 0 !important; }
-html:not(.mobile) .ident.noid .namebox { align-self: flex-end; }
+html:not(.mobile) .ident.noid .namebox { align-self: center; position: relative; top: -2px; } /* name and the line under it centred on the portrait */
 html:not(.mobile) .ident.noid .subtitle { margin-bottom: -4px; }
 /* The info button on condition chips sits dead centre on the chip */
 .cchip .notetip { display: inline-flex !important; align-items: center; justify-content: center; align-self: center; width: 16px; height: 16px; padding: 0; margin: 0 0 0 3px; line-height: 16px; vertical-align: middle; }
@@ -5031,4 +5031,12 @@ html.mobile :is(#page-features, #page-infusions) .fl-acts .btn.fxact { min-heigh
 #page-features .fl-hbtns { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
 .hbb-head { flex-wrap: wrap; row-gap: 6px; }
 .hbb-head .hbb-paste { white-space: nowrap; }
+/* A group being dragged folds to its header while it moves (it opens again once dropped). */
+.spg.gfold > :not(.cspg-hrow), .cgmov.gfold > :not(.cspg-h):not(.cgdrag) { display: none !important; }
+/* The grip sits above the header button that starts under it, so it gets the grab cursor and the press. */
+.cspg-hrow > .gdrag, .cgmov > .cgdrag { z-index: 3; }
+.cspg-hrow > .gdrag-off { z-index: auto; }
+/* Story tab: alignment, faith (and player, in the single-file sheet) above the personality traits. */
+.story-id { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 12px; }
+.setrow .set-ctl { flex: 0 0 min(240px, 55%); margin-left: auto; } .setrow .set-ctl .f { width: 100%; box-sizing: border-box; }
 
