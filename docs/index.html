@@ -4123,7 +4123,7 @@ function pgGo(url, replace) { try { sessionStorage.setItem('pg-nav', String(Date
   if (cur && cur.classList.contains('pg-leave')) return; // already on the way out
   // A page with the drifting dice: the page fades away first and leaves the dice where they are, then the loading
   // screen's background comes in underneath its own copy of them (in step, so they never move or flicker)
-  if (window.PG_LOAD_HTML && (!cur || onCard) && document.querySelector('body > .pg-bgd, #pg-load:not(.pg-leave) > .pg-bgd') && window.pgBgdMake && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  if (window.PG_LOAD_HTML && !onCard && !cur && document.querySelector('body > .pg-bgd, #pg-load:not(.pg-leave) > .pg-bgd') && window.pgBgdMake && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
     try { sessionStorage.setItem('pg-bgd', String(Date.now())); } catch (x) {}
     const de = document.documentElement; de.classList.add('pg-dk-fade', 'pg-dk-hide');
     setTimeout(() => { const t = document.createElement('div'); t.innerHTML = window.PG_LOAD_HTML; const el = t.firstElementChild; el.classList.add('pg-leave', 'pg-leave-dk'); el.style.zIndex = '10000'; el.style.animation = 'none';
@@ -4912,7 +4912,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261103102921', ASSETS = {"data": "a/data.e8173a24cd9b.js", "app": "a/app.ee8006bffc00.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.6f8c84eb4bc9.html", "desk": "a/desk.f9a8ca1ca7cd.js", "deskcss": "a/deskcss.cc6e6bb4676a.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261103103547', ASSETS = {"data": "a/data.e8173a24cd9b.js", "app": "a/app.ee8006bffc00.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.6f8c84eb4bc9.html", "desk": "a/desk.f9a8ca1ca7cd.js", "deskcss": "a/deskcss.cc6e6bb4676a.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   // The test site says so on every page (and in the tab's title), so it's never mistaken for the real one.
   if (CFG.test) { window.PG_TEST = true; const mark = () => { if (!document.body || document.getElementById('pg-testmark')) return; const t = document.createElement('div'); t.id = 'pg-testmark'; t.textContent = 'Test site'; t.title = 'This is the test copy of Adventurer’s Tome. Changes here don’t touch the real site.'; document.body.appendChild(t);
       if (!/^\[Test\] /.test(document.title)) document.title = '[Test] ' + document.title; };
@@ -4969,9 +4969,12 @@ function wireDie(root) {
         requestAnimationFrame(() => requestAnimationFrame(() => { parts.forEach(c => { c.style.opacity = '0'; });
           setTimeout(() => { el.remove(); de.classList.remove('pg-dk-solo'); de.classList.add('pg-dk-fade'); void document.body.offsetWidth; de.classList.remove('pg-dk-hide'); pgRevealPanels(); setTimeout(() => de.classList.remove('pg-dk-fade'), 500); }, 320); }));
         return; }
-      const cur = getComputedStyle(el).opacity; el.style.animation = 'none'; el.style.opacity = cur; el.style.pointerEvents = 'none'; el.style.zIndex = '9999'; el.style.transition = 'opacity .6s ease'; void el.offsetWidth;
+      // the die and its words go first, then the screen itself fades off the page (never the two showing through each other)
+      const cur = getComputedStyle(el).opacity; el.style.animation = 'none'; el.style.opacity = cur; el.style.pointerEvents = 'none'; el.style.zIndex = '9999'; el.style.transition = 'opacity .45s ease';
+      const kids = [...el.children].filter(c => !c.classList.contains('pg-bgd')); kids.forEach(c => { c.style.transition = 'opacity .18s ease'; }); void el.offsetWidth;
       de.classList.remove('pg-loading'); setTimeout(() => de.classList.remove('pg-instant'), 700);
-      requestAnimationFrame(() => requestAnimationFrame(() => { el.style.opacity = '0'; pgRevealPanels(); setTimeout(() => el.remove(), 650); })); }); }
+      requestAnimationFrame(() => requestAnimationFrame(() => { kids.forEach(c => { c.style.opacity = '0'; });
+        setTimeout(() => { el.style.opacity = '0'; pgRevealPanels(); setTimeout(() => el.remove(), 500); }, 190); })); }); }
   document.addEventListener('click', e => { const a = e.target.closest && e.target.closest('a[href]'); if (!a || e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || (a.target && a.target !== '_self') || a.hasAttribute('download')) return;
     let u; try { u = new URL(a.href, location.href); } catch (x) { return; } if (u.origin !== location.origin || (u.pathname === location.pathname && u.search === location.search)) return;
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) return; e.preventDefault(); pgGo(u.href); });
