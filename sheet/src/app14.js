@@ -67,7 +67,7 @@ function hbbPaint() {
   const K = HBB.kind, title = { item: 'item', feat: 'feature', spell: 'spell' }[K];
   const basic = K === 'item' ? hbbItemBasic() : K === 'feat' ? hbbFeatBasic() : hbbSpellBasic();
   const adv = HBB.adv ? `<div class="hbb-adv">${K === 'item' ? hbbItemAdv() : K === 'feat' ? hbbFeatAdv() : hbbSpellAdv()}<p class="hint hbb-fhint">Numbers can be formulas: <code>prof</code>, <code>wis</code>, <code>level</code>, <code>1d6+prof</code>. Separate several entries with commas.</p></div>` : '';
-  box.innerHTML = `<div class="hbb-head"><h3>${HBB.isNew ? 'New homebrew ' + title : 'Edit ' + esc(HBB.d.name || title)}</h3><label class="hbb-switch" title="Show every option the sheet can automate"><input type="checkbox" data-hbbadv${HBB.adv ? ' checked' : ''}><span class="tr"><i></i></span><span>Advanced</span></label></div>
+  box.innerHTML = `<div class="hbb-head"><h3>${HBB.isNew ? 'New homebrew ' + title : 'Edit ' + esc(HBB.d.name || title)}</h3>${K === 'item' && !HBB.read ? `<button type="button" class="btn sm hbb-paste" data-act="itempaste"${HBB.isNew ? '' : ` data-i="${HBB.idx}"`} title="Paste an item from a book, PDF or D&amp;D Beyond and it fills this in">Paste an item…</button>` : ''}<label class="hbb-switch" title="Show every option the sheet can automate"><input type="checkbox" data-hbbadv${HBB.adv ? ' checked' : ''}><span class="tr"><i></i></span><span>Advanced</span></label></div>
     ${HBB.read ? `<div class="hbb-read"><b>Read from the pasted text</b><ul>${HBB.read.done.map(l => `<li>✓ ${esc(l)}</li>`).join('')}${HBB.read.left.map(l => `<li class="warn">! ${esc(l)}</li>`).join('')}</ul><small class="hint">Check it below, then add it. Anything else it does stays in “What it does”.</small></div>` : ''}
     <div class="hbb-body">${basic}${adv}</div>
     <div class="actions hbb-acts">${K === 'item' ? `<label class="hbb-chk sm" title="So you (and your party) can add it again from Add an item → Homebrew"><input type="checkbox" data-hbb="_keep"${HBB.d._keep ? ' checked' : ''}><span><b>Also save to my homebrew items</b></span></label>` : ''}<span class="grow"></span><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-hbbsave>${HBB.isNew ? 'Create ' + title : 'Save'}</button></div>`;
@@ -327,14 +327,20 @@ function hbbRiderFields(kind) {
 }
 
 // Paste an item's text from a book / PDF / D&D Beyond → the builder, filled in, to check and add.
-function openItemPaste() {
+// From the builder itself (idx = the inventory item being edited) it fills that item in, and Cancel goes back to the builder.
+function openItemPaste(idx) {
+  idx = idx >= 0 && S.inventory[idx] ? idx : -1; const back = HBB && HBB.kind === 'item' ? HBB : null;
+  const reopen = () => { if (!back) return; setTimeout(() => { HBB = back; openModal('<div id="hbb"></div>', () => { HBB = null; }, true); hbbPaint(); }, 0); };
   openModal(`<h3>Paste an item</h3><p class="hint">Paste a magic item — its name, the type line (“Weapon (longsword), rare (requires attunement)”), then its text. Bonuses, charges, spells, extra damage, resistances and speeds become automation you can check before adding it.</p>
     <textarea class="f" id="ipaste" rows="10" aria-label="Item text" placeholder="Ring of Protection&#10;Ring, rare (requires attunement)&#10;You gain a +1 bonus to AC and saving throws while wearing this ring."></textarea>
-    <div class="actions"><span class="grow"></span><button class="btn" data-act="close">Cancel</button><button class="btn gold" id="ipasteGo">Read item</button></div>`, null, true);
+    <div class="actions"><span class="grow"></span><button class="btn" data-act="close">Cancel</button><button class="btn gold" id="ipasteGo">Read item</button></div>`, reopen, true);
   setTimeout(() => { const t = $('#ipaste'); if (t) t.focus(); }, 30);
   $('#ipasteGo').onclick = () => { const v = $('#ipaste').value; if (!v.trim()) return; const ctx = { weapons: DND.weapons, armor: DND.armor, spells: DND.spells.map(x => x.name) }, r = ItemParse.parse(v, ctx);
     if (!r) { toast('That didn’t look like an item — the first line should be its name.', 'fumble'); return; }
-    const it = ItemParse.toItem(r.spec, ctx); it.id = uid(); closeModal(true); openHomebrew('item', -1, it, { done: r.done, left: r.left }); };
+    let it = ItemParse.toItem(r.spec, ctx); it.id = uid();
+    // (filling in an item you already have keeps where it is and whether it's worn, attuned or infused)
+    if (idx >= 0) { const cur = S.inventory[idx]; it = Object.assign({}, cur, it, { id: cur.id, qty: cur.qty, equipped: cur.equipped, attuned: cur.attuned, carried: cur.carried, bag: cur.bag, infusion: cur.infusion }); }
+    closeModal(true); openHomebrew('item', idx, it, { done: r.done, left: r.left }); };
 }
 
 // ==== ITEMPARSE START — shared with the DM's Desk (desk/build.sh copies this block into desk.js; edit it only here) ====
