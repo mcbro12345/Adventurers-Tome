@@ -5059,6 +5059,14 @@ html.mobile :is(#page-features, #page-infusions) .fl-acts .btn.fxact { min-heigh
 /* The line under the name breaks only between its parts (each part's spaces are non-breaking; see fitSubtitle). */
 .namebox .subtitle { overflow-wrap: normal; word-break: normal; overflow-x: hidden; max-width: 100%; box-sizing: border-box; }
 .namebox .subtitle.sub2, html:not(.mobile) .namebox .subtitle.sub2 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; }
+/* Companion cards in the Combat columns sit on the column's lighter card colour, so their inner boxes (AC/speed, type,
+   attacks, notes) take the darker field colour to stand out, as they do on the Creatures tab. */
+.comp2.incol .csts, .comp2.incol .cmode, .comp2.incol .cacts, .comp2.incol .cnotes { background: var(--field); border-color: var(--line); }
+/* A feature's own action buttons (Eldritch Cannon's Flamethrower / Force Ballista / Protector, Cunning Action's Dash…) are
+   tinted chips in the accent colour everywhere, so they read as buttons on any card colour. */
+.btn.fxact { background: color-mix(in srgb, var(--gold) 14%, transparent) !important; border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent) !important; color: var(--ink) !important; border-radius: 999px !important; padding: 3px 11px; font-weight: 650; }
+@media (hover: hover) { @media (hover:hover){:where(html:not(.mobile)) .btn.fxact:hover:not([disabled]){ background: color-mix(in srgb, var(--gold) 26%, transparent) !important; border-color: var(--gold) !important; }} }
+.btn.fxact small { opacity: .75; font-weight: 600; }
 
 </style>
 </head>
@@ -12718,6 +12726,7 @@ function speedInfo() {
   const bs = buffSum('speed'); if (bs) { walk += bs; parts.push(`Spells +${bs}`); }
   if (selfBuffs().some(b => b.speedHalf)) { walk = Math.floor(walk / 2); parts.push('Slowed ×½'); }
   if (hasted()) { walk *= 2; parts.push('Haste ×2'); }
+  if (selfBuffs().some(b => b.speedDouble)) { walk *= 2; parts.push('Boots of Speed ×2'); }
   const enc = encLevel(); if (enc === 3) { walk = Math.min(walk, 5); parts.push('Over carrying capacity: 5 ft'); } else if (enc) { walk -= enc === 2 ? 20 : 10; parts.push(enc === 2 ? 'Heavily encumbered −20' : 'Encumbered −10'); }
   if (exModern() && N(S.exhaustion)) { walk = Math.max(0, walk - 5 * N(S.exhaustion)); parts.push(`Exhaustion −${5 * N(S.exhaustion)}`); }
   else if (N(S.exhaustion) >= 2) { walk = Math.floor(walk / 2); parts.push('Exhaustion halved'); }
@@ -13279,11 +13288,22 @@ const hbItemOn = it => !!it && (it.equipped || !!it.carried) && (!it.attune || !
 // The table's own homebrew items: these get their effect set up as soon as they show up in an inventory
 // (only when the item has no homebrew settings of its own, so a player's edits always win).
 function hbKnownList() { return [
-  [/\bspider legs?\b/i, { hb: { consume: true, effName: 'Spider Legs', effSkillAdv: 'Perception', effNote: 'Advantage on Perception checks until your next long rest', text: 'Advantage on Perception checks until your next long rest.' }, carried: true }]
+  [/\bspider legs?\b/i, { hb: { consume: true, effName: 'Spider Legs', effSkillAdv: 'Perception', effNote: 'Advantage on Perception checks until your next long rest', text: 'Advantage on Perception checks until your next long rest.' }, carried: true }],
+  // Boots of Speed: a bonus action in Combat that doubles your walking speed for up to 10 minutes, once per long rest
+  // Boots of Speed (rare, attunement): a bonus action clicks the heels together to switch them on or off. While on, your walking
+  // speed doubles and opportunity attacks against you have disadvantage. They run for 10 minutes in all (the "charges" are
+  // those minutes, spent by how long they were on, rounded up to the minute), and the time comes back on a long rest.
+  [/^boots of speed$/i, { hb: { col: 'bonus', pool: true, effName: 'Boots of Speed', effX2: true, effNote: 'Walking speed doubled; opportunity attacks against you have disadvantage', text: 'Click your heels together to turn them on or off. While on: walking speed doubled, and opportunity attacks against you have disadvantage.' }, charges: [10, 'long'] }],
+  // Cloak of Displacement (rare, attunement): attacks against you have disadvantage until you take damage; it's back at the
+  // start of your next turn, and does nothing while you're incapacitated, restrained or can't move
+  [/^cloak of displacement$/i, { hb: { adv: 'Cloak of Displacement: attacks against you have disadvantage. It stops when you take damage and comes back at the start of your next turn; not while you are incapacitated, restrained or unable to move' } }],
+  // Animated Shield (very rare, attunement): a bonus action sets it hovering to guard you, hands free, for 1 minute
+  [/\banimated shield\b/i, { hb: { col: 'bonus', effName: 'Animated Shield', effRounds: 10, effNote: 'The shield guards you as if you were holding it (its AC still counts), leaving your hands free. Ends early if you are incapacitated or die, or with another bonus action', text: 'Speak its command word: it leaps into the air and guards you for 1 minute, leaving your hands free.' } }]
 ]; }
 function hbKnownItem(it) {
   if (!it || it.hb || it.hbKnown) return; const k = hbKnownList().find(([re]) => re.test(it.name || '')); if (!k) return;
   it.hb = JSON.parse(JSON.stringify(k[1].hb)); if (k[1].carried) it.carried = true; it.hbKnown = 1;
+  if (k[1].charges && !(it.charges && N(it.charges.max))) it.charges = { max: k[1].charges[0], used: 0, reset: k[1].charges[1] };
 }
 function hbFx(hb) {
   if (!hb || typeof hb !== 'object') return null;
@@ -13318,6 +13338,7 @@ function hbFx(hb) {
     const b = {};
     if (has('effFly')) b.fly = hbNum(hb.effFly);
     if (has('effSpeed')) b.speed = hbNum(hb.effSpeed);
+    if (hb.effX2) b.speedDouble = true;
     if (has('effAc')) b.ac = hbNum(hb.effAc);
     if (has('effNote')) b.note = String(hb.effNote);
     if (has('effSkillAdv')) b.skillAdv = hbCSV(hb.effSkillAdv).map(x => { const k = DND.skills.find(z => z[0].toLowerCase() === x.toLowerCase()); return k ? k[0] : x; });
@@ -13373,11 +13394,39 @@ function throwItem(i) {
   attackRoll(a, true, { label: nm + ' (thrown)', notes: [esc(t.range) + ' · improvised' + (brawler ? ' (Tavern Brawler: proficient)' : ', no proficiency'), esc(t.note), esc(left)] });
   render();
 }
+// Items that run on a pool of minutes (Boots of Speed): the same button turns them on and off; the minutes they were on
+// come off the pool when they stop (switched off, ended from the effects list, or run out).
+function poolSettle(e) {
+  if (!e || !e.pool) return; const it = S.inventory.find(x => x.id === e.pool.item); if (!it || !it.charges) return;
+  const used = Math.max(1, Math.ceil((N(e.pool.t0) - N(e.rounds)) / 10));
+  it.charges.used = Math.min(N(it.charges.max), N(it.charges.used) + used);
+}
+function usePoolItem(it, col) {
+  const ch = it.charges, on = (S.effects || []).find(x => x.pool && x.pool.item === it.id);
+  if (['action', 'bonus', 'reaction'].includes(col) && incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take actions or reactions.`, 'fumble'); return; }
+  if (S.inCombat && col && S.turn.used[col]) { toast(`Your ${col === 'bonus' ? 'bonus action' : col} is already used this turn.`, 'fumble'); return; }
+  if (on) {
+    poolSettle(on); S.effects = S.effects.filter(x => x !== on); if (col && S.inCombat) S.turn.used[col] = true;
+    const left = Math.max(0, N(ch.max) - N(ch.used));
+    pendingLabel = 'Turn off ' + it.name; update(); render();
+    toast(`<div><b>${esc(it.name)}</b> off<div class="det">${left} minute${left === 1 ? '' : 's'} left until your next long rest</div></div>`, '', 6000, { label: 'Undo', fn: () => undo(1) }); return;
+  }
+  const left = Math.max(0, N(ch.max) - N(ch.used));
+  if (!left) { toast(`<b>${esc(it.name)}</b> ${ch.reset === 'short' ? 'are spent until a short or long rest' : 'have no time left — it comes back on a long rest'}.`, 'fumble'); return; }
+  const fx = hbFx(it.hb) || {}, lines = [];
+  if (fx.use && fx.use.effect) fx.use.effect.rounds = left * 10;
+  fxApplyUse(fx.use, it.name, lines);
+  const e = (S.effects || []).find(x => x.name === (fx.use && fx.use.effect && fx.use.effect.name)); if (e) e.pool = { item: it.id, t0: left * 10 };
+  if (col && S.inCombat) S.turn.used[col] = true;
+  pendingLabel = 'Turn on ' + it.name; update(); render();
+  toast(`<div><b>${esc(it.name)}</b> on<div class="det">${esc(fxText(fx.text || ''))}</div><div class="det">Up to ${left} minute${left === 1 ? '' : 's'} · use it again to turn them off</div></div>`, '', 8000, { label: 'Undo', fn: () => undo(1) });
+}
 function useItem(i, col) {
   const it = S.inventory[i]; if (!it) return;
   const fx = hbFx(it.hb) || {};
   if (it.attune && !it.attuned) { toast(`Attune to <b>${esc(it.name)}</b> first.`, 'fumble'); return; }
   col = col || (it.hb && it.hb.col) || '';
+  if (it.hb && it.hb.pool && it.hb.effName && it.charges) return usePoolItem(it, col);
   if (['action', 'bonus', 'reaction'].includes(col) && incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take actions or reactions.`, 'fumble'); return; }
   if (fx.onlyWhen && !fxWhenOK(fx.onlyWhen)) { toast(`${esc(it.name)} only works ${esc(fxWhenText(fx.onlyWhen))}.`, 'fumble'); return; }
   const ch = it.charges && N(it.charges.max) > 0 ? it.charges : null;
@@ -13594,10 +13643,10 @@ function riderChipsGen(keys, label) { const rs = riderSources().filter(x => keys
 // plus your own homebrew features with limited uses that don't take an action (so they're never out of sight).
 function addonRows(ridersOnly) {
   const rows = riderSources().map(src => { const l = src.left(), tip = src.kind === 'feat' ? `<button class="notetip" data-tip="${src.i}" data-tipkind="feat" aria-label="What ${esc(src.name)} does">ⓘ</button>` : `<button class="notetip" data-tip="${src.i}" aria-label="What ${esc(src.name)} does">ⓘ</button>`;
-    return `<div class="opt"><div class="opt-head"><span class="opt-name">${esc(src.name)}</span>${tip}${l != null ? `<span class="tag">${l}/${src.max}</span>` : ''}<button class="btn sm" data-act="useaddon" data-k="${src.kind}" data-i="${src.i}" ${l === 0 ? 'disabled' : ''}>Use</button></div>
+    return `<div class="opt"><div class="opt-head"><span class="opt-name">${esc(src.name)}</span>${tip}${l != null ? `<span class="tag">${l}/${src.max}</span>` : ''}<button class="btn sm gold" data-act="useaddon" data-k="${src.kind}" data-i="${src.i}" ${l === 0 ? 'disabled' : ''}>Use</button></div>
       <div class="opt-info rider">${esc(riderTrigText(src.hb))}${riderWhat(src.hb) ? ': ' + esc(riderWhat(src.hb)) : ''}${src.hb.onAsk === false || src.hb.onAsk === 'false' ? ' · happens by itself' : ' · you\u2019re asked each time'}</div></div>`; });
   if (!ridersOnly) (S.features || []).forEach((f, i) => { if (!f || (f.hb && f.hb.on) || f.col || f.source !== 'Custom' || featMax(f) == null || f.pool) return; const max = featMax(f), l = Math.max(0, max - N(f.used));
-    rows.push(`<div class="opt"><div class="opt-head"><span class="opt-name">${esc(f.name)}</span><button class="notetip" data-tip="${i}" data-tipkind="feat" aria-label="What ${esc(f.name)} does">ⓘ</button><span class="pips" data-calc-html="featpips:${i}"></span><button class="btn sm" data-act="usefeat" data-i="${i}" data-col="" ${l ? '' : 'disabled'}>Use</button></div>${f.desc ? `<div class="opt-text">${esc(formulaDC(f.desc))}</div>` : ''}</div>`); });
+    rows.push(`<div class="opt"><div class="opt-head"><span class="opt-name">${esc(f.name)}</span><button class="notetip" data-tip="${i}" data-tipkind="feat" aria-label="What ${esc(f.name)} does">ⓘ</button><span class="pips" data-calc-html="featpips:${i}"></span><button class="btn sm gold" data-act="usefeat" data-i="${i}" data-col="" ${l ? '' : 'disabled'}>Use</button></div>${f.desc ? `<div class="opt-text">${esc(formulaDC(f.desc))}</div>` : ''}</div>`); });
   return rows;
 }
 
@@ -15459,7 +15508,7 @@ function renderCombat() {
   const m = isMobile();
   const featView = (col, f, fi) => {
     const max = featMax(f), key = `fopt:${fi}`, open = !m || UI.open[key], fx = fxOf(f), own = f.col === col, info = own ? fxInfoLine(f) : '';
-    const useBtn = !own || fxIsResource(f) || (max != null && f.pool && !fx.cost) ? '' : `<button class="btn sm${max != null || fx.cost || fx.roll ? '' : ' ghost'}" data-act="usefeat" data-i="${fi}" data-col="${col}">${f.roll || fx.roll ? 'Use & roll' : max != null || fx.cost || fx.use ? 'Use' : 'Take'}</button>`;
+    const useBtn = !own || fxIsResource(f) || (max != null && f.pool && !fx.cost) ? '' : `<button class="btn sm${max != null || fx.cost || fx.roll ? ' gold' : ' ghost'}" data-act="usefeat" data-i="${fi}" data-col="${col}">${f.roll || fx.roll ? 'Use & roll' : max != null || fx.cost || fx.use ? 'Use' : 'Take'}</button>`;
     return `<div class="opt"><div class="opt-head">${m ? `<button class="opt-name opt-tog" data-act="toggle" data-key="${key}" aria-expanded="${!!open}">${esc(f.name)} <span class="caret">${open ? '▴' : '▾'}</span></button>` : `<span class="opt-name">${esc(f.name)}</span>`}
       <button class="notetip" data-tip="${fi}" data-tipkind="feat" aria-label="What ${esc(f.name)} does">ⓘ</button>${max != null ? `<span class="pips" data-calc-html="featpips:${fi}"></span>` : ''}${useBtn}${own ? riderChipsNamed(f.name) : ''}${own && typeof ptyFeatBtn === 'function' ? ptyFeatBtn(f, fi) : ''}</div>
       ${info ? `<div class="opt-info">${esc(info)}</div>` : ''}${fx.acts ? `<div class="fxacts">${fxActsHTML(f, fi, col)}</div>` : ''}
@@ -15516,7 +15565,7 @@ function renderCombat() {
       { const ir = infCombatRows(key); if (ir.length) body += cGroup(key, 'inf', 'Infusions', '⚗', ir.length, ir.join('')); }
       const items = hbItemActs(key);
       if (items.length) body += cGroup(key, 'item', 'Items', '⚙', items.length, items.map(([it, i]) => { const ch = it.charges && N(it.charges.max) > 0 ? it.charges : null, fx = hbFx(it.hb), info = [dcVal(fx.dc) ? `DC ${dcVal(fx.dc)}${fx.save ? ' ' + fx.save : ''}` : '', fx.roll ? 'roll ' + fxRollExpr(fx.roll) : '', fx.dash ? 'Dash' : ''].filter(Boolean).join(' · ');
-        return `<div class="opt"><div class="opt-head"><span class="opt-name">${esc(it.name)}</span>${String(it.notes || '').trim() || it.summary || it.hb ? `<button class="notetip" data-tip="${i}" aria-label="What ${esc(it.name)} does">ⓘ</button>` : ''}${ch ? `<span class="tag">${Math.max(0, N(ch.max) - N(ch.used))}/${N(ch.max)}</span>` : ''}<button class="btn sm" data-act="useitem" data-i="${i}" data-col="${key}" ${ch && N(ch.used) >= N(ch.max) ? 'disabled' : ''}>${fx.roll ? 'Use & roll' : 'Use'}</button></div>${info ? `<div class="opt-info">${esc(info)}</div>` : ''}${it.hb.text ? `<div class="opt-text">${esc(fxText(it.hb.text))}</div>` : ''}</div>`; }).join(''));
+        return `<div class="opt"><div class="opt-head"><span class="opt-name">${esc(it.name)}</span>${String(it.notes || '').trim() || it.summary || it.hb ? `<button class="notetip" data-tip="${i}" aria-label="What ${esc(it.name)} does">ⓘ</button>` : ''}${ch ? `<span class="tag">${Math.max(0, N(ch.max) - N(ch.used))}/${N(ch.max)}</span>` : ''}<button class="btn sm gold" data-act="useitem" data-i="${i}" data-col="${key}" ${ch && N(ch.used) >= N(ch.max) ? 'disabled' : ''}>${fx.roll ? 'Use & roll' : 'Use'}</button></div>${info ? `<div class="opt-info">${esc(info)}</div>` : ''}${it.hb.text ? `<div class="opt-text">${esc(fxText(it.hb.text))}</div>` : ''}</div>`; }).join(''));
       // Flasks and beads you can throw (holy water, acid, Bead of Force…): the action column.
       if (key === 'action') { const th = S.inventory.map((it, i) => [it, i]).filter(([it]) => throwOf(it) && !(it.hb && hbUsable(hbFx(it.hb))) && N(it.qty || 1) > 0);
         if (th.length) body += cGroup(key, 'throw', 'Throwables', '🧪', th.length, th.map(([it, i]) => { const t = throwOf(it), ch = t.bead && it.charges && N(it.charges.max) > 0 ? it.charges : null;
@@ -16647,6 +16696,7 @@ function passRounds(n) {
     if (e.rounds === 0) ended.push(e); else if (e.rounds === 1 && n === 1) warn.push(e);
   });
   if (ended.length) {
+    if (typeof poolSettle === 'function') ended.forEach(poolSettle); // (an item's time pool runs out with it)
     S.effects = S.effects.filter(e => !ended.includes(e));
     if (ended.some(e => e.conc && e.name === S.concentration)) S.concentration = '';
     cleanupLinked();
@@ -16686,6 +16736,7 @@ function concCheck(dc) {
     { label: 'Failed', fn: () => { if (S.concentration === nm) breakConc('failed DC ' + dc); } }]);
 }
 function endEffect(n) {
+  (S.effects || []).filter(x => x.name === n).forEach(x => { if (typeof poolSettle === 'function') poolSettle(x); });
   S.effects = (S.effects || []).filter(x => x.name !== n);
   if (S.concentration === n) S.concentration = '';
   clampHp(); // (an effect that raised your max HP takes the extra HP with it)
@@ -18856,8 +18907,9 @@ function fitSubtitle() { const el = $('.namebox .subtitle'); if (!el) return;
   const over = () => el.scrollWidth > el.clientWidth + 0.5;
   const lines = () => { const cs = getComputedStyle(el), lh = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.2; return Math.round(el.clientHeight / lh); };
   // (and the name plus this line never make the header taller than the portrait beside them)
-  const pic = [...document.querySelectorAll('#sec-header .portrait-wrap, #sec-header .mini-portrait')].find(x => x.offsetParent && x.offsetHeight), nb = el.parentElement;
-  const cap = pic ? pic.offsetHeight + 2 : 0, tall = () => cap && nb.offsetHeight > cap;
+  // (measured against the header's height with a one-word line, so a long line can never make the header taller)
+  const hd = $('#sec-header'), txt = el.textContent; el.textContent = 'X'; const cap = hd ? hd.offsetHeight : 0; el.textContent = txt;
+  const tall = () => cap && hd.offsetHeight > cap;
   let px = base; while ((over() || lines() > 3 || tall()) && px > base * 0.6) { px -= 0.5; el.style.fontSize = px + 'px'; }
   if (lines() > 3 || tall()) { el.classList.add('sub2'); el.title = el.textContent; } }
 window.addEventListener('resize', () => { SUB_K = ''; fitSubtitle(); });
@@ -19503,7 +19555,7 @@ function infUse(i, col) {
 // Infusion actions for the Combat columns.
 function infCombatRows(col) {
   return infActs(col).map(([it, i]) => { const d = infDef(it.infusion), ch = it.charges && it.infusion.charges ? it.charges : null;
-    return `<div class="opt"><div class="opt-head"><span class="opt-name">${esc(d.act.name)}</span>${ch ? `<span class="tag">${Math.max(0, N(ch.max) - N(ch.used))}/${N(ch.max)}</span>` : ''}<button class="btn sm" data-act="infuse-use" data-i="${i}" data-col="${col}" ${ch && N(ch.used) >= N(ch.max) ? 'disabled' : ''}>Use</button></div><div class="opt-info">${esc(it.name)} · ${esc(infLabel(it.infusion))}</div><div class="opt-text">${esc(d.act.text)}</div></div>`; });
+    return `<div class="opt"><div class="opt-head"><span class="opt-name">${esc(d.act.name)}</span>${ch ? `<span class="tag">${Math.max(0, N(ch.max) - N(ch.used))}/${N(ch.max)}</span>` : ''}<button class="btn sm gold" data-act="infuse-use" data-i="${i}" data-col="${col}" ${ch && N(ch.used) >= N(ch.max) ? 'disabled' : ''}>Use</button></div><div class="opt-info">${esc(it.name)} · ${esc(infLabel(it.infusion))}</div><div class="opt-text">${esc(d.act.text)}</div></div>`; });
 }
 
 // ---------- Creatures: one card design for the Creatures tab and (compact) the Combat tab ----------
