@@ -4390,4 +4390,4 @@ html.mobile :is(#page-features, #page-infusions) .fl-acts .btn.fxact { min-heigh
 html.mobile #page-companions .comps { grid-template-columns: 1fr; }
 /* Tab count badges (Creatures, Party…): always red, and sitting just above the tab's word rather than on it. */
 #tabs .tabcount, html #tabs .tab > .tabcount { background: #d63a2c !important; color: #fff !important; }
-html:not(.mobile) #tabs .tab > .tabcount { top: -7px; }
+html:not(.mobile) #tabs .tab > .tabcount { position: static !important; top: auto; left: auto; margin: 0 0 0 -2px !important; align-self: center; }
