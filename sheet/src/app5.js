@@ -303,6 +303,8 @@ function renderFeatModal() {
   openModal(`<h3>Add a feat</h3><p class="hint" style="margin:0 0 8px">For feats from your DM, a background or a race. Feats taken at level up are added there automatically.</p>
     <div id="featm">${choiceUI(CH, 'feat', { type: 'feat', n: 1 })}</div>
     <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="featok">Add feat</button></div>`, null, true);
+  // the same searchable feat list as character creation and level up (and the follow-up choices as lists too)
+  wz3FeatLists('#modal-body', sheetFeatOK); wz3ChoiceLists('#modal-body');
 }
 function featModalOK() {
   const n = ansList(FEATM.ans, 'feat')[0]; if (!n) { toast('Choose a feat first.'); return; }
