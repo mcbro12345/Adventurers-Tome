@@ -81,7 +81,7 @@ function openSettings(tab) {
       ${row('Encumbrance', opt('encumbrance', [['off', 'Off'], ['standard', 'Standard (carrying capacity)'], ['variant', 'Variant (encumbered / heavily)']]), ST('encumbrance') === 'variant' ? '−10 ft over 5×STR lb, −20 ft over 10×STR' : ST('encumbrance') === 'standard' ? 'Carry up to 15 × STR lb' : 'Weights are ignored')}
       ${hasSub('artificer', 'artillerist') ? tog('protectorScales', 'Protector cannon scales with Explosive Cannon', 'House rule — 2d8 + INT temp HP from 9th level, like the other two') : ''}
       ${tog('electrum', 'Use electrum pieces (EP)', 'Shows electrum in the coin purse — most tables skip it')}
-      ${tog('nat1Roll', 'Nat 1 Roll: a natural 1 on an attack also rolls a d4', 'House rule — the d4 is always the last roll')}
+      ${tog('nat1Roll', 'Critical fumbles: a natural 1 on an attack rolls a d4 on the fumble table', 'House rule — the d4 is always the last roll; melee, ranged and spell attacks each have their own table')}
       ${tog('inspiration', 'Track Inspiration', 'A − / + counter under your portrait')}
       <label class="setrow subset${ST('inspiration') ? '' : ' dis'}" title="${ST('inspiration') ? '' : 'Turn on Track Inspiration first'}"><input type="checkbox" data-set="inspMany"${ST('inspMany') ? ' checked' : ''}${ST('inspiration') ? '' : ' disabled'}><span><b>More than one Inspiration</b><small>House rule — no limit on how many you can hold${ST('inspiration') ? '' : ' (turn on Track Inspiration to use it)'}</small></span></label>
       ${tog('concPrompt', 'Concentration save prompt when hurt')}

@@ -4422,3 +4422,9 @@ html.mobile .toast.rollcard.cc .cc-dc b { font-size: 2.3rem; }
 #rolls .toast.rollcard.cc > .cc-dc { grid-column: 1; grid-row: 1 / span 2; }
 #rolls .toast.rollcard.cc > .cc-main { grid-column: 2; grid-row: 1; }
 #rolls .toast.rollcard.cc { width: fit-content !important; min-width: 0 !important; margin-inline: auto; padding-right: 48px; }
+/* "Con save" beside "Concentrating on …": roll a concentration save whenever you need one */
+.concnote .ccbtn { margin-left: 6px; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--gold); background: color-mix(in srgb, var(--gold) 14%, transparent); color: var(--gold-ink); font: inherit; font-size: .74rem; font-weight: 700; cursor: pointer; vertical-align: 1px; }
+@media (hover: hover) { .concnote .ccbtn:hover { background: color-mix(in srgb, var(--gold) 26%, transparent); } }
+.toast.rollcard.cc .cc-dcin { width: 64px; text-align: center; font: inherit; font-size: 2.2rem; font-weight: 700; line-height: 1.1; color: var(--gold-ink); background: color-mix(in srgb, var(--ink) 6%, transparent); border: 1px solid var(--line); border-radius: 10px; padding: 2px 0; -moz-appearance: textfield; }
+.toast.rollcard.cc .cc-dcin::-webkit-inner-spin-button, .toast.rollcard.cc .cc-dcin::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.toast.rollcard.cc .cc-dcin:focus { outline: 2px solid var(--gold); outline-offset: 1px; }

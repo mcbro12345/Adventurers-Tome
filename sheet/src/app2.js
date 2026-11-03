@@ -155,7 +155,7 @@ function r20Lines(label, expr, first) {
   let em = '', line = '', m;
   // Named rolls that end in "attack" come first, so Sneak Attack isn't read as an attack with a weapon called "Sneak".
   if (/^sneak attack/i.test(L)) { em = 'strikes a vital spot'; line = `**Sneak Attack (${e}):** [[${e}]]`; }
-  else if (/^nat 1 roll$/i.test(L)) { em = 'rolls a natural 1'; line = `**Nat 1 Roll:** [[${e}]]`; }
+  else if (/^(nat 1 roll|critical fumble)$/i.test(L)) { em = 'fumbles'; line = `**Critical Fumble:** [[${e}]]`; }
   else if (/^divine smite/i.test(L)) { em = 'smites with divine radiance'; line = `**Radiant Damage (${e}):** [[${e}]]`; }
   else if ((m = /^(.*) spell attack$/i.exec(L))) { const own = CL[Object.keys(CL).find(k => CL[k].name === m[1])]; em = own ? 'makes a spell attack' : `casts ${m[1]}`; line = `**Spell Attack (to hit):** [[${e}]]`; }
   else if ((m = /^(.*) spell damage(?: \((.*)\))?$/i.exec(L))) { em = `casts ${m[1]}`; line = `**Damage (${e}${m[2] ? ' ' + m[2] : ''}):** [[${e}]]`; }
@@ -213,7 +213,23 @@ function d20Expr(bonus, kind, ab) {
   return { expr: base + sgn(bonus - ex) + bless + extra, rm, bless, ex, dieNames, bonus };
 }
 // House rule (Settings → Rules): a natural 1 on an attack roll also rolls a d4, always the last roll.
-function nat1Roll() { return ST('nat1Roll') ? rollExpr('1d4', { label: 'Nat 1 Roll' }) : null; }
+// Critical fumbles: d4 on the table for the kind of attack — t 'melee', 'ranged' or 'spell' (lvl, melee); unknown shows both weapon rows.
+const FUMBLE = {
+  ranged: ['Self damage (1d4)', 'Lose half your movement and no Extra Attack', 'Friendly fire', 'Weapon malfunction — spend your next action fixing it'],
+  melee: ['Self damage (1d4)', 'Lose half your movement and no Extra Attack', 'Overextend — lose your reaction', 'Create an opening — triggers an attack of opportunity'],
+  spell: ['Self damage (1d4 × spell level)', 'Magic malfunction — no spells or cantrips for 1 turn', 'Strain — make a concentration check if concentrating', 'Create an opening (melee) / friendly fire (ranged)'] };
+function nat1Roll(info) {
+  if (!ST('nat1Roll')) return null; info = info || {};
+  const r = rollExpr('1d4', { label: 'Critical Fumble' }); if (r.skipped) return r;
+  const n = Math.min(4, Math.max(1, r.total)), t = info.t;
+  let text = t === 'spell' && n === 4 ? (info.melee ? 'Create an opening — triggers an attack of opportunity' : 'Friendly fire')
+    : FUMBLE[t] ? FUMBLE[t][n - 1] : n >= 3 ? `Melee: ${FUMBLE.melee[n - 1]} · Ranged: ${FUMBLE.ranged[n - 1]}` : FUMBLE.melee[n - 1];
+  if (n === 1) { const lv = t === 'spell' ? Math.max(1, N(info.lvl)) : 1, d = rollExpr('1d4', { label: 'Critical Fumble: self damage' }), dmg = d.skipped ? 0 : d.total * lv;
+    if (!d.skipped) { text = `Self damage: ${dmg}${lv > 1 ? ` (${d.total} × level ${lv})` : ''}`; setTimeout(() => toast(`<div><b>Critical fumble</b><div class="det">You hurt yourself for ${dmg} damage.</div></div>`, 'fumble', 9000, { label: `Take ${dmg} damage`, fn: () => { takeDamage(dmg); save(); render(); } }), 80); } }
+  if (n === 3 && t === 'melee' && S.inCombat && S.turn && S.turn.used) S.turn.used.reaction = true;
+  if (n === 3 && t === 'spell' && S.concentration && typeof concCheck === 'function') setTimeout(() => concCheck(10, true), 120);
+  r.fum = text; return r; }
+const fumHTML = n1 => n1 && !n1.skipped ? `<div class="rc-n1"><b>Critical Fumble ${n1.total}:</b> ${esc(n1.fum || '')}</div>` : '';
 function d20(label, bonus, kind, ab, rows) {
   const dx = d20Expr(bonus, kind, ab), { expr, rm, bless, ex } = dx;
   STAT_KIND = ({ attack: 'attack', save: 'save' })[kind] || ''; let r; try { r = rollExpr(expr, { label }); } finally { STAT_KIND = ''; }
@@ -221,9 +237,9 @@ function d20(label, bonus, kind, ab, rows) {
   let floorUp = 0; if (fl && r.d20 != null && r.d20 < fl) { floorUp = fl - r.d20; r.total += floorUp; r.detail += ` (d20 ${r.d20} counts as ${fl})`; r.d20 = fl; }
   const math = mathHTML([d20Math(r, dx, rows || ROLL_ROWS, 'Roll', floorUp ? [`d20 counts as ${fl}`, floorUp] : null)]);
   const note = [rm.mode !== 'normal' ? (rm.mode === 'adv' ? 'Advantage: ' : 'Disadvantage: ') + rm.why.join(', ') : '', bless ? 'Bless +1d4' : '', ex ? `Exhaustion −${ex}` : '', rm.auto ? 'Automatic failure (condition)' : ''].filter(Boolean).join(' · ');
-  const n1 = kind === 'attack' && r.d20 === 1 ? nat1Roll() : null;
+  const n1 = (kind === 'attack' || / attack$/i.test(label)) && r.d20 === 1 ? nat1Roll(/spell attack/i.test(label) ? { t: 'spell' } : (() => { const a = (S.attacks || []).find(x => x.name + ' attack' === label); return a ? { t: a.kind === 'melee' ? 'melee' : 'ranged' } : {}; })()) : null; // (companions' to-hit rolls too)
   if (['attack', 'save', 'check'].includes(kind)) LAST_D20 = { t: Date.now(), label, bonus, kind, ab, rows, total: r.skipped ? null : r.total };
-  toast(`<b class="total">${r.total}</b><div><div>${esc(label)}</div><div class="det dd">${esc(r.detail)}</div>${note ? `<div class="det">${esc(note)}</div>` : ''}${n1 ? `<div class="rc-n1"><b>Nat 1 Roll:</b> ${n1.total}</div>` : ''}${math}</div>`, r.d20 === 20 ? 'crit' : r.d20 === 1 ? 'fumble' : '', ['attack', 'save', 'check'].includes(kind) && !r.skipped && typeof inspAct === 'function' && inspFx() ? 9000 : undefined, ['attack', 'save', 'check'].includes(kind) && !r.skipped && typeof inspAct === 'function' ? inspAct(r.total, label) : null);
+  toast(`<b class="total">${r.total}</b><div><div>${esc(label)}</div><div class="det dd">${esc(r.detail)}</div>${note ? `<div class="det">${esc(note)}</div>` : ''}${fumHTML(n1)}${math}</div>`, r.d20 === 20 ? 'crit' : r.d20 === 1 ? 'fumble' : '', ['attack', 'save', 'check'].includes(kind) && !r.skipped && typeof inspAct === 'function' && inspFx() ? 9000 : undefined, ['attack', 'save', 'check'].includes(kind) && !r.skipped && typeof inspAct === 'function' ? inspAct(r.total, label) : null);
   return r;
 }
 const doubleDice = e => String(e || '').replace(/(\d*)d(\d+)/gi, (m, n, sd) => (2 * (N(n) || 1)) + 'd' + sd);
@@ -570,7 +586,7 @@ function renderVitals() {
   <div class="tile" data-zi="hd"><span class="lbl"><span class="ciw top">Hit Dice${ciBtn('hd', 'hit dice')}</span></span><span class="big" data-calc="hd"></span><span class="sub" data-calc="hdpools"></span></div>
   <div class="tile deathtile" data-zi="death"><span class="lbl">Death Saves</span><div class="death" data-calc-html="death"></div></div>
   <div class="tile condtile" data-zi="conds"><div class="tilehead"><span class="lbl">Conditions</span><button class="addc" data-act="conditions"><span class="tt">+ Add</span></button><span class="advbtns" role="group" aria-label="All d20 rolls"><button class="advb adv${S.rollAdv === 'adv' ? ' on' : ''}" data-act="rolladv" data-v="adv" aria-pressed="${S.rollAdv === 'adv'}" title="Advantage on every attack, check and save"><span class="al">Advantage</span></button><button class="advb dis${S.rollAdv === 'dis' ? ' on' : ''}" data-act="rolladv" data-v="dis" aria-pressed="${S.rollAdv === 'dis'}" title="Disadvantage on every attack, check and save"><span class="al">Disadvantage</span></button></span></div><div class="condchips" data-calc-html="conds"></div></div>
-  <div class="tile fxtile" data-zi="effects"><div class="tilehead"><span class="lbl">Active spells &amp; effects</span><button class="addc" data-act="addeffects" title="Spells and effects someone else put on you"><span class="tt">+ Add</span></button><span class="hint" data-calc="concnote"></span></div><div class="fxchips" data-calc-html="fxchips"></div></div>
+  <div class="tile fxtile" data-zi="effects"><div class="tilehead"><span class="lbl">Active spells &amp; effects</span><button class="addc" data-act="addeffects" title="Spells and effects someone else put on you"><span class="tt">+ Add</span></button><span class="hint concnote" data-calc-html="concnote"></span></div><div class="fxchips" data-calc-html="fxchips"></div></div>
 `;
 }
 
