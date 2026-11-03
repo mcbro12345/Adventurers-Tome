@@ -5112,6 +5112,11 @@ html.mobile .toast.rollcard.cc .cc-dc b { font-size: 2.3rem; }
 .toast.rollcard.cc .cc-dcin { width: 64px; text-align: center; font: inherit; font-size: 2.2rem; font-weight: 700; line-height: 1.1; color: var(--gold-ink); background: color-mix(in srgb, var(--ink) 6%, transparent); border: 1px solid var(--line); border-radius: 10px; padding: 2px 0; -moz-appearance: textfield; }
 .toast.rollcard.cc .cc-dcin::-webkit-inner-spin-button, .toast.rollcard.cc .cc-dcin::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 .toast.rollcard.cc .cc-dcin:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
+/* phones: the stat tiles in a row start at the same height (ⓘ, label, number line up across the row) */
+html.mobile .tile:is([data-zi="ac"], [data-zi="init"], [data-zi="speed"], [data-zi="prof"], [data-zi="passive"], [data-zi="hd"]) { justify-content: flex-start; }
+
+html.mobile .tile:is([data-zi="ac"],[data-zi="init"],[data-zi="speed"],[data-zi="prof"],[data-zi="passive"],[data-zi="hd"]) > .lbl { display: flex; flex-direction: column; justify-content: flex-end; }
+html.mobile .tile[data-zi="init"] > .roll.big { margin-top: -6px; margin-bottom: -6px; }
 
 </style>
 </head>
@@ -12685,6 +12690,9 @@ const wpnBind = a => a && a.item ? fxActive().find(e => e.item === a.item && e.w
 const buffSum = k => selfBuffs().reduce((t, b) => t + N(b[k]), 0);
 const blessed = () => selfBuffs().some(b => b.bless) || (S.conditions || []).includes('Blessed');
 const hasted = () => selfBuffs().some(b => b.speedMult) || (S.conditions || []).includes('Hasted');
+// A spell's duration as shown: one that isn't concentration on this sheet (unticked, e.g. cast from an item that
+// doesn't need it) drops the "Concentration, up to" part — "Concentration, up to 1 hour" reads "1 hour".
+function spDurTxt(s) { const d = String((s && s.duration) || ''); if (!s || s.conc) return d; if (!/^\s*concentration/i.test(d)) return d; const t = d.replace(/^\s*concentration\s*,?\s*/i, '').replace(/^up to\s+/i, ''); return t !== d ? t.charAt(0).toUpperCase() + t.slice(1) : d; }
 function parseDur(d) {
   d = String(d || '').toLowerCase();
   if (/instant/.test(d)) return 0;
@@ -14938,7 +14946,7 @@ function renderSpells() {
   const order = cust ? spCustomOrder() : S.spells.map((s, i) => i).sort((a, b) => N(S.spells[a].level) - N(S.spells[b].level) || String(S.spells[a].name).localeCompare(S.spells[b].name));
   const f = S.spellFilter || 'all';
   const shown = order.filter(i => { const s = S.spells[i]; if (f === 'ready' && !spReady(s)) return false; if (/^\d$/.test(f) && String(N(s.level)) !== f) return false; if (f.startsWith('c:') && s.cls !== f.slice(2)) return false; return true; });
-  const meta = s => [s.time, s.range, s.duration].filter(Boolean).map(esc).join(' · ');
+  const meta = s => [s.time, s.range, spDurTxt(s)].filter(Boolean).map(esc).join(' · ');
   const detail = (s, i) => `<div class="detail-grid">
       ${fld('Name', inp(`spells.${i}.name`))}${fld('Your name for it', inp(`spells.${i}.flavor`, { ph: 'e.g. Smog Beam' }))}${fld('Level', inp(`spells.${i}.level`, { num: 1 }))}${fld('Casting time', inp(`spells.${i}.time`))}${fld('Range', inp(`spells.${i}.range`))}
       ${fld('Duration', inp(`spells.${i}.duration`))}${fld('Components', inp(`spells.${i}.comps`))}${fld('School', inp(`spells.${i}.school`))}
@@ -14963,7 +14971,7 @@ function renderSpells() {
   const rowT = i => { const s = S.spells[i], open = UI.open['spell:' + i];
     return `<tr class="${spReady(s) ? '' : 'unprep'}" data-si="${i}"><td class="spc-p" style="text-align:center">${prepCell(s, i)}</td>
         <td class="spname">${cust ? spOrdCtl(i) : ''}<b class="spn">${spDisp(s)}</b><button class="notetip" data-tip="${i}" data-tipkind="sp" aria-label="What ${esc(s.name)} does">ⓘ</button> ${spellTags(s, true)}${spItem(s) ? ` <span class="tag cls" title="From an item">◆ ${esc(spItem(s).name)}</span>` : cs.length > 1 || !CL[s.cls] ? ` <span class="tag cls">${esc(clsName(s.cls))}</span>` : ''}<small class="spmeta">${esc([s.time, s.range, s.duration].filter(Boolean).join(' · '))}</small></td>
-        <td class="nowrap spc-t">${esc(s.time || '')}</td><td class="nowrap spc-r">${esc(s.range || '')}</td><td class="nowrap spc-d">${esc(s.duration || '')}</td>
+        <td class="nowrap spc-t">${esc(s.time || '')}</td><td class="nowrap spc-r">${esc(s.range || '')}</td><td class="nowrap spc-d">${esc(spDurTxt(s))}</td>
         <td class="sumcell">${esc(s.summary || '')}</td>
         <td class="nowrap spc-c">${castBtn(i)}</td><td class="spc-o"><button class="btn ghost sm" data-act="toggle" data-key="spell:${i}" aria-expanded="${!!open}" title="Details / edit">${open ? '▴' : '▾'}</button></td><td class="spc-x">${del('spells', i)}</td></tr>${open ? `<tr class="detail"><td></td><td colspan="8">${detail(s, i)}</td></tr>` : ''}`; };
   const mode = spMode(), gl = spGroupsFor(mode, shown, f === 'all'), movable = gl.filter(g => g.k !== 'c:none');
@@ -15823,8 +15831,19 @@ function fxTip(e) {
   if (e.maxHp) t.push(`+${e.maxHp} max HP`); if (b.note) t.push(b.note);
   return t.join(' · ');
 }
+// Phones: stat tiles side by side get the same label height, so their numbers line up even when one label wraps
+// ("Passive Perception").
+function statRowsAlign() {
+  const ts = $$('.tile:is([data-zi="ac"],[data-zi="init"],[data-zi="speed"],[data-zi="prof"],[data-zi="passive"],[data-zi="hd"])');
+  ts.forEach(t => { const l = t.querySelector(':scope > .lbl'); if (l) l.style.minHeight = ''; });
+  if (!document.documentElement.classList.contains('mobile')) return;
+  const rows = {}; ts.forEach(t => { if (!t.offsetParent) return; const k = Math.round(t.getBoundingClientRect().top); (rows[k] = rows[k] || []).push(t); });
+  Object.values(rows).forEach(g => { const ls = g.map(t => t.querySelector(':scope > .lbl')).filter(Boolean); const h = Math.max(...ls.map(l => l.offsetHeight)); ls.forEach(l => { if (l.offsetHeight < h) l.style.minHeight = h + 'px'; }); });
+}
+addEventListener('resize', () => setTimeout(statRowsAlign, 50));
 function refresh() {
   if (!S.created) return;
+  requestAnimationFrame(statRowsAlign);
   if (typeof readySync === 'function' && readySync()) { setTimeout(() => { save(); render(); }, 0); }
   $$('[data-calc]').forEach(el => { const t = calcText(el.dataset.calc); if (el.textContent !== t) el.textContent = t; });
   if (typeof fitSubtitle === 'function') fitSubtitle();
@@ -17243,7 +17262,7 @@ function castSpell(i, col, force) {
   if (base > 0 && usable.length === 1 && !extras && !opts.some(o => o.k === 'slot' && o.L > usable[0].L && o.left)) { const o = usable[0]; return executeCast(i, o.k, o.L, col, {}); }
   CASTING = { i, col };
   openModal(`<h3>Cast ${esc(spLabel(sp))}</h3>
-    <p class="hint" style="margin:0 0 8px">${esc(sp.summary || '')}${sp.duration ? ' · ' + esc(sp.duration) : ''}</p>
+    <p class="hint" style="margin:0 0 8px">${esc(sp.summary || '')}${sp.duration ? ' · ' + esc(spDurTxt(sp)) : ''}</p>
     ${extras}
     ${base > 0 ? `<div class="lbl" style="margin-top:8px">Cast using</div><div class="castopts">${opts.map(o => `<button class="castopt" data-act="castgo" data-k="${o.k}" data-l="${o.L}" ${o.left > 0 ? '' : 'disabled'}><b>${esc(o.label)}</b><span>${o.k === 'slot' ? o.left + ' left' : o.k === 'pact' ? o.left + ' left' : ''}${o.L > base && o.k !== 'free' ? ' · upcast' : ''}</span></button>`).join('')}
       <button class="castopt ghost" data-act="castgo" data-k="none" data-l="${base}"><b>No slot</b><span>scroll, item or DM ruling</span></button></div>`
@@ -17751,7 +17770,7 @@ function buildMacros() {
     if (sm.dice && adeptFor(sm.type)) lines.push(`*Elemental Adept (${adeptFor(sm.type)}): count each 1 on the damage dice as a 2; ignores ${adeptFor(sm.type)} resistance*`);
     if (sm.heal && sm.heal !== 'all') lines.push(`**Healing (${sm.heal}):** [[${sm.heal}]]`);
     if (!sm.dice && !sm.heal) lines.push(`**Effect:** ${sp.summary || '—'}`);
-    lines.push(`**Duration:** ${sp.duration || '—'}`);
+    lines.push(`**Duration:** ${spDurTxt(sp) || '—'}`);
     M('Spells', sp.name, `casts ${sp.name}`, lines, `${N(sp.level) ? ORD[N(sp.level) - 1] + ' level' : 'Cantrip'}${sm.dice ? ' · ' + sm.dice : sm.heal ? ' · heal ' + sm.heal : ''}`);
   });
   casters().forEach(c => { const ci = castInfo(c.key); M('Spells', `${c.name} Spell Attack`, 'makes a spell attack', [`**Attack Roll (to hit):** [[${d20x(ci.atk)}]]`, `**Save DC:** ${ci.dc}`], sgn(ci.atk) + ' · DC ' + ci.dc); });
@@ -18869,7 +18888,7 @@ function spFeatTip(btn) {
     const sp = S.spells[i]; if (!sp) return null; const sm = spellMath(sp), ci = spellCI(sp), L = N(sp.level);
     const head = `${L ? ORD[L - 1] + '-level' : 'Cantrip'}${sp.school ? ' ' + esc(String(sp.school).toLowerCase()) : ''}${sp.ritual ? ' (ritual)' : ''}`;
     const math = [sm.attack ? `${fmt(ci.atk)} to hit` : '', sm.save ? `DC ${ci.dc} ${esc(sm.save)} save${sm.half ? ' (half on success)' : ''}` : '', sm.dice ? `${esc(sm.dice)} ${esc(sm.type)}` : '', sm.heal ? `heals ${esc(sm.heal)}` : '', sm.temp ? `${esc(sm.temp)} temp HP` : ''].filter(Boolean).join(' · ');
-    return { name: sp.name, html: `<div class="hint">${head}</div>` + line('Casting time', esc(sp.time || '')) + line('Range', esc(sp.range || '')) + line('Components', esc(sp.comps || '')) + line('Duration', esc((sp.conc ? 'Concentration, ' : '') + (sp.duration || ''))) + (fullOfSpell(sp) ? `<div class="tipdesc">${fullHTML(fullOfSpell(sp))}</div>` : '') + (math ? `<div class="tiphb">${math}</div>` : '') + (sm.note ? `<div class="hint">${esc(sm.note)}</div>` : '') + (sp.note ? `<div class="hint">${esc(sp.note)}</div>` : '') + `<div class="hint">${esc([CL[sp.cls] ? CL[sp.cls].name : '', sp.src || ''].filter(Boolean).join(' · '))}</div>` };
+    return { name: sp.name, html: `<div class="hint">${head}</div>` + line('Casting time', esc(sp.time || '')) + line('Range', esc(sp.range || '')) + line('Components', esc(sp.comps || '')) + line('Duration', esc((sp.conc && !/^\s*concentration/i.test(sp.duration || '') ? 'Concentration, ' : '') + spDurTxt(sp))) + (fullOfSpell(sp) ? `<div class="tipdesc">${fullHTML(fullOfSpell(sp))}</div>` : '') + (math ? `<div class="tiphb">${math}</div>` : '') + (sm.note ? `<div class="hint">${esc(sm.note)}</div>` : '') + (sp.note ? `<div class="hint">${esc(sp.note)}</div>` : '') + `<div class="hint">${esc([CL[sp.cls] ? CL[sp.cls].name : '', sp.src || ''].filter(Boolean).join(' · '))}</div>` };
   }
   const f = S.features[i]; if (!f) return null; const max = featMax(f), info = typeof fxInfoLine === 'function' ? fxInfoLine(f) : '';
   return { name: f.name, html: (f.source ? `<div class="hint">${esc(f.source)}</div>` : '') + (fullOfFeat(f) ? `<div class="tipdesc">${fullHTML(fullOfFeat(f))}</div>` : '') + (info ? `<div class="tiphb">${esc(info)}</div>` : '') + (max != null ? `<div class="hint">${Math.max(0, max - N(f.used))} of ${max} uses left${f.reset ? ' · resets on a ' + esc(f.reset) + ' rest' : ''}</div>` : '') };

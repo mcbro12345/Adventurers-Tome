@@ -5112,6 +5112,11 @@ html.mobile .toast.rollcard.cc .cc-dc b { font-size: 2.3rem; }
 .toast.rollcard.cc .cc-dcin { width: 64px; text-align: center; font: inherit; font-size: 2.2rem; font-weight: 700; line-height: 1.1; color: var(--gold-ink); background: color-mix(in srgb, var(--ink) 6%, transparent); border: 1px solid var(--line); border-radius: 10px; padding: 2px 0; -moz-appearance: textfield; }
 .toast.rollcard.cc .cc-dcin::-webkit-inner-spin-button, .toast.rollcard.cc .cc-dcin::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 .toast.rollcard.cc .cc-dcin:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
+/* phones: the stat tiles in a row start at the same height (ⓘ, label, number line up across the row) */
+html.mobile .tile:is([data-zi="ac"], [data-zi="init"], [data-zi="speed"], [data-zi="prof"], [data-zi="passive"], [data-zi="hd"]) { justify-content: flex-start; }
+
+html.mobile .tile:is([data-zi="ac"],[data-zi="init"],[data-zi="speed"],[data-zi="prof"],[data-zi="passive"],[data-zi="hd"]) > .lbl { display: flex; flex-direction: column; justify-content: flex-end; }
+html.mobile .tile[data-zi="init"] > .roll.big { margin-top: -6px; margin-bottom: -6px; }
 
 </style>
 </head>
@@ -15823,8 +15828,19 @@ function fxTip(e) {
   if (e.maxHp) t.push(`+${e.maxHp} max HP`); if (b.note) t.push(b.note);
   return t.join(' · ');
 }
+// Phones: stat tiles side by side get the same label height, so their numbers line up even when one label wraps
+// ("Passive Perception").
+function statRowsAlign() {
+  const ts = $$('.tile:is([data-zi="ac"],[data-zi="init"],[data-zi="speed"],[data-zi="prof"],[data-zi="passive"],[data-zi="hd"])');
+  ts.forEach(t => { const l = t.querySelector(':scope > .lbl'); if (l) l.style.minHeight = ''; });
+  if (!document.documentElement.classList.contains('mobile')) return;
+  const rows = {}; ts.forEach(t => { if (!t.offsetParent) return; const k = Math.round(t.getBoundingClientRect().top); (rows[k] = rows[k] || []).push(t); });
+  Object.values(rows).forEach(g => { const ls = g.map(t => t.querySelector(':scope > .lbl')).filter(Boolean); const h = Math.max(...ls.map(l => l.offsetHeight)); ls.forEach(l => { if (l.offsetHeight < h) l.style.minHeight = h + 'px'; }); });
+}
+addEventListener('resize', () => setTimeout(statRowsAlign, 50));
 function refresh() {
   if (!S.created) return;
+  requestAnimationFrame(statRowsAlign);
   if (typeof readySync === 'function' && readySync()) { setTimeout(() => { save(); render(); }, 0); }
   $$('[data-calc]').forEach(el => { const t = calcText(el.dataset.calc); if (el.textContent !== t) el.textContent = t; });
   if (typeof fitSubtitle === 'function') fitSubtitle();
@@ -16982,6 +16998,8 @@ function readyFire() {
 // concentration broken (failed save, knocked out, another concentration spell) → the readied spell is lost.
 function readySync(quiet) {
   const r = S.turn && S.turn.readied, hold = (S.effects || []).find(e => e.readied); let ch = false;
+  // (a spell readied before readied spells counted as concentration: start holding it now, unless you're concentrating on something else)
+  if (r && r.spell && !r.held && !hold && !S.concentration) { const hn = r.spell + ' (readied)'; S.effects = (S.effects || []).concat([{ name: hn, conc: true, readied: true }]); S.concentration = hn; r.held = true; return true; }
   if (r && r.spell && r.held && !hold) { S.turn.readied = null; ch = true; if (!quiet) setTimeout(() => readyLost(r, 'Your concentration broke'), 60); }
   else if (hold && !(r && r.spell && hold.name === r.spell + ' (readied)')) { S.effects = S.effects.filter(e => e !== hold); if (S.concentration === hold.name) S.concentration = ''; ch = true; }
   return ch; }
@@ -23825,12 +23843,13 @@ function rebuildAuto() {
     (pk.fixed || []).concat(...pk.picks.map(p => [].concat(ch[p.key] || []))).filter(Boolean).forEach(n => { const lv = N((SPI(n) || {}).level);
       want.push({ n, cls: 'feat', src: fn, note: lv > 0 ? 'once per long rest without a slot' : '', once: lv > 0, ab, featAb: true }); }); });
   // Spells an item lets you cast, while you're using it (equipped, or carried if ticked; attuned if it needs it)
-  S.inventory.forEach(it => { if (!hbItemOn(it)) return; const st = itemStores(it); (it.spells || []).forEach(n => want.push({ n, cls: 'other', src: it.name, note: st ? 'stored — gone once cast' : it.spellAtWill ? 'at will' : it.spellOnce ? 'once per long rest' : '', once: !st && !!it.spellOnce && !it.spellAtWill, atWill: !st && !!it.spellAtWill, stored: st, lvl: N((it.spellLevels || {})[n]), ab: (it.hb && it.hb.spellAb) || '', itemId: it.id })); });
+  S.inventory.forEach(it => { if (!hbItemOn(it)) return; const st = itemStores(it), noConc = ITEM_NOCONC.test([it.notes, it.desc, it.description, it.text].filter(Boolean).join(' ')); (it.spells || []).forEach(n => want.push({ n, cls: 'other', noConc, src: it.name, note: st ? 'stored — gone once cast' : it.spellAtWill ? 'at will' : it.spellOnce ? 'once per long rest' : '', once: !st && !!it.spellOnce && !it.spellAtWill, atWill: !st && !!it.spellAtWill, stored: st, lvl: N((it.spellLevels || {})[n]), ab: (it.hb && it.hb.spellAb) || '', itemId: it.id })); });
   const keyOf = (n, cls) => n.toLowerCase() + '|' + cls;
   const wantKeys = new Set(want.map(w => keyOf(w.n, w.cls)));
   S.spells = S.spells.filter(s => !s.auto || wantKeys.has(keyOf(s.name, s.cls)));
   want.forEach(w => {
     const ex0 = S.spells.find(s => keyOf(s.name, s.cls) === keyOf(w.n, w.cls) && s.always && s.auto);
+    if (ex0 && w.noConc && ex0.conc) ex0.conc = false;
     if (ex0 && w.stored) { storedUse(ex0, w); ex0.item = w.itemId; ex0.ab = w.ab || (casters()[0] || {}).ab || 'cha'; ex0.note = w.src + ': ' + w.note; return; }
     if (ex0 && ex0.usesOnly && w.itemId) { delete ex0.usesOnly; delete ex0.stored; delete ex0.uses; }
     if (ex0 && (w.itemId || w.atWill || ex0.atWill)) { ex0.atWill = !!w.atWill && N(ex0.level) > 0; if (w.once && N(ex0.level) > 0) { if (!ex0.uses) ex0.uses = { max: '1', reset: 'long', used: 0 }; } else if (w.itemId || ex0.atWill) delete ex0.uses; if (w.itemId) { ex0.item = w.itemId; ex0.ab = w.ab || (casters()[0] || {}).ab || 'cha'; } ex0.note = w.src + (w.note ? ': ' + w.note : ''); return; }
@@ -23841,6 +23860,7 @@ function rebuildAuto() {
     if (w.once && N(sp.level) > 0) sp.uses = { max: '1', reset: 'long', used: 0 };
     if (w.atWill && N(sp.level) > 0) sp.atWill = true;
     if (w.itemId) { sp.item = w.itemId; sp.ab = w.ab || (casters()[0] || {}).ab || 'cha'; }
+    if (w.noConc) sp.conc = false;
     if (w.stored) storedUse(sp, w);
     if (w.featAb) sp.ab = w.ab;
     if (w.cls === 'race') { sp.ab = w.ab; if (/once per long rest|1\/long rest|once per day/i.test(w.note || '') && N(sp.level) > 0) { sp.uses = { max: '1', reset: 'long', used: 0 }; const lv = String(w.note).match(/as (\d)(?:st|nd|rd|th)[- ]level/i); if (lv) sp.uses.level = N(lv[1]); } }
@@ -23866,6 +23886,8 @@ function storedUse(sp, w) {
   sp.usesOnly = true; sp.stored = true; sp.uses.reset = 'never'; sp.prepared = true;
   if (w.lvl > N(sp.level)) sp.uses.level = w.lvl; else delete sp.uses.level;
 }
+// An item that says its spells need no concentration ("cast Stoneskin without concentration")
+const ITEM_NOCONC = /without (?:requiring |needing |the need for |using )?concentration|(?:doesn['’]?t|does not|don['’]?t|do not|never) (?:require|need|take|use) concentration|no concentration (?:is )?(?:required|needed)|not require concentration/i;
 function spellEntry(n, cls) {
   const d = SPI(n) || { name: n, level: 1, school: '', time: '1 action', range: '', comps: '', duration: '', conc: false, ritual: false, summary: '', src: '' };
   return { name: d.name, level: d.level, school: d.school, time: d.time, range: d.range, comps: d.comps, duration: d.duration, conc: d.conc, ritual: d.ritual, summary: d.summary, src: d.src, cls, prepared: false, always: false, note: '' };
