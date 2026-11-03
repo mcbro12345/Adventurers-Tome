@@ -526,6 +526,7 @@ function speedInfo() {
   const bs = buffSum('speed'); if (bs) { walk += bs; parts.push(`Spells +${bs}`); }
   if (selfBuffs().some(b => b.speedHalf)) { walk = Math.floor(walk / 2); parts.push('Slowed ×½'); }
   if (hasted()) { walk *= 2; parts.push('Haste ×2'); }
+  if (selfBuffs().some(b => b.speedDouble)) { walk *= 2; parts.push('Boots of Speed ×2'); }
   const enc = encLevel(); if (enc === 3) { walk = Math.min(walk, 5); parts.push('Over carrying capacity: 5 ft'); } else if (enc) { walk -= enc === 2 ? 20 : 10; parts.push(enc === 2 ? 'Heavily encumbered −20' : 'Encumbered −10'); }
   if (exModern() && N(S.exhaustion)) { walk = Math.max(0, walk - 5 * N(S.exhaustion)); parts.push(`Exhaustion −${5 * N(S.exhaustion)}`); }
   else if (N(S.exhaustion) >= 2) { walk = Math.floor(walk / 2); parts.push('Exhaustion halved'); }
@@ -631,12 +632,15 @@ function atkDmgMod(a) {
   const ab = attackAb(a);
   const fit = a.item && S.inventory.find(x => x.id === a.item);
   let v = (ab && !a.noModDmg ? mod(ab) : 0) + N(a.magic) + forgeBonus(fit) + infWeapon(fit, a, 'dmg') + (a.effect ? 0 : buffSum('dmg')) + itemBuffs(a).reduce((t, b) => t + N(b.dmg), 0) + (a.kind === 'melee' && ab === 'str' ? buffSum('meleeDmg') : 0) + (a.kind === 'melee' ? fxSum('meleeDmg') : 0);
-  if (a.kind === 'melee' && fightingStyle('Dueling') && a.oneHanded) v += 2;
+  if (a.kind === 'melee' && fightingStyle('Dueling') && a.oneHanded && !(a.twoHand && atkVers(a))) v += 2;
   return v;
 }
 function martialDie() { const m = clsLv('monk'); return m >= 17 ? 'd10' : m >= 11 ? 'd8' : m >= 5 ? 'd6' : m >= 1 ? 'd4' : ''; }
+// A versatile weapon's two-handed damage ("versatile (1d10)"), or '' if the weapon isn't versatile.
+function atkVers(a) { const it = a && a.item && S.inventory.find(x => x.id === a.item), p = (it && it.weapon && it.weapon.props) || [], v = p.find(x => /^versatile/i.test(x)); return v ? ((v.match(/\d+d\d+/) || [])[0] || '') : ''; }
 function atkDice(a) {
   let d = a.dice || '';
+  if (a.twoHand && atkVers(a)) d = atkVers(a); // wielded in two hands
   const wb = wpnBind(a); if (wb && wb.wpn.die) d = /d\d+/.test(d) ? d.replace(/d\d+/, wb.wpn.die) : '1' + wb.wpn.die;
   if (a.monk && martialDie()) { const md = martialDie(), cur = (d.match(/d(\d+)/) || [0, 0])[1]; if (!d || N(md.slice(1)) > N(cur) || d === '1') d = '1' + md; }
   return d;
@@ -1087,11 +1091,22 @@ const hbItemOn = it => !!it && (it.equipped || !!it.carried) && (!it.attune || !
 // The table's own homebrew items: these get their effect set up as soon as they show up in an inventory
 // (only when the item has no homebrew settings of its own, so a player's edits always win).
 function hbKnownList() { return [
-  [/\bspider legs?\b/i, { hb: { consume: true, effName: 'Spider Legs', effSkillAdv: 'Perception', effNote: 'Advantage on Perception checks until your next long rest', text: 'Advantage on Perception checks until your next long rest.' }, carried: true }]
+  [/\bspider legs?\b/i, { hb: { consume: true, effName: 'Spider Legs', effSkillAdv: 'Perception', effNote: 'Advantage on Perception checks until your next long rest', text: 'Advantage on Perception checks until your next long rest.' }, carried: true }],
+  // Boots of Speed: a bonus action in Combat that doubles your walking speed for up to 10 minutes, once per long rest
+  // Boots of Speed (rare, attunement): a bonus action clicks the heels together to switch them on or off. While on, your walking
+  // speed doubles and opportunity attacks against you have disadvantage. They run for 10 minutes in all (the "charges" are
+  // those minutes, spent by how long they were on, rounded up to the minute), and the time comes back on a long rest.
+  [/^boots of speed$/i, { hb: { col: 'bonus', pool: true, effName: 'Boots of Speed', effX2: true, effNote: 'Walking speed doubled; opportunity attacks against you have disadvantage', text: 'Click your heels together to turn them on or off. While on: walking speed doubled, and opportunity attacks against you have disadvantage.' }, charges: [10, 'long'] }],
+  // Cloak of Displacement (rare, attunement): attacks against you have disadvantage until you take damage; it's back at the
+  // start of your next turn, and does nothing while you're incapacitated, restrained or can't move
+  [/^cloak of displacement$/i, { hb: { adv: 'Cloak of Displacement: attacks against you have disadvantage. It stops when you take damage and comes back at the start of your next turn; not while you are incapacitated, restrained or unable to move' } }],
+  // Animated Shield (very rare, attunement): a bonus action sets it hovering to guard you, hands free, for 1 minute
+  [/\banimated shield\b/i, { hb: { col: 'bonus', effName: 'Animated Shield', effRounds: 10, effNote: 'The shield guards you as if you were holding it (its AC still counts), leaving your hands free. Ends early if you are incapacitated or die, or with another bonus action', text: 'Speak its command word: it leaps into the air and guards you for 1 minute, leaving your hands free.' } }]
 ]; }
 function hbKnownItem(it) {
   if (!it || it.hb || it.hbKnown) return; const k = hbKnownList().find(([re]) => re.test(it.name || '')); if (!k) return;
   it.hb = JSON.parse(JSON.stringify(k[1].hb)); if (k[1].carried) it.carried = true; it.hbKnown = 1;
+  if (k[1].charges && !(it.charges && N(it.charges.max))) it.charges = { max: k[1].charges[0], used: 0, reset: k[1].charges[1] };
 }
 function hbFx(hb) {
   if (!hb || typeof hb !== 'object') return null;
@@ -1126,6 +1141,7 @@ function hbFx(hb) {
     const b = {};
     if (has('effFly')) b.fly = hbNum(hb.effFly);
     if (has('effSpeed')) b.speed = hbNum(hb.effSpeed);
+    if (hb.effX2) b.speedDouble = true;
     if (has('effAc')) b.ac = hbNum(hb.effAc);
     if (has('effNote')) b.note = String(hb.effNote);
     if (has('effSkillAdv')) b.skillAdv = hbCSV(hb.effSkillAdv).map(x => { const k = DND.skills.find(z => z[0].toLowerCase() === x.toLowerCase()); return k ? k[0] : x; });
@@ -1181,11 +1197,39 @@ function throwItem(i) {
   attackRoll(a, true, { label: nm + ' (thrown)', notes: [esc(t.range) + ' · improvised' + (brawler ? ' (Tavern Brawler: proficient)' : ', no proficiency'), esc(t.note), esc(left)] });
   render();
 }
+// Items that run on a pool of minutes (Boots of Speed): the same button turns them on and off; the minutes they were on
+// come off the pool when they stop (switched off, ended from the effects list, or run out).
+function poolSettle(e) {
+  if (!e || !e.pool) return; const it = S.inventory.find(x => x.id === e.pool.item); if (!it || !it.charges) return;
+  const used = Math.max(1, Math.ceil((N(e.pool.t0) - N(e.rounds)) / 10));
+  it.charges.used = Math.min(N(it.charges.max), N(it.charges.used) + used);
+}
+function usePoolItem(it, col) {
+  const ch = it.charges, on = (S.effects || []).find(x => x.pool && x.pool.item === it.id);
+  if (['action', 'bonus', 'reaction'].includes(col) && incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take actions or reactions.`, 'fumble'); return; }
+  if (S.inCombat && col && S.turn.used[col]) { toast(`Your ${col === 'bonus' ? 'bonus action' : col} is already used this turn.`, 'fumble'); return; }
+  if (on) {
+    poolSettle(on); S.effects = S.effects.filter(x => x !== on); if (col && S.inCombat) S.turn.used[col] = true;
+    const left = Math.max(0, N(ch.max) - N(ch.used));
+    pendingLabel = 'Turn off ' + it.name; update(); render();
+    toast(`<div><b>${esc(it.name)}</b> off<div class="det">${left} minute${left === 1 ? '' : 's'} left until your next long rest</div></div>`, '', 6000, { label: 'Undo', fn: () => undo(1) }); return;
+  }
+  const left = Math.max(0, N(ch.max) - N(ch.used));
+  if (!left) { toast(`<b>${esc(it.name)}</b> ${ch.reset === 'short' ? 'are spent until a short or long rest' : 'have no time left — it comes back on a long rest'}.`, 'fumble'); return; }
+  const fx = hbFx(it.hb) || {}, lines = [];
+  if (fx.use && fx.use.effect) fx.use.effect.rounds = left * 10;
+  fxApplyUse(fx.use, it.name, lines);
+  const e = (S.effects || []).find(x => x.name === (fx.use && fx.use.effect && fx.use.effect.name)); if (e) e.pool = { item: it.id, t0: left * 10 };
+  if (col && S.inCombat) S.turn.used[col] = true;
+  pendingLabel = 'Turn on ' + it.name; update(); render();
+  toast(`<div><b>${esc(it.name)}</b> on<div class="det">${esc(fxText(fx.text || ''))}</div><div class="det">Up to ${left} minute${left === 1 ? '' : 's'} · use it again to turn them off</div></div>`, '', 8000, { label: 'Undo', fn: () => undo(1) });
+}
 function useItem(i, col) {
   const it = S.inventory[i]; if (!it) return;
   const fx = hbFx(it.hb) || {};
   if (it.attune && !it.attuned) { toast(`Attune to <b>${esc(it.name)}</b> first.`, 'fumble'); return; }
   col = col || (it.hb && it.hb.col) || '';
+  if (it.hb && it.hb.pool && it.hb.effName && it.charges) return usePoolItem(it, col);
   if (['action', 'bonus', 'reaction'].includes(col) && incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take actions or reactions.`, 'fumble'); return; }
   if (fx.onlyWhen && !fxWhenOK(fx.onlyWhen)) { toast(`${esc(it.name)} only works ${esc(fxWhenText(fx.onlyWhen))}.`, 'fumble'); return; }
   const ch = it.charges && N(it.charges.max) > 0 ? it.charges : null;
@@ -1402,10 +1446,10 @@ function riderChipsGen(keys, label) { const rs = riderSources().filter(x => keys
 // plus your own homebrew features with limited uses that don't take an action (so they're never out of sight).
 function addonRows(ridersOnly) {
   const rows = riderSources().map(src => { const l = src.left(), tip = src.kind === 'feat' ? `<button class="notetip" data-tip="${src.i}" data-tipkind="feat" aria-label="What ${esc(src.name)} does">ⓘ</button>` : `<button class="notetip" data-tip="${src.i}" aria-label="What ${esc(src.name)} does">ⓘ</button>`;
-    return `<div class="opt"><div class="opt-head"><span class="opt-name">${esc(src.name)}</span>${tip}${l != null ? `<span class="tag">${l}/${src.max}</span>` : ''}<button class="btn sm" data-act="useaddon" data-k="${src.kind}" data-i="${src.i}" ${l === 0 ? 'disabled' : ''}>Use</button></div>
+    return `<div class="opt"><div class="opt-head"><span class="opt-name">${esc(src.name)}</span>${tip}${l != null ? `<span class="tag">${l}/${src.max}</span>` : ''}<button class="btn sm gold" data-act="useaddon" data-k="${src.kind}" data-i="${src.i}" ${l === 0 ? 'disabled' : ''}>Use</button></div>
       <div class="opt-info rider">${esc(riderTrigText(src.hb))}${riderWhat(src.hb) ? ': ' + esc(riderWhat(src.hb)) : ''}${src.hb.onAsk === false || src.hb.onAsk === 'false' ? ' · happens by itself' : ' · you\u2019re asked each time'}</div></div>`; });
   if (!ridersOnly) (S.features || []).forEach((f, i) => { if (!f || (f.hb && f.hb.on) || f.col || f.source !== 'Custom' || featMax(f) == null || f.pool) return; const max = featMax(f), l = Math.max(0, max - N(f.used));
-    rows.push(`<div class="opt"><div class="opt-head"><span class="opt-name">${esc(f.name)}</span><button class="notetip" data-tip="${i}" data-tipkind="feat" aria-label="What ${esc(f.name)} does">ⓘ</button><span class="pips" data-calc-html="featpips:${i}"></span><button class="btn sm" data-act="usefeat" data-i="${i}" data-col="" ${l ? '' : 'disabled'}>Use</button></div>${f.desc ? `<div class="opt-text">${esc(formulaDC(f.desc))}</div>` : ''}</div>`); });
+    rows.push(`<div class="opt"><div class="opt-head"><span class="opt-name">${esc(f.name)}</span><button class="notetip" data-tip="${i}" data-tipkind="feat" aria-label="What ${esc(f.name)} does">ⓘ</button><span class="pips" data-calc-html="featpips:${i}"></span><button class="btn sm gold" data-act="usefeat" data-i="${i}" data-col="" ${l ? '' : 'disabled'}>Use</button></div>${f.desc ? `<div class="opt-text">${esc(formulaDC(f.desc))}</div>` : ''}</div>`); });
   return rows;
 }
 
@@ -1875,11 +1919,11 @@ const R20_LOGO = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAARcAAAB4CAIAAABX
 const ICON = {
   image: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>',
   clock: '<svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
-  log: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>',
+  log: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><g transform="translate(.5 0)"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></g></svg>',
   hist: '<svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>',
   sun: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
   moon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>',
-  bug: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 7.5V6a3 3 0 0 1 6 0v1.5"/><rect x="7" y="7.5" width="10" height="12.5" rx="5"/><path d="M12 11v9M3.5 13H7M17 13h3.5M4.5 8l2.6 1.8M19.5 8l-2.6 1.8M4.5 19.5l2.8-2M19.5 19.5l-2.8-2"/></svg>',
+  bug: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(0 .5)"><path d="M9 7.5V6a3 3 0 0 1 6 0v1.5"/><rect x="7" y="7.5" width="10" height="12.5" rx="5"/><path d="M12 11v9M3.5 13H7M17 13h3.5M4.5 8l2.6 1.8M19.5 8l-2.6 1.8M4.5 19.5l2.8-2M19.5 19.5l-2.8-2"/></g></svg>',
   phone: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M11 18.5h2"/></svg>',
   fsIn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>',
   fsOut: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg>',
@@ -1903,7 +1947,7 @@ function toolbarHTML() {
     settings: `<button class="tbtn" data-zi="settings" data-act="settings" title="Settings">${ICON.gear}<span class="tl">Settings</span></button>`,
     save: `<div class="savegrp" data-zi="save"><span class="save-state${/synced|view only/i.test(UI.saveState || '') ? ' live' : ''}" id="saveState" title="${esc(UI.saveState || 'Auto-saves')}">${syncHTML(UI.saveState || 'Auto-saves')}</span></div>`,
     dice: `<button class="devbtn dicebtn" data-zi="dice" data-act="diceroller" title="Dice roller" aria-label="Dice roller"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 2.5l8.5 4.9v9.2L12 21.5l-8.5-4.9V7.4z"/><path d="M12 7.5l4.3 7.4H7.7zM12 2.5v5M20.5 7.4l-4.2 7.5M3.5 7.4l4.2 7.5M12 21.5l-4.3-6.6M12 21.5l4.3-6.6"/></svg></button>`,
-    ...({ chat: `<button class="devbtn chatbtn" data-zi="chat" data-act="chatwin" title="Party chat" aria-label="Party chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 10h8M8 13h5"/></svg></button>` }),
+    ...({ chat: `<button class="devbtn chatbtn" data-zi="chat" data-act="chatwin" title="Party chat" aria-label="Party chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(0 -.5)"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 10h8M8 13h5"/></g></svg></button>` }),
     rolllog: `<button class="devbtn logbtn" data-zi="rolllog" data-act="rolllog" title="Log — every roll, plus everything else that popped up" aria-label="Log">${ICON.log}</button>`,
     // (on a phone it sits next to Log; on a computer, after the layout switch)
     ...(isMobile() && window.SHEET_PAGES ? { bug: `<button class="devbtn bugbtn" data-zi="bug" data-act="bugreport" title="Bugs, ideas &amp; feedback" aria-label="Bugs, ideas and feedback">${ICON.bug}</button>` } : {}),
@@ -1927,15 +1971,15 @@ function zoneOrder(zone, ids) {
 function renderHeader() {
   const dark = document.documentElement.getAttribute('data-theme') === 'dark';
   const pic = S.portrait || PLACEHOLDER, xp = ST('advancement') === 'xp';
-  const idf = [ST('showPlayer') ? (window.SHEET_PAGES ? `<div class="fld"><span class="lbl">Player</span><span class="identtxt" title="Comes from the player list on your party page">${esc(S.player || '—')}</span></div>` : fld('Player', inp('player', { fit: 8, ph: 'Player' }))) : '', ST('showRace') ? `<div class="fld"><span class="lbl">Race</span><span class="identtxt" title="Change your race in Settings">${esc(S.raceName || '—')}</span></div>` : '', ST('showBackground') ? `<div class="fld"><span class="lbl">Background</span><span class="identtxt" title="Change your background in Settings">${esc(S.backgroundName || '—')}</span></div>` : '',
-    ST('showAlignment') ? fld('Alignment', sel('alignment', [['', '—']].concat(DND.alignments.map(a => [a, a])))) : '', ST('showFaith') ? fld('Faith', inp('faith', { ph: '—', fit: 8 })) : ''].join('');
+  // (alignment, faith and player now ride along in the line under the name; they're edited on the Story tab)
+  const idf = '';
   $('#sec-header').innerHTML = `
   <div class="banner-row"><div class="portrait-wrap"><img id="portraitImg" src="${esc(pic)}" alt="${esc((S.name || 'Character') + '’s portrait')}">
     <label class="portrait-edit" tabindex="0" data-act="portrait" title="Change portrait" aria-label="Change portrait"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/></svg></label></div>${inspHTML()}</div>
   <div class="ident${idf ? '' : ' noid'}"><h1 class="sr-only">${esc(S.name || 'Character sheet')}</h1>
     <div class="ident-top">
       <img class="mini-portrait" src="${esc(pic)}" alt="" data-act="portrait">
-      <div class="namebox">${ST('showName') ? inp('name', { cls: 'name', label: 'Character name', ph: 'Character name', fit: 10 }) : ''}
+      <div class="namebox">${inp('name', { cls: 'name', label: 'Character name', ph: 'Character name', fit: 10 })}
         <div class="subtitle" data-calc="subtitle"></div></div>
       <div class="lvlbox${xpReady() ? ' ready' : ''}" id="lvlbox">
         <div class="lvlnum"><span class="lbl">Level</span><b data-calc="lvl"></b></div>
@@ -2165,6 +2209,9 @@ function tabPageAnim(prev, nt) {
   bar.addEventListener('click', e => { if (eat) { e.preventDefault(); e.stopPropagation(); } }, true);
 }
 
+// Versatile weapons: one hand or two (two uses the bigger damage die).
+const gripBtn = i => { const a = S.attacks[i]; if (!a || !atkVers(a)) return ''; const two = !!a.twoHand;
+  return `<button class="gripbtn${two ? ' on' : ''}" data-act="twohand" data-i="${i}" title="${two ? 'Held in two hands (' + esc(atkVers(a)) + '). Switch to one hand' : 'Held in one hand (' + esc(a.dice || '') + '). Switch to two hands (' + esc(atkVers(a)) + ')'}" aria-pressed="${two}">${two ? '2H' : '1H'}</button>`; };
 const atkBtn = (i, short) => `<button class="btn gold sm atkbtn" data-act="attack" data-i="${i}" title="Roll to hit and damage; a natural 20 doubles the damage dice">⚔${short ? '' : ' Attack'}</button>`;
 const AB_ATK = [['str', 'STR'], ['dex', 'DEX'], ['fin', 'Finesse (best)'], ['monk', 'Monk (best)'], ['spell', 'Spellcasting'], ['int', 'INT'], ['wis', 'WIS'], ['cha', 'CHA'], ['', '—']];
 function formAttacksHTML() {
@@ -2181,7 +2228,7 @@ function attacksHTML() {
     if (!atkShown(a)) return '';
     const open = UI.open['atk:' + i], am = ammoItem(a), wit = a.item && S.inventory.find(x => x.id === a.item), hasTip = String(a.notes || '').trim() || (wit && (String(wit.notes || '').trim() || wit.hb)) || !a.item; // (unarmed strikes and natural weapons get one too: to hit, damage and their animation)
     return `<div class="atk-row${open ? ' open' : ''}">
-      <span class="atk-namewrap"><button class="atk-name" data-act="toggle" data-key="atk:${i}" aria-expanded="${!!open}" title="Edit">${esc(a.name)} <span class="caret">${open ? '▴' : '▾'}</span></button>${hasTip ? `<button class="notetip" data-tip="${i}" data-tipkind="atk" aria-label="Notes for ${esc(a.name)}">ⓘ</button>` : ''}${wit && wit.attune ? `<span class="tag${wit.attuned ? ' oath' : ''}" title="${wit.attuned ? 'Attuned' : 'Needs attunement'}">${wit.attuned ? '◆' : '◇'}</span>` : ''}</span>${String(a.notes || '').trim() && !open ? `<div class="atk-notes mnote">${esc(a.notes)}</div>` : ''}${wit && wit.hb && !open && hbSummary(wit.hb, wit).length ? `<div class="atk-notes mnote hbn">⚙ ${esc(hbSummary(wit.hb, wit).join(' · '))}</div>` : ''}
+      <span class="atk-namewrap"><button class="atk-name" data-act="toggle" data-key="atk:${i}" aria-expanded="${!!open}" title="Edit">${esc(a.name)} <span class="caret">${open ? '▴' : '▾'}</span></button>${gripBtn(i)}${hasTip ? `<button class="notetip" data-tip="${i}" data-tipkind="atk" aria-label="Notes for ${esc(a.name)}">ⓘ</button>` : ''}${wit && wit.attune ? `<span class="tag${wit.attuned ? ' oath' : ''}" title="${wit.attuned ? 'Attuned' : 'Needs attunement'}">${wit.attuned ? '◆' : '◇'}</span>` : ''}</span>${String(a.notes || '').trim() && !open ? `<div class="atk-notes mnote">${esc(a.notes)}</div>` : ''}${wit && wit.hb && !open && hbSummary(wit.hb, wit).length ? `<div class="atk-notes mnote hbn">⚙ ${esc(hbSummary(wit.hb, wit).join(' · '))}</div>` : ''}
       <span class="atk-hit">${rollBtn('atk:' + i, a.name + ' attack')}</span>
       <span class="atk-dmg">${rollBtn('dmg:' + i, a.name + ' damage')}</span>
       <span class="atk-type muted">${esc(a.type || '')}${am ? `<b class="ammo" title="${esc(am.name)}" data-calc="ammo:${i}"></b>` : ''}</span>
@@ -2841,7 +2888,6 @@ function renderFeatures() {
         + (r.extraSubs || []).map(xk => c.subclasses[xk] ? `<span class="subname">+ ${esc(c.subclasses[xk].name)}${N((r.extraSubLv || {})[xk]) ? ` <small class="hint">(${N(r.extraSubLv[xk])} lv)</small>` : ''}</span>` : '').join('')
         + loose.map(([n, v]) => `<span class="ftag">${esc(n)}: <b>${esc(v)}</b></span>`).join('');
     }
-    if (g === 'feat') extra = `<button class="btn sm" data-act="addfeat">+ Add feat</button>`;
     return extra;
   };
   // Known infusions live on the Infusions tab (they only do something once an item is infused).
@@ -2852,7 +2898,7 @@ function renderFeatures() {
   const sections = [...new Set(order.concat(groups))].filter(g => groups.includes(g) && (shown.some(([f]) => featGroup(f) === g) || (g === 'feat' && ff === 'all' && !q))).map(g => `<section class="fgroup"><h3 class="subh fghead"><span class="sh-dot"></span><span class="fgname">${esc(gname(g))}</span>${head(g)}</h3>
     <div class="fgrid">${shown.filter(([f]) => featGroup(f) === g).map(([f, i]) => card(f, i)).join('') || (g === 'feat' ? '<p class="hint">No feats yet. Feats from level-ups are added automatically.</p>' : '')}</div></section>`).join('');
   $('#page-features').innerHTML = `
-  <div class="panel" ${PID('featlist')}><h2><span class="grow">Features &amp; Traits</span><span class="hint lvhint" style="text-transform:none;letter-spacing:0">Total level ${totalLevel()} · proficiency ${fmt(PB())}</span><button class="btn sm" data-act="hbnew" data-k="feat">+ Homebrew feature</button></h2>
+  <div class="panel" ${PID('featlist')}><h2><span class="grow">Features &amp; Traits</span><span class="hint lvhint" style="text-transform:none;letter-spacing:0">Total level ${totalLevel()} · proficiency ${fmt(PB())}</span><span class="fl-hbtns"><button class="btn sm" data-act="addfeat">+ Add feat</button><button class="btn sm" data-act="hbnew" data-k="feat">+ Homebrew feature</button></span></h2>
     <div class="filters" style="margin-top:0"><input class="f featq" id="featQ" placeholder="Search features…" value="${esc(UI.featQ || '')}" aria-label="Search features"><button class="chip${ff === 'all' ? ' on' : ''}" data-act="featfilter" data-f="all">All</button>${groups.filter(g => g !== 'feat' || S.features.some(f => featGroup(f) === 'feat')).map(g => `<button class="chip${ff === g ? ' on' : ''}" data-act="featfilter" data-f="${g}">${esc(gname(g))}</button>`).join('')}</div>
     ${sections || '<p class="hint">No features match.</p>'}
     <p class="hint">Features from your class, race, background and feats are added and updated automatically as you level. Tap a feature to read it in full or edit it.</p></div>`;
@@ -3117,7 +3163,7 @@ function renderStory() {
   $('#page-story').innerHTML = `
   <div class="story">
     <div class="stack">
-      <div class="panel" ${PID('personality')}><h2>Personality</h2><div class="traits">
+      <div class="panel" ${PID('personality')}><h2>Personality</h2><div class="story-id">${fld('Alignment', sel('alignment', [['', '—']].concat(DND.alignments.map(a => [a, a]))))}${fld('Faith', inp('faith', { ph: 'Deity or belief' }))}${window.SHEET_PAGES ? '' : fld('Player', inp('player', { ph: 'Who plays this character' }))}</div><div class="traits">
         ${fld('Personality Traits', ta('traits.personality', { rows: 2 }))}${fld('Ideals', ta('traits.ideals', { rows: 2 }))}
         ${fld('Bonds', ta('traits.bonds', { rows: 2 }))}${fld('Flaws', ta('traits.flaws', { rows: 2 }))}</div></div>
       <div class="panel" ${PID('appearance')}><h2>Appearance</h2><div class="appear">${['age', 'height', 'weight', 'eyes', 'skin', 'hair'].map(k => fld(k[0].toUpperCase() + k.slice(1), inp('appearance.' + k))).join('')}</div></div>
@@ -3251,7 +3297,7 @@ function oocHTML(comps) {
       <div class="ooc-col">
         ${comps}
         <div class="panel"><h2>Attacks</h2>
-          <table class="mini ooc-atk">${S.attacks.map((at, i) => { if (!atkShown(at)) return ''; const wi = at.item && S.inventory.find(x => x.id === at.item), tip = String(at.notes || '').trim() || (wi && (String(wi.notes || '').trim() || wi.hb)) || !at.item; return `<tr><td>${esc(at.name)}${tip ? `<button class="notetip" data-tip="${i}" data-tipkind="atk" aria-label="Notes for ${esc(at.name)}">ⓘ</button>` : ''}</td><td>${rollBtn('atk:' + i, at.name + ' attack')}</td><td>${rollBtn('dmg:' + i, at.name + ' damage')}</td><td>${atkBtn(i, true)}</td></tr>`; }).join('') || '<tr><td class="hint">No attacks — add weapons in Inventory.</td></tr>'}</table>
+          <table class="mini ooc-atk">${S.attacks.map((at, i) => { if (!atkShown(at)) return ''; const wi = at.item && S.inventory.find(x => x.id === at.item), tip = String(at.notes || '').trim() || (wi && (String(wi.notes || '').trim() || wi.hb)) || !at.item; return `<tr><td>${esc(at.name)}${tip ? `<button class="notetip" data-tip="${i}" data-tipkind="atk" aria-label="Notes for ${esc(at.name)}">ⓘ</button>` : ''}${gripBtn(i)}</td><td>${rollBtn('atk:' + i, at.name + ' attack')}</td><td>${rollBtn('dmg:' + i, at.name + ' damage')}</td><td>${atkBtn(i, true)}</td></tr>`; }).join('') || '<tr><td class="hint">No attacks — add weapons in Inventory.</td></tr>'}</table>
           ${clsLv('rogue') ? `<div class="row sarow" style="margin-top:6px"><button class="btn sm gold" data-act="sneak">Sneak Attack ${sneakDice()}</button><span class="sadotw" data-calc-html="sneakdot"></span></div>` : ''}${stunRowHTML()}</div>
         ${spells.length ? `<div class="panel"><h2>Spells</h2>${combatSpellsHTML('ooc', spells)}</div>` : ''}
       </div>
@@ -3268,7 +3314,7 @@ function renderCombat() {
   const m = isMobile();
   const featView = (col, f, fi) => {
     const max = featMax(f), key = `fopt:${fi}`, open = !m || UI.open[key], fx = fxOf(f), own = f.col === col, info = own ? fxInfoLine(f) : '';
-    const useBtn = !own || fxIsResource(f) || (max != null && f.pool && !fx.cost) ? '' : `<button class="btn sm${max != null || fx.cost || fx.roll ? '' : ' ghost'}" data-act="usefeat" data-i="${fi}" data-col="${col}">${f.roll || fx.roll ? 'Use & roll' : max != null || fx.cost || fx.use ? 'Use' : 'Take'}</button>`;
+    const useBtn = !own || fxIsResource(f) || (max != null && f.pool && !fx.cost) ? '' : `<button class="btn sm${max != null || fx.cost || fx.roll ? ' gold' : ' ghost'}" data-act="usefeat" data-i="${fi}" data-col="${col}">${f.roll || fx.roll ? 'Use & roll' : max != null || fx.cost || fx.use ? 'Use' : 'Take'}</button>`;
     return `<div class="opt"><div class="opt-head">${m ? `<button class="opt-name opt-tog" data-act="toggle" data-key="${key}" aria-expanded="${!!open}">${esc(f.name)} <span class="caret">${open ? '▴' : '▾'}</span></button>` : `<span class="opt-name">${esc(f.name)}</span>`}
       <button class="notetip" data-tip="${fi}" data-tipkind="feat" aria-label="What ${esc(f.name)} does">ⓘ</button>${max != null ? `<span class="pips" data-calc-html="featpips:${fi}"></span>` : ''}${useBtn}${own ? riderChipsNamed(f.name) : ''}${own && typeof ptyFeatBtn === 'function' ? ptyFeatBtn(f, fi) : ''}</div>
       ${info ? `<div class="opt-info">${esc(info)}</div>` : ''}${fx.acts ? `<div class="fxacts">${fxActsHTML(f, fi, col)}</div>` : ''}
@@ -3287,7 +3333,7 @@ function renderCombat() {
     if (key === 'action') {
       body += hasteBlockHTML();
       body += `<div class="block"><div class="sect">Attack action <span class="atkpips" data-calc-html="atkpips" title="Attacks left this turn"></span><span class="grow"></span></div>
-        <table class="mini">${S.attacks.map((at, i) => { if (!atkShown(at) || at.bonus) return ''; const wi = at.item && S.inventory.find(x => x.id === at.item), tip = String(at.notes || '').trim() || (wi && (String(wi.notes || '').trim() || wi.hb)) || !at.item; const nmw = String(at.name).trim().split(/\s+/), lastW = nmw.pop(); return `<tr><td>${nmw.length ? esc(nmw.join(' ')) + ' ' : ''}<span class="nowrap">${esc(lastW)}${tip ? `<button class="notetip" data-tip="${i}" data-tipkind="atk" aria-label="Notes for ${esc(at.name)}">ⓘ</button>` : ''}</span></td><td>${rollBtn('atk:' + i, at.name + ' attack')}</td><td>${rollBtn('dmg:' + i, at.name + ' damage')}</td><td>${atkBtn(i, true)}</td></tr>`; }).join('') || '<tr><td class="hint">No attacks — add weapons in Inventory.</td></tr>'}</table>
+        <table class="mini">${S.attacks.map((at, i) => { if (!atkShown(at) || at.bonus) return ''; const wi = at.item && S.inventory.find(x => x.id === at.item), tip = String(at.notes || '').trim() || (wi && (String(wi.notes || '').trim() || wi.hb)) || !at.item; const nmw = String(at.name).trim().split(/\s+/), lastW = nmw.pop(); return `<tr><td>${nmw.length ? esc(nmw.join(' ')) + ' ' : ''}<span class="nowrap">${esc(lastW)}${tip ? `<button class="notetip" data-tip="${i}" data-tipkind="atk" aria-label="Notes for ${esc(at.name)}">ⓘ</button>` : ''}${gripBtn(i)}</span></td><td>${rollBtn('atk:' + i, at.name + ' attack')}</td><td>${rollBtn('dmg:' + i, at.name + ' damage')}</td><td>${atkBtn(i, true)}</td></tr>`; }).join('') || '<tr><td class="hint">No attacks — add weapons in Inventory.</td></tr>'}</table>
         <div class="hint" data-calc="ridersnote"></div>
         ${clsLv('rogue') ? `<div class="row sarow" style="margin-top:6px"><button class="btn sm gold" data-act="sneak">Sneak Attack ${sneakDice()}</button><span class="sadotw" data-calc-html="sneakdot"></span></div>` : ''}
         ${stunRowHTML()}${harmRowHTML()}
@@ -3325,7 +3371,7 @@ function renderCombat() {
       { const ir = infCombatRows(key); if (ir.length) body += cGroup(key, 'inf', 'Infusions', '⚗', ir.length, ir.join('')); }
       const items = hbItemActs(key);
       if (items.length) body += cGroup(key, 'item', 'Items', '⚙', items.length, items.map(([it, i]) => { const ch = it.charges && N(it.charges.max) > 0 ? it.charges : null, fx = hbFx(it.hb), info = [dcVal(fx.dc) ? `DC ${dcVal(fx.dc)}${fx.save ? ' ' + fx.save : ''}` : '', fx.roll ? 'roll ' + fxRollExpr(fx.roll) : '', fx.dash ? 'Dash' : ''].filter(Boolean).join(' · ');
-        return `<div class="opt"><div class="opt-head"><span class="opt-name">${esc(it.name)}</span>${String(it.notes || '').trim() || it.summary || it.hb ? `<button class="notetip" data-tip="${i}" aria-label="What ${esc(it.name)} does">ⓘ</button>` : ''}${ch ? `<span class="tag">${Math.max(0, N(ch.max) - N(ch.used))}/${N(ch.max)}</span>` : ''}<button class="btn sm" data-act="useitem" data-i="${i}" data-col="${key}" ${ch && N(ch.used) >= N(ch.max) ? 'disabled' : ''}>${fx.roll ? 'Use & roll' : 'Use'}</button></div>${info ? `<div class="opt-info">${esc(info)}</div>` : ''}${it.hb.text ? `<div class="opt-text">${esc(fxText(it.hb.text))}</div>` : ''}</div>`; }).join(''));
+        return `<div class="opt"><div class="opt-head"><span class="opt-name">${esc(it.name)}</span>${String(it.notes || '').trim() || it.summary || it.hb ? `<button class="notetip" data-tip="${i}" aria-label="What ${esc(it.name)} does">ⓘ</button>` : ''}${ch ? `<span class="tag">${Math.max(0, N(ch.max) - N(ch.used))}/${N(ch.max)}</span>` : ''}<button class="btn sm gold" data-act="useitem" data-i="${i}" data-col="${key}" ${ch && N(ch.used) >= N(ch.max) ? 'disabled' : ''}>${fx.roll ? 'Use & roll' : 'Use'}</button></div>${info ? `<div class="opt-info">${esc(info)}</div>` : ''}${it.hb.text ? `<div class="opt-text">${esc(fxText(it.hb.text))}</div>` : ''}</div>`; }).join(''));
       // Flasks and beads you can throw (holy water, acid, Bead of Force…): the action column.
       if (key === 'action') { const th = S.inventory.map((it, i) => [it, i]).filter(([it]) => throwOf(it) && !(it.hb && hbUsable(hbFx(it.hb))) && N(it.qty || 1) > 0);
         if (th.length) body += cGroup(key, 'throw', 'Throwables', '🧪', th.length, th.map(([it, i]) => { const t = throwOf(it), ch = t.bead && it.charges && N(it.charges.max) > 0 ? it.charges : null;
@@ -3446,7 +3492,8 @@ function calcText(key) {
     case 'ammo': { const am = ammoItem(S.attacks[a]); return am ? N(am.qty) + ' ammo' : ''; }
     case 'lvl': return String(totalLevel());
     case 'xpnext': return totalLevel() >= 20 ? 'max' : '/ ' + xpNext().toLocaleString();
-    case 'subtitle': return [S.raceName, classLabel(), S.backgroundName].filter(Boolean).join(' · ');
+    // (only what the character has: race, class, background, alignment, faith, and who plays them)
+    case 'subtitle': return [S.raceName, classLabel(), S.backgroundName, S.alignment, String(S.faith || '').trim() ? (/^(faith|follower|servant|devotee|priest)\b/i.test(String(S.faith).trim()) ? S.faith : 'Faith of ' + String(S.faith).trim()) : '', S.player ? 'played by ' + S.player : ''].map(x => String(x || '').trim()).filter(Boolean).map(x => x.replace(/ /g, '\u00a0')).join('\u00a0· '); // (each part stays on one line; the line only breaks between parts)
   }
   return '';
 }
@@ -3809,6 +3856,7 @@ function mainClick(e) {
     case 'del': delItem(b.dataset.list, i); break;
     case 'up': { const L = getP(b.dataset.list); if (i > 0) { [L[i - 1], L[i]] = [L[i], L[i - 1]]; save(); render(); } break; }
     // Features tab rows open and close in place (no redraw), so they can slide open.
+    case 'twohand': { const a = S.attacks[i]; if (!a) return; a.twoHand = !a.twoHand; pendingLabel = (a.twoHand ? 'Two hands: ' : 'One hand: ') + a.name; save(); render(); toast(`<b>${esc(a.name)}</b> in ${a.twoHand ? 'two hands' : 'one hand'} — ${esc(atkDmgText(a))}${a.type ? ' ' + esc(a.type) : ''}`, '', 3500); return; }
     case 'ftog': { const k = b.dataset.key, row = b.closest('.frow'), v = row ? !row.classList.contains('open') : !UI.open[k]; UI.open[k] = v; saveUI(); if (row) { row.classList.toggle('open', v); b.setAttribute('aria-expanded', v); const bd = row.querySelector('.fl-body'); if (bd) bd.inert = !v; } return; }
     case 'toggle': {
       UI.open[b.dataset.key] = !UI.open[b.dataset.key]; saveUI(); pendingLabel = null;
@@ -3998,7 +4046,7 @@ function mainClick(e) {
     case 'useitem': useItem(i, b.dataset.col); break;
     case 'ispdel': { const it = S.inventory[i]; const n = it.spells.splice(N(b.dataset.j), 1)[0]; pendingLabel = `${it.name}: remove ${n}`; rebuildAuto(); save(); render(); break; }
     case 'hbnew': openHomebrew(b.dataset.k); return;
-    case 'itempaste': openItemPaste(); return;
+    case 'itempaste': openItemPaste(b.dataset.i != null ? N(b.dataset.i) : -1); return;
     case 'hbbopen': openHomebrew(b.dataset.k, N(b.dataset.i)); return;
     case 'hbopen': UI.open['hb:' + b.dataset.key] = !UI.open['hb:' + b.dataset.key]; render(); break;
     case 'addspells': openSpellPicker(b.dataset.cls); pendingLabel = null; return;
@@ -4455,6 +4503,7 @@ function passRounds(n) {
     if (e.rounds === 0) ended.push(e); else if (e.rounds === 1 && n === 1) warn.push(e);
   });
   if (ended.length) {
+    if (typeof poolSettle === 'function') ended.forEach(poolSettle); // (an item's time pool runs out with it)
     S.effects = S.effects.filter(e => !ended.includes(e));
     if (ended.some(e => e.conc && e.name === S.concentration)) S.concentration = '';
     cleanupLinked();
@@ -4494,6 +4543,7 @@ function concCheck(dc) {
     { label: 'Failed', fn: () => { if (S.concentration === nm) breakConc('failed DC ' + dc); } }]);
 }
 function endEffect(n) {
+  (S.effects || []).filter(x => x.name === n).forEach(x => { if (typeof poolSettle === 'function') poolSettle(x); });
   S.effects = (S.effects || []).filter(x => x.name !== n);
   if (S.concentration === n) S.concentration = '';
   clampHp(); // (an effect that raised your max HP takes the extra HP with it)
@@ -5896,11 +5946,12 @@ function openSettings(tab) {
     ${pane('char', `
       ${row('Race', `<button class="btn sm" data-act="changerace">Change…</button>`, esc(S.raceName || '—'))}
       ${row('Background', `<button class="btn sm" data-act="changebg">Change…</button>`, esc(S.backgroundName || '—'))}
+      ${row('Alignment', `<span class="set-ctl">${sel('alignment', [['', '—']].concat(DND.alignments.map(a => [a, a])))}</span>`, '')}
+      ${row('Faith', `<span class="set-ctl">${inp('faith', { ph: 'Deity or belief', label: 'Faith' })}</span>`, 'Shows under your name as “Faith of …”')}
       ${subclassSettingsHTML()}
       ${row('Leveling', opt('advancement', [['milestone', 'Milestone'], ['xp', 'XP']]), '')}
       ${row('Ability blocks', opt('abilityStyle', [['mod', 'Modifier big'], ['score', 'Score big']]))}
       ${row('Spell sorting', opt('combatSpellSort', [['level', 'Grouped by level'], ['purpose', 'Grouped by purpose'], ['custom', 'My own categories (set up on the Spells tab)']]))}
-      <div class="setrow chkrow"><span><b>Show in header</b></span><span class="chkset">${[['showName', 'Name'], ['showPlayer', 'Player'], ['showRace', 'Race'], ['showBackground', 'Background'], ['showAlignment', 'Alignment'], ['showFaith', 'Faith']].map(([k, t]) => `<label class="checkline"><input type="checkbox" data-set="${k}"${ST(k) ? ' checked' : ''}> ${t}</label>`).join('')}</span></div>
       ${booksHTML()}
 `)}
     ${pane('dice', `
@@ -6653,15 +6704,21 @@ window.addEventListener('resize', () => $$('input.f.name').forEach(fitNameFont))
 // The line under the name (race · class · background) never runs past two lines on a computer: a long one gets smaller
 // type instead, so the top bar is the same height for every character. (Remembered per text and width.)
 let SUB_K = '';
+// The line under the name wraps only between its parts (race · class · …), never inside one. If a part is too long for a
+// line of its own it shrinks to fit. It can run to three lines before it shrinks (past that, at the smallest size, it stops
+// after three and the whole of it shows on hover).
 function fitSubtitle() { const el = $('.namebox .subtitle'); if (!el) return;
-  if (isMobile()) { if (el.style.fontSize) el.style.fontSize = ''; SUB_K = ''; return; }
-  const k = el.textContent + '|' + (el.parentElement ? el.parentElement.clientWidth : 0) + '|' + document.documentElement.style.fontSize; if (k === SUB_K && el._fit) return; SUB_K = k; el._fit = 1;
-  el.style.fontSize = ''; if (!el.textContent || !el.offsetParent) return; const base = parseFloat(getComputedStyle(el).fontSize) || 15;
+  const k = el.textContent + '|' + (el.parentElement ? el.parentElement.clientWidth : 0) + '|' + document.documentElement.style.fontSize + '|' + isMobile(); if (k === SUB_K && el._fit) return; SUB_K = k; el._fit = 1;
+  el.style.fontSize = ''; el.classList.remove('sub2'); el.removeAttribute('title'); if (!el.textContent || !el.offsetParent) return;
+  const base = parseFloat(getComputedStyle(el).fontSize) || 15;
+  const over = () => el.scrollWidth > el.clientWidth + 0.5;
   const lines = () => { const cs = getComputedStyle(el), lh = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.2; return Math.round(el.clientHeight / lh); };
-  el.classList.remove('sub2'); el.removeAttribute('title');
-  let px = base; while (lines() > 2 && px > base * 0.72) { px -= 0.5; el.style.fontSize = px + 'px'; }
-  // (still more than two lines at the smallest size: it stops after two, and the whole of it shows on hover)
-  if (lines() > 2) { el.classList.add('sub2'); el.title = el.textContent; } }
+  // (and the name plus this line never make the header taller than the portrait beside them)
+  // (measured against the header's height with a one-word line, so a long line can never make the header taller)
+  const hd = $('#sec-header'), txt = el.textContent; el.textContent = 'X'; const cap = hd ? hd.offsetHeight : 0; el.textContent = txt;
+  const tall = () => cap && hd.offsetHeight > cap;
+  let px = base; while ((over() || lines() > 3 || tall()) && px > base * 0.6) { px -= 0.5; el.style.fontSize = px + 'px'; }
+  if (lines() > 3 || tall()) { el.classList.add('sub2'); el.title = el.textContent; } }
 window.addEventListener('resize', () => { SUB_K = ''; fitSubtitle(); });
 
 // Desktop header stays one row: when the toolbar would wrap, its buttons drop their words and keep their icons.
@@ -7163,39 +7220,49 @@ function renderInfusions() {
       <li>An infusion lasts indefinitely. If you die, it fades after a number of days equal to your INT modifier (minimum 1). It also ends if you swap that infusion out when you level up.</li>
       <li>When you gain an artificer level you can replace one infusion you know with another.</li>
       <li>Infusions that need attunement only work once the wearer attunes (that uses an attunement slot).</li></ul></details></div>`;
+  // Ledger rows, same as the Features tab: one line with what matters at the table, tap to open the details.
+  const colName = c => c === 'bonus' ? 'Bonus action' : c === 'reaction' ? 'Reaction' : 'Action';
+  const row = (key, name, chip, sum, right, body, foot, cls) => { const open = !!UI.open[key];
+    return `<div class="fcard frow${cls ? ' ' + cls : ''}${open ? ' open' : ''}"><div class="fl-sum"><button type="button" class="fl-tog" data-act="ftog" data-key="${esc(key)}" aria-expanded="${open}"><i class="fl-car" aria-hidden="true"></i>
+      <span class="fl-t"><b class="fc-name">${esc(name)}</b>${chip ? `<span class="fscale">${esc(chip)}</span>` : ''}<i class="fl-s">${esc(sum)}</i></span></button>${right ? `<span class="fl-r">${right}</span>` : ''}</div>
+      <div class="fl-body"${open ? '' : ' inert'}><div class="fl-in">${body}${foot ? `<div class="fl-foot">${foot}</div>` : ''}</div></div></div>`; };
+  const meta = list => `<div class="fl-meta">${list.filter(Boolean).map(t => `<span>${esc(t)}</span>`).join('')}</div>`;
   // Active
   const actCards = act.map(([it, i]) => {
     const d = infDef(it.infusion), e = infEffect(it), on = infOn(it), ch = it.charges && it.infusion.charges ? it.charges : null;
     const bits = [e.spellAtk ? `+${e.spellAtk} spell attack rolls` : '', e.atk ? `+${e.atk} attack & damage${e.ranged ? ' (ranged)' : ''}` : '', e.ac ? `+${e.ac} AC` : '', e.resist ? `Resistance to ${e.resist}` : e.resist === '' && d.choose ? 'Pick a damage type' : '', e.speed ? `+${e.speed} ft speed` : '', e.note || ''].filter(Boolean);
     const warn = !it.equipped && !it.carried ? 'Not equipped — effect off' : d.attune && !it.attuned ? 'Needs attunement — effect off' : '';
-    return `<div class="inf-card active${on ? '' : ' off'}"><div class="inf-ch"><span class="inf-dot"></span><div class="grow"><b>${esc(it.name)}</b><div class="hint">${esc(infLabel(it.infusion))}</div></div>
-        <button class="btn sm ghost" data-act="infend" data-i="${i}" title="End this infusion">End</button></div>
-      ${bits.length ? `<div class="inf-eff">${bits.map(b => `<span class="ichip">${esc(b)}</span>`).join('')}</div>` : ''}
-      ${d.choose ? `<label class="inf-choose">Resistance <select class="f" data-infchoice="${i}">${['<option value="">— choose —</option>'].concat(d.choose.map(c => `<option${it.infusion.choice === c ? ' selected' : ''}>${c}</option>`)).join('')}</select></label>` : ''}
-      ${ch ? `<div class="inf-charges"><span class="hint">Charges</span><span class="pips" data-calc-html="infpips:${i}"></span><span class="hint">${Math.max(0, N(ch.max) - N(ch.used))}/${N(ch.max)}${d.charges[1] === 'dawn' ? ' · back at dawn' : ' · regains ' + d.charges[1] + ' at dawn'}</span></div>` : ''}
-      ${d.act ? `<div class="inf-act"><button class="btn sm gold" data-act="infuse-use" data-i="${i}" ${on && (!ch || N(ch.used) < N(ch.max)) ? '' : 'disabled'}>${esc(d.act.name)}</button><span class="hint">${d.act.col === 'bonus' ? 'Bonus action' : d.act.col === 'reaction' ? 'Reaction' : 'Action'} — ${esc(d.act.text)}</span></div>` : ''}
-      ${d.companion ? `<div class="hint">The homunculus is on the Creatures tab.</div>` : ''}
-      ${warn ? `<div class="inf-warn">${esc(warn)}${d.attune && !it.attuned && (it.equipped || it.carried) ? ` <button class="btn sm" data-act="attune" data-i="${i}">Attune</button>` : !it.equipped ? ` <button class="btn sm" data-act="infequip" data-i="${i}">Equip</button>` : ''}</div>` : ''}
-    </div>`;
+    const right = (ch ? `<span class="pips" data-calc-html="infpips:${i}"></span>` : '') + (d.act ? `<button class="btn sm gold" data-act="infuse-use" data-i="${i}" ${on && (!ch || N(ch.used) < N(ch.max)) ? '' : 'disabled'} title="${esc(colName(d.act.col))}">${esc(d.act.name)}</button>` : '');
+    const txt = DND.full['pick:infusion:' + it.infusion.name] || '';
+    const body = meta([infLabel(it.infusion), d.attune ? (it.attuned ? 'Attuned' : 'Requires attunement') : '', d.act ? colName(d.act.col) : ''])
+      + (warn ? `<div class="inf-warn">${esc(warn)}${d.attune && !it.attuned && (it.equipped || it.carried) ? ` <button class="btn sm" data-act="attune" data-i="${i}">Attune</button>` : !it.equipped ? ` <button class="btn sm" data-act="infequip" data-i="${i}">Equip</button>` : ''}</div>` : '')
+      + (bits.length ? `<div class="inf-eff">${bits.map(x => `<span class="ichip">${esc(x)}</span>`).join('')}</div>` : '')
+      + (d.choose ? `<label class="inf-choose">Resistance <select class="f" data-infchoice="${i}">${['<option value="">— choose —</option>'].concat(d.choose.map(c => `<option${it.infusion.choice === c ? ' selected' : ''}>${c}</option>`)).join('')}</select></label>` : '')
+      + (ch ? `<div class="hint">${Math.max(0, N(ch.max) - N(ch.used))} of ${N(ch.max)} charges${d.charges[1] === 'dawn' ? ' · back at dawn' : ' · regains ' + d.charges[1] + ' at dawn'}</div>` : '')
+      + (d.act ? `<div class="hint">${esc(d.act.name)} (${colName(d.act.col).toLowerCase()}): ${esc(d.act.text)}</div>` : '')
+      + (d.companion ? `<div class="hint">The homunculus is on the Creatures tab.</div>` : '')
+      + (txt ? `<div class="fc-desc">${fullHTML(txt)}</div>` : '');
+    return row('iopen:a:' + (it.id || i), it.name, '', warn || bits.join(' · ') || infLabel(it.infusion), right, body, `<button class="btn sm ghost inf-end" data-act="infend" data-i="${i}">End infusion</button>`, on ? '' : 'inf-offrow');
   }).join('');
-  const bagCards = bags.map(([b, i]) => `<div class="inf-card active"><div class="inf-ch"><span class="inf-dot"></span><div class="grow"><b>${esc(b.name)}</b><div class="hint">${esc(infLabel(b.infusion))} · container</div></div><button class="btn sm ghost" data-act="infendbag" data-i="${i}" title="End this infusion">End</button></div><div class="inf-eff"><span class="ichip">Holds ${N(b.cap) || 500} lb${b.weightless ? ', weighs a fixed ' + (N(b.weight) || 15) + ' lb' : ''}</span></div><div class="hint">Its contents are on the Inventory tab. If the infusion ends, everything inside appears around it.</div></div>`).join('');
+  const bagCards = bags.map(([b, i]) => row('iopen:b:' + (b.id || i), b.name, '', `Holds ${N(b.cap) || 500} lb${b.weightless ? ', weighs a fixed ' + (N(b.weight) || 15) + ' lb' : ''}`, '',
+    meta([infLabel(b.infusion), 'Container']) + `<div class="fc-desc">Its contents are on the Inventory tab. If the infusion ends, everything inside appears around it.</div>`,
+    `<button class="btn sm ghost inf-end" data-act="infendbag" data-i="${i}">End infusion</button>`)).join('');
   const activePanel = `<div class="panel" ${PID('infactive')}><h2><span class="grow">Infused items</span><span class="hint">${nAct} of ${aMax}</span></h2>
-    ${nAct ? `<div class="inf-grid">${actCards}${bagCards}</div>` : '<p class="hint" style="margin:0">Nothing infused right now. Pick an infusion below and choose an item.</p>'}</div>`;
+    ${nAct ? `<div class="fgrid inf-rows">${actCards}${bagCards}</div>` : '<p class="hint" style="margin:0">Nothing infused right now. Pick an infusion below and choose an item.</p>'}</div>`;
   // Known
   const knownList = infKnown().map(n => ({ name: n })).concat((S.picks.infusion || []).includes('Replicate Magic Item') ? (infReplicas().length ? infReplicas().map(r => ({ name: 'Replicate Magic Item', rep: r })) : [{ name: 'Replicate Magic Item', rep: '' }]) : []);
   const knownCards = knownList.map(k => {
     const d = INF[k.name] || {}, on = act.concat(bags).find(([it]) => it.infusion.name === k.name && (k.name !== 'Replicate Magic Item' || it.infusion.rep === k.rep));
     const lv = k.rep ? repLevel(k.rep) : d.lv || 2, needAtt = k.rep ? repAttune(k.rep) : !!d.attune;
     const txt = k.rep ? (DND.full['item:' + k.rep] || (DND.magic.find(m => m[0] === k.rep) || [])[5] || '') : (DND.full['pick:infusion:' + k.name] || '');
-    const key = 'inf:' + k.name + ':' + (k.rep || '');
-    return `<div class="inf-card${on ? ' is-on' : ''}"><div class="inf-ch"><div class="grow"><b>${esc(k.rep ? k.rep : k.name)}</b><div class="hint">${k.rep ? 'Replicate Magic Item · ' : ''}${esc(k.rep ? 'Magic item' : d.item || '')}</div></div>
-        ${on ? `<span class="ichip on">On ${esc(on[0].name)}</span>` : `<button class="btn sm gold" data-act="infpick" data-n="${esc(k.name)}" data-r="${esc(k.rep || '')}" ${k.name === 'Replicate Magic Item' && !k.rep ? 'disabled title="Choose which item first (Learn / swap)"' : ''}>Infuse…</button>`}</div>
-      <div class="inf-tags"><span class="itag">${ordn(lv)}-level+</span><span class="itag${needAtt ? ' att' : ''}">${needAtt ? 'Requires attunement' : 'No attunement'}</span>${d.charges ? `<span class="itag">${d.charges[1] === 'dawn' ? 'Once per dawn' : d.charges[0] + ' charges'}</span>` : ''}${d.act ? `<span class="itag">${d.act.col === 'bonus' ? 'Bonus action' : d.act.col === 'reaction' ? 'Reaction' : 'Action'}</span>` : ''}</div>
-      ${txt ? `<div class="inf-txt${UI.open[key] ? ' open' : ''}" data-act="toggle" data-key="${esc(key)}">${fullHTML(txt)}</div>` : ''}
-    </div>`;
+    const right = on ? `<span class="ichip on">On ${esc(on[0].name)}</span>` : `<button class="btn sm gold" data-act="infpick" data-n="${esc(k.name)}" data-r="${esc(k.rep || '')}" ${k.name === 'Replicate Magic Item' && !k.rep ? 'disabled title="Choose which item first (Learn / swap)"' : ''}>Infuse…</button>`;
+    const sum = (k.rep ? 'Replicate Magic Item' : d.item || '') + (needAtt ? ' · attunement' : '');
+    const body = meta([k.rep ? 'Replicate Magic Item' : '', k.rep ? 'Magic item' : d.item || '', ordn(lv) + '-level+', needAtt ? 'Requires attunement' : 'No attunement', d.charges ? (d.charges[1] === 'dawn' ? 'Once per dawn' : d.charges[0] + ' charges') : '', d.act ? colName(d.act.col) : ''])
+      + (txt ? `<div class="fc-desc">${fullHTML(txt)}</div>` : '');
+    return row('iopen:k:' + k.name + ':' + (k.rep || ''), k.rep ? k.rep : k.name, '', sum, right, body, '', on ? 'is-on' : '');
   }).join('');
   const knownPanel = `<div class="panel" ${PID('infknown')}><h2><span class="grow">Known infusions</span><span class="hint">${kn} of ${kMax}</span></h2>
-    ${knownList.length ? `<div class="inf-grid">${knownCards}</div>` : '<p class="hint" style="margin:0">You don\'t know any infusions yet — use Learn / swap infusions.</p>'}</div>`;
+    ${knownList.length ? `<div class="fgrid inf-rows">${knownCards}</div>` : '<p class="hint" style="margin:0">You don\'t know any infusions yet — use Learn / swap infusions.</p>'}</div>`;
   el.innerHTML = head + activePanel + knownPanel;
 }
 // ---------- Learn / swap ----------
@@ -7295,7 +7362,7 @@ function infUse(i, col) {
 // Infusion actions for the Combat columns.
 function infCombatRows(col) {
   return infActs(col).map(([it, i]) => { const d = infDef(it.infusion), ch = it.charges && it.infusion.charges ? it.charges : null;
-    return `<div class="opt"><div class="opt-head"><span class="opt-name">${esc(d.act.name)}</span>${ch ? `<span class="tag">${Math.max(0, N(ch.max) - N(ch.used))}/${N(ch.max)}</span>` : ''}<button class="btn sm" data-act="infuse-use" data-i="${i}" data-col="${col}" ${ch && N(ch.used) >= N(ch.max) ? 'disabled' : ''}>Use</button></div><div class="opt-info">${esc(it.name)} · ${esc(infLabel(it.infusion))}</div><div class="opt-text">${esc(d.act.text)}</div></div>`; });
+    return `<div class="opt"><div class="opt-head"><span class="opt-name">${esc(d.act.name)}</span>${ch ? `<span class="tag">${Math.max(0, N(ch.max) - N(ch.used))}/${N(ch.max)}</span>` : ''}<button class="btn sm gold" data-act="infuse-use" data-i="${i}" data-col="${col}" ${ch && N(ch.used) >= N(ch.max) ? 'disabled' : ''}>Use</button></div><div class="opt-info">${esc(it.name)} · ${esc(infLabel(it.infusion))}</div><div class="opt-text">${esc(d.act.text)}</div></div>`; });
 }
 
 // ---------- Creatures: one card design for the Creatures tab and (compact) the Combat tab ----------
@@ -8040,19 +8107,28 @@ function spgHead(col, g, mode, n, open, first, last) {
   return `<div class="cspg-hrow"${mode === 'custom' ? ` data-cat="${esc(g.cat)}"` : ''}>${mv ? `<span class="gdrag" data-gdrag="${esc(g.k)}" title="Drag to rearrange" aria-hidden="true">⠿</span>` : ''}${cGroupHead(col, g.k, esc(g.name), esc(String(g.icon)), n, open)}${tools}</div>`;
 }
 // Dragging a whole group (desktop): a copy of its header follows the pointer; drop it between other groups.
+// While it moves the group folds up to just its header (so an open one is easy to place); it opens again when dropped.
 let GDRAG = null;
+// Fold the dragged group to its header, keeping the header where it was on screen (so it stays under the pointer).
+function gFold(d) { const h = d.grp.firstElementChild, t0 = h ? h.getBoundingClientRect().top : 0; d.grp.classList.add('bdrag-src', 'gfold'); d.ghost.style.visibility = ''; d.line.hidden = false; const t1 = h ? h.getBoundingClientRect().top : 0; if (t1 !== t0) scrollBy(0, t1 - t0); }
 document.addEventListener('pointerdown', e => {
-  const h = e.target.closest && e.target.closest('.gdrag'); if (!h || e.button > 0 || isMobile()) return;
+  // (by its grip, or anywhere on its header except the edit / delete buttons: a plain click still folds or opens it)
+  let h = e.target.closest && e.target.closest('.gdrag');
+  if (!h && e.target.closest) { const hr = e.target.closest('#page-spells .spg > .cspg-hrow'); if (hr && !e.target.closest('.cath-tools, input, select, textarea, a')) h = hr.querySelector('.gdrag'); }
+  if (!h || e.button > 0 || isMobile()) return;
   const grp = h.closest('.spg'); if (!grp) return; e.preventDefault();
   const hd = grp.querySelector(':scope > .cspg-hrow'), r = hd.getBoundingClientRect(), ghost = document.createElement('div');
   ghost.className = 'bdrag-ghost cspg spg-ghost'; ghost.style.setProperty('--g', getComputedStyle(grp).getPropertyValue('--g')); ghost.appendChild(hd.cloneNode(true));
   Object.assign(ghost.style, { width: r.width + 'px', left: r.left + 'px', top: r.top + 'px' }); document.body.appendChild(ghost);
   const line = document.createElement('div'); line.className = 'spg-drop'; grp.before(line);
-  grp.classList.add('bdrag-src'); GDRAG = { k: h.dataset.gdrag, grp, ghost, line, dx: e.clientX - r.left, dy: e.clientY - r.top, before: null, moved: false };
+  ghost.style.visibility = 'hidden'; line.hidden = true; // (shown once it really moves)
+  GDRAG = { k: h.dataset.gdrag, grp, ghost, line, dx: e.clientX - r.left, dy: e.clientY - r.top, x0: e.clientX, y0: e.clientY, before: null, moved: false };
   document.body.classList.add('idragging');
 });
 document.addEventListener('pointermove', e => {
-  const d = GDRAG; if (!d) return; e.preventDefault(); d.moved = true;
+  const d = GDRAG; if (!d) return; e.preventDefault();
+  // (it folds once it's really moving, not on the press itself)
+  if (!d.moved) { if (Math.hypot(e.clientX - d.x0, e.clientY - d.y0) < 4) return; gFold(d); } d.moved = true;
   d.ghost.style.left = (e.clientX - d.dx) + 'px'; d.ghost.style.top = (e.clientY - d.dy) + 'px';
   const groups = [...d.grp.parentElement.querySelectorAll(':scope > .spg')].filter(g => g.dataset.gk !== 'c:none');
   let tgt = null; for (const g of groups) { const b = g.getBoundingClientRect(); if (e.clientY < b.top + Math.min(b.height, 60) / 2) { tgt = g; break; } }
@@ -8060,8 +8136,10 @@ document.addEventListener('pointermove', e => {
   d.before = tgt ? tgt.dataset.gk : null;
   const edge = 60; if (e.clientY < edge) scrollBy(0, -12); else if (e.clientY > innerHeight - edge) scrollBy(0, 12);
 }, { passive: false });
+// After a real drag the release isn't also a click on the header (which would fold or open it).
+function gNoClick() { const kill = ev => { ev.stopPropagation(); ev.preventDefault(); }; addEventListener('click', kill, true); setTimeout(() => removeEventListener('click', kill, true), 0); }
 function gdragEnd(cancel) {
-  const d = GDRAG; if (!d) return; GDRAG = null; document.body.classList.remove('idragging'); d.ghost.remove(); d.line.remove(); d.grp.classList.remove('bdrag-src');
+  const d = GDRAG; if (!d) return; GDRAG = null; if (d.moved) gNoClick(); document.body.classList.remove('idragging'); d.ghost.remove(); d.line.remove(); d.grp.classList.remove('bdrag-src', 'gfold');
   if (cancel || !d.moved || d.before === d.k) return;
   // Dropping right after itself changes nothing.
   const sib = [...d.grp.parentElement.querySelectorAll(':scope > .spg')], at = sib.indexOf(d.grp); if (sib[at + 1] && sib[at + 1].dataset.gk === d.before) return;
@@ -8097,17 +8175,21 @@ function cgStep(col, k, d) {
 }
 let CGDRAG = null;
 document.addEventListener('pointerdown', e => {
-  const h = e.target.closest && e.target.closest('.cgdrag'); if (!h || e.button > 0 || isMobile()) return;
+  let h = e.target.closest && e.target.closest('.cgdrag');
+  if (!h && e.target.closest) { const hd = e.target.closest('.cgmov > .cspg-h'); if (hd && !e.target.closest('input, select, textarea, a, .cath-tools')) h = hd.parentElement.querySelector(':scope > .cgdrag'); }
+  if (!h || e.button > 0 || isMobile()) return;
   const grp = h.closest('.cgmov'); if (!grp) return; e.preventDefault(); e.stopPropagation();
   const hd = grp.querySelector(':scope > .cspg-h') || grp, r = hd.getBoundingClientRect(), ghost = document.createElement('div');
   ghost.className = 'bdrag-ghost cspg spg-ghost ' + [...grp.classList].filter(c => /^g-/.test(c)).join(' '); const st = grp.getAttribute('style'); if (st) ghost.setAttribute('style', st); ghost.appendChild(hd.cloneNode(true));
   Object.assign(ghost.style, { position: 'fixed', width: r.width + 'px', left: r.left + 'px', top: r.top + 'px' }); document.body.appendChild(ghost);
   const line = document.createElement('div'); line.className = 'spg-drop'; grp.before(line);
-  grp.classList.add('bdrag-src'); CGDRAG = { grp, col: grp.dataset.cgcol, ghost, line, dx: e.clientX - r.left, dy: e.clientY - r.top, before: grp, moved: false };
+  ghost.style.visibility = 'hidden'; line.hidden = true; // (shown once it really moves)
+  CGDRAG = { grp, col: grp.dataset.cgcol, ghost, line, dx: e.clientX - r.left, dy: e.clientY - r.top, x0: e.clientX, y0: e.clientY, before: grp, moved: false };
   document.body.classList.add('idragging');
 }, true);
 document.addEventListener('pointermove', e => {
-  const d = CGDRAG; if (!d) return; e.preventDefault(); d.moved = true;
+  const d = CGDRAG; if (!d) return; e.preventDefault();
+  if (!d.moved) { if (Math.hypot(e.clientX - d.x0, e.clientY - d.y0) < 4) return; gFold(d); } d.moved = true;
   d.ghost.style.left = (e.clientX - d.dx) + 'px'; d.ghost.style.top = (e.clientY - d.dy) + 'px';
   const groups = [...d.grp.parentElement.querySelectorAll(':scope > .cgmov')];
   let tgt = null; for (const g of groups) { const b = g.getBoundingClientRect(); if (e.clientY < b.top + Math.min(b.height, 50) / 2) { tgt = g; break; } }
@@ -8115,7 +8197,7 @@ document.addEventListener('pointermove', e => {
   const edge = 60; if (e.clientY < edge) scrollBy(0, -12); else if (e.clientY > innerHeight - edge) scrollBy(0, 12);
 }, { passive: false });
 function cgdragEnd(cancel) {
-  const d = CGDRAG; if (!d) return; CGDRAG = null; document.body.classList.remove('idragging'); d.ghost.remove(); d.line.remove(); d.grp.classList.remove('bdrag-src');
+  const d = CGDRAG; if (!d) return; CGDRAG = null; if (d.moved) gNoClick(); document.body.classList.remove('idragging'); d.ghost.remove(); d.line.remove(); d.grp.classList.remove('bdrag-src', 'gfold');
   if (cancel || !d.moved) return;
   const keys = [...d.grp.parentElement.querySelectorAll(':scope > .cgmov')].map(g => g.dataset.cgk).filter(k => k !== d.grp.dataset.cgk);
   let at = d.before && d.before !== d.grp ? keys.indexOf(d.before.dataset.cgk) : -1; if (d.before === d.grp) return; if (at < 0) at = keys.length;
@@ -10953,7 +11035,7 @@ function hbbPaint() {
   const K = HBB.kind, title = { item: 'item', feat: 'feature', spell: 'spell' }[K];
   const basic = K === 'item' ? hbbItemBasic() : K === 'feat' ? hbbFeatBasic() : hbbSpellBasic();
   const adv = HBB.adv ? `<div class="hbb-adv">${K === 'item' ? hbbItemAdv() : K === 'feat' ? hbbFeatAdv() : hbbSpellAdv()}<p class="hint hbb-fhint">Numbers can be formulas: <code>prof</code>, <code>wis</code>, <code>level</code>, <code>1d6+prof</code>. Separate several entries with commas.</p></div>` : '';
-  box.innerHTML = `<div class="hbb-head"><h3>${HBB.isNew ? 'New homebrew ' + title : 'Edit ' + esc(HBB.d.name || title)}</h3><label class="hbb-switch" title="Show every option the sheet can automate"><input type="checkbox" data-hbbadv${HBB.adv ? ' checked' : ''}><span class="tr"><i></i></span><span>Advanced</span></label></div>
+  box.innerHTML = `<div class="hbb-head"><h3>${HBB.isNew ? 'New homebrew ' + title : 'Edit ' + esc(HBB.d.name || title)}</h3>${K === 'item' && !HBB.read ? `<button type="button" class="btn sm hbb-paste" data-act="itempaste"${HBB.isNew ? '' : ` data-i="${HBB.idx}"`} title="Paste an item from a book, PDF or D&amp;D Beyond and it fills this in">Paste an item…</button>` : ''}<label class="hbb-switch" title="Show every option the sheet can automate"><input type="checkbox" data-hbbadv${HBB.adv ? ' checked' : ''}><span class="tr"><i></i></span><span>Advanced</span></label></div>
     ${HBB.read ? `<div class="hbb-read"><b>Read from the pasted text</b><ul>${HBB.read.done.map(l => `<li>✓ ${esc(l)}</li>`).join('')}${HBB.read.left.map(l => `<li class="warn">! ${esc(l)}</li>`).join('')}</ul><small class="hint">Check it below, then add it. Anything else it does stays in “What it does”.</small></div>` : ''}
     <div class="hbb-body">${basic}${adv}</div>
     <div class="actions hbb-acts">${K === 'item' ? `<label class="hbb-chk sm" title="So you (and your party) can add it again from Add an item → Homebrew"><input type="checkbox" data-hbb="_keep"${HBB.d._keep ? ' checked' : ''}><span><b>Also save to my homebrew items</b></span></label>` : ''}<span class="grow"></span><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-hbbsave>${HBB.isNew ? 'Create ' + title : 'Save'}</button></div>`;
@@ -11213,14 +11295,20 @@ function hbbRiderFields(kind) {
 }
 
 // Paste an item's text from a book / PDF / D&D Beyond → the builder, filled in, to check and add.
-function openItemPaste() {
+// From the builder itself (idx = the inventory item being edited) it fills that item in, and Cancel goes back to the builder.
+function openItemPaste(idx) {
+  idx = idx >= 0 && S.inventory[idx] ? idx : -1; const back = HBB && HBB.kind === 'item' ? HBB : null;
+  const reopen = () => { if (!back) return; setTimeout(() => { HBB = back; openModal('<div id="hbb"></div>', () => { HBB = null; }, true); hbbPaint(); }, 0); };
   openModal(`<h3>Paste an item</h3><p class="hint">Paste a magic item — its name, the type line (“Weapon (longsword), rare (requires attunement)”), then its text. Bonuses, charges, spells, extra damage, resistances and speeds become automation you can check before adding it.</p>
     <textarea class="f" id="ipaste" rows="10" aria-label="Item text" placeholder="Ring of Protection&#10;Ring, rare (requires attunement)&#10;You gain a +1 bonus to AC and saving throws while wearing this ring."></textarea>
-    <div class="actions"><span class="grow"></span><button class="btn" data-act="close">Cancel</button><button class="btn gold" id="ipasteGo">Read item</button></div>`, null, true);
+    <div class="actions"><span class="grow"></span><button class="btn" data-act="close">Cancel</button><button class="btn gold" id="ipasteGo">Read item</button></div>`, reopen, true);
   setTimeout(() => { const t = $('#ipaste'); if (t) t.focus(); }, 30);
   $('#ipasteGo').onclick = () => { const v = $('#ipaste').value; if (!v.trim()) return; const ctx = { weapons: DND.weapons, armor: DND.armor, spells: DND.spells.map(x => x.name) }, r = ItemParse.parse(v, ctx);
     if (!r) { toast('That didn’t look like an item — the first line should be its name.', 'fumble'); return; }
-    const it = ItemParse.toItem(r.spec, ctx); it.id = uid(); closeModal(true); openHomebrew('item', -1, it, { done: r.done, left: r.left }); };
+    let it = ItemParse.toItem(r.spec, ctx); it.id = uid();
+    // (filling in an item you already have keeps where it is and whether it's worn, attuned or infused)
+    if (idx >= 0) { const cur = S.inventory[idx]; it = Object.assign({}, cur, it, { id: cur.id, qty: cur.qty, equipped: cur.equipped, attuned: cur.attuned, carried: cur.carried, bag: cur.bag, infusion: cur.infusion }); }
+    closeModal(true); openHomebrew('item', idx, it, { done: r.done, left: r.left }); };
 }
 
 // ==== ITEMPARSE START — shared with the DM's Desk (desk/build.sh copies this block into desk.js; edit it only here) ====
@@ -11653,6 +11741,8 @@ function renderFeatModal() {
   openModal(`<h3>Add a feat</h3><p class="hint" style="margin:0 0 8px">For feats from your DM, a background or a race. Feats taken at level up are added there automatically.</p>
     <div id="featm">${choiceUI(CH, 'feat', { type: 'feat', n: 1 })}</div>
     <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="featok">Add feat</button></div>`, null, true);
+  // the same searchable feat list as character creation and level up (and the follow-up choices as lists too)
+  wz3FeatLists('#modal-body', sheetFeatOK); wz3ChoiceLists('#modal-body');
 }
 function featModalOK() {
   const n = ansList(FEATM.ans, 'feat')[0]; if (!n) { toast('Choose a feat first.'); return; }
