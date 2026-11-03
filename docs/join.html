@@ -13,7 +13,7 @@
     document.documentElement.setAttribute('data-theme', t);
   })();
 </script>
-<link rel="stylesheet" href="a/sheet.92c64af12ec9.css">
+<link rel="stylesheet" href="a/sheet.8f26842b6a5e.css">
 <link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" type="image/png" sizes="195x195" href="speed-dial-195.png"><link rel="icon" type="image/png" sizes="512x512" href="icon-512.png"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="icon" type="image/png" sizes="32x32" href="icon-32.png"><meta name="apple-mobile-web-app-title" content="Adventurer’s Tome"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="description" content="You’re invited to join a party on Adventurer’s Tome."><meta property="og:type" content="website"><meta property="og:site_name" content="adventurers-tome.web.app"><meta property="og:title" content="You’re invited to join a party"><meta property="og:description" content="Pick a character, or make a new one, and join your DM’s game on Adventurer’s Tome."><meta property="og:url" content="https://adventurers-tome.web.app/join/"><meta property="og:image" content="https://adventurers-tome.web.app/og-invite.png?v=2"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="2400"><meta property="og:image:height" content="1260"><meta property="og:image:alt" content="A party invitation on Adventurer’s Tome"><meta property="og:image" content="https://adventurers-tome.web.app/og-invite.png?v=2"><link rel="image_src" href="/speed-dial.png?v=1"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="2400"><meta property="og:image:height" content="1260"><meta property="og:image:alt" content="A party invitation on Adventurer’s Tome"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Adventurer’s Tome"><meta name="twitter:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta name="twitter:image" content="https://adventurers-tome.web.app/og-tour.png?v=5"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.webmanifest"><script>var t="dark";try{if(localStorage.getItem("pg-theme")==="light")t="light"}catch(e){}document.documentElement.setAttribute("data-pgtheme",t)</script><style>/* Loading screen: dark navy with a slowly spinning d20 (light parchment only behind the sign-in card in light mode) */
 html.pg-loading, html.pg-loading body { background: #0f1420; }
@@ -4899,7 +4899,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyC60HYoV4dCrwbam9HVVM8jNkJJbKRx4cM", "authDomain": "adventurers-tome-test-e4666.firebaseapp.com", "projectId": "adventurers-tome-test-e4666", "storageBucket": "adventurers-tome-test-e4666.firebasestorage.app", "messagingSenderId": "929153845947", "appId": "1:929153845947:web:13e9e1e1b1355988bbf79e", "test": true, "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261102232509', ASSETS = {"data": "a/data.e8173a24cd9b.js", "app": "a/app.fc820eb21e6b.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.4e2ea5c7f0a9.html", "desk": "a/desk.f9a8ca1ca7cd.js", "deskcss": "a/deskcss.cc6e6bb4676a.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyC60HYoV4dCrwbam9HVVM8jNkJJbKRx4cM", "authDomain": "adventurers-tome-test-e4666.firebaseapp.com", "projectId": "adventurers-tome-test-e4666", "storageBucket": "adventurers-tome-test-e4666.firebasestorage.app", "messagingSenderId": "929153845947", "appId": "1:929153845947:web:13e9e1e1b1355988bbf79e", "test": true, "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261102233105', ASSETS = {"data": "a/data.e8173a24cd9b.js", "app": "a/app.6ea0bf319735.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.6d2e2d7f0447.html", "desk": "a/desk.f9a8ca1ca7cd.js", "deskcss": "a/deskcss.cc6e6bb4676a.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   // The test site says so on every page (and in the tab's title), so it's never mistaken for the real one.
   if (CFG.test) { window.PG_TEST = true; const mark = () => { if (!document.body || document.getElementById('pg-testmark')) return; const t = document.createElement('div'); t.id = 'pg-testmark'; t.textContent = 'Test site'; t.title = 'This is the test copy of Adventurer’s Tome. Changes here don’t touch the real site.'; document.body.appendChild(t);
       if (!/^\[Test\] /.test(document.title)) document.title = '[Test] ' + document.title; };
@@ -7878,6 +7878,15 @@ function ptyRevert(st, r) {
   (r.items || []).forEach(([id, q]) => { const it = (st.inventory || []).find(x => x.id === id); if (!it) return; it.qty = (Number(it.qty) || 1) - q; if (it.qty <= 0) { st.inventory = st.inventory.filter(x => x !== it); st.attacks = (st.attacks || []).filter(a => a.item !== id); } });
   if (r.form) st.form = r.form[0];
 }
+// Knocked out / incapacitated while nobody has the sheet open: the same things the sheet does itself (PHB) — concentration,
+// Dodge and Bladesong end; knocked unconscious also ends Rage (and what lasts until the rage ends) and leaves you prone.
+function ptyKO(st, c) {
+  if (st.form) return;
+  const fx = st.effects || []; let keep = fx.filter(e => !/^bladesong$/i.test(e.name));
+  if (st.concentration) { keep = keep.filter(e => !e.conc); st.concentration = ''; }
+  st.conditions = (st.conditions || []).filter(x => x !== 'Dodging');
+  if (c === 'Unconscious') { keep = keep.filter(e => e.name !== 'Rage' && !e.rage); st.conditions = st.conditions.filter(x => x !== 'Raging'); if (!st.conditions.includes('Prone')) st.conditions.push('Prone'); }
+  st.effects = keep; }
 // Applied to a saved character nobody has open. Returns what to say, or null when it has to wait for the player.
 function ptyApplyState(st, m, card) {
   const d = m.data || {}, who = m.fromName || 'Someone', why = d.why || who, maxhp = Number(card && card.maxhp) || 1e9;
@@ -7888,7 +7897,7 @@ function ptyApplyState(st, m, card) {
     case 'heal': { const b = Number(st.hp.cur) || 0; st.hp.cur = d.amt === 'max' ? maxhp : Math.min(maxhp, b + (Number(d.amt) || 0)); if (b <= 0) up(); return `Healed ${st.hp.cur - b} HP (${why})`; }
     case 'temp': { const v = Number(d.amt) || 0; if (v > (Number(st.hp.temp) || 0)) st.hp.temp = v; return `${v} temporary HP (${why})`; }
     case 'damage': { let n = Number(d.amt) || 0; const t = Number(st.hp.temp) || 0, a = Math.min(t, n); st.hp.temp = t - a; n -= a; const b = Number(st.hp.cur) || 0; st.hp.cur = Math.max(0, b - n);
-      if (b > 0 && st.hp.cur === 0 && !st.conditions.includes('Unconscious')) st.conditions.push('Unconscious'); return `Took ${Number(d.amt) || 0} damage (${why})`; }
+      if (b > 0 && st.hp.cur === 0) { if (!st.conditions.includes('Unconscious')) st.conditions.push('Unconscious'); ptyKO(st, 'Unconscious'); } return `Took ${Number(d.amt) || 0} damage (${why})`; }
     case 'effect': { const fx = Object.assign({}, d.fx || {}); if (!fx.name) return ''; fx.from = fx.from || who; delete fx.conc;
       if (fx.wpn) { const at = (st.attacks || []).find(a => a.item && st.inventory.some(it => it.id === a.item && it.equipped && it.weapon)) || (st.attacks || []).find(a => a.item); if (at) fx.item = at.item; delete fx.wpn; }
       const old = st.effects.find(e => e.name === fx.name); if (old && old.maxHp) st.hp.cur = Math.max(0, st.hp.cur - Number(old.maxHp));
@@ -7903,7 +7912,7 @@ function ptyApplyState(st, m, card) {
       (d.fx || []).forEach(n => { if (st.effects.some(e => e.name === n)) { st.effects = st.effects.filter(e => e.name !== n); done.push(n); } });
       st.effects = st.effects.filter(e => !(e.conds && e.conds.length && !e.conds.some(c => st.conditions.includes(c))));
       return done.length ? `Ended ${done.join(', ')} (${why})` : ''; }
-    case 'cond': { if (!d.cond) return ''; if (!st.conditions.includes(d.cond)) st.conditions.push(d.cond); if (Number(d.rounds)) { st.condTurns = st.condTurns || {}; st.condTurns[d.cond] = Number(d.rounds); } return `${d.cond} (${why})`; }
+    case 'cond': { if (!d.cond) return ''; if (!st.conditions.includes(d.cond)) { st.conditions.push(d.cond); if (/^(Incapacitated|Paralyzed|Petrified|Stunned|Unconscious)$/.test(d.cond)) ptyKO(st, d.cond); } if (Number(d.rounds)) { st.condTurns = st.condTurns || {}; st.condTurns[d.cond] = Number(d.rounds); } return `${d.cond} (${why})`; }
     case 'revive': { st.hp.cur = Math.max(Number(st.hp.cur) || 0, d.hp === 'max' ? maxhp : Math.max(1, Number(d.hp) || 1)); st.death = { s: 0, f: 0 }; st.conditions = st.conditions.filter(c => c !== 'Unconscious'); return `Brought back with ${st.hp.cur} HP (${why})`; }
     case 'stabilize': { if ((Number(st.hp.cur) || 0) > 0) return ''; st.death = { s: 3, f: Math.min(2, Number((st.death || {}).f) || 0) }; return `Stabilized (${why})`; }
     case 'item': case 'loot': { const it = m.kind === 'item' ? Object.assign({}, d.item || {}) : { name: String(d.name || 'Item'), qty: Math.max(1, Number(d.qty) || 1), weight: 0, notes: d.notes || '', ptyLoot: String(d.name || '') };

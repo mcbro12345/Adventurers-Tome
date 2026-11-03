@@ -4399,3 +4399,26 @@ html:not(.mobile) #tabs .tab > .tabcount { position: static !important; top: aut
 .gripbtn.on { background: color-mix(in srgb, var(--gold) 18%, transparent); border-color: color-mix(in srgb, var(--gold) 55%, transparent); color: var(--ink); }
 @media (hover: hover) { .gripbtn:hover { border-color: var(--gold); color: var(--ink); } }
 .iname-row > .gripbtn { flex: none; align-self: center; margin-left: 4px; }
+/* Concentration save prompt: a roll-style card with the DC where a roll's total would be, the spell, and two clear choices. */
+.toast.rollcard.cc { border-color: var(--gold); }
+.toast.rollcard.cc .cc-dc { flex: none; min-width: 70px; display: flex; flex-direction: column; align-items: center; line-height: 1; color: var(--gold-ink); }
+.toast.rollcard.cc .cc-dc small { font-size: .66rem; font-weight: 800; letter-spacing: .12em; color: var(--soft); margin-bottom: 4px; }
+.toast.rollcard.cc .cc-dc b { font-size: 2.8rem; }
+.toast.rollcard.cc .cc-sub { color: var(--soft); font-size: .86rem; margin-top: 3px; }
+.toast.rollcard.cc > .t-acts { display: flex; gap: 8px; justify-content: flex-end; padding-right: 0; margin-top: 4px; }
+.toast.rollcard.cc > .t-acts button { margin: 0; border-radius: 999px; padding: 7px 16px; font: inherit; font-weight: 700; font-size: .9rem; cursor: pointer; }
+.toast.rollcard.cc > .t-acts .cc-roll { background: var(--gold); color: var(--on-gold, #1D2536); border: 1px solid var(--gold); }
+.toast.rollcard.cc > .t-acts .cc-fail { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+@media (hover: hover) { .toast.rollcard.cc > .t-acts .cc-fail:hover { border-color: var(--red); color: var(--red); } }
+html.mobile .toast.rollcard.cc .cc-dc b { font-size: 2.3rem; }
+.toast.rollcard.cc > .cc-dc { order: -1; flex: none !important; min-width: 70px !important; }
+.toast.rollcard.cc > .cc-main { flex: 1; min-width: 0; }
+.toast.rollcard.cc .rc-name { font-family: inherit; font-size: 1.1rem; font-weight: 700; }
+/* concentration card: DC on the left spanning both rows; the text and the buttons stack beside it (no empty space under the left side) */
+.toast.rollcard.cc { display: grid !important; grid-template-columns: auto 1fr; column-gap: 16px; row-gap: 10px; align-items: center; }
+.toast.rollcard.cc > .cc-dc { grid-column: 1; grid-row: 1 / span 2; align-self: center; }
+.toast.rollcard.cc > .cc-main { grid-column: 2; grid-row: 1; padding-right: 26px; }
+#rolls .toast.rollcard.cc > .t-acts { grid-column: 2; grid-row: 2; justify-content: flex-start; margin: 0; flex: none; }
+#rolls .toast.rollcard.cc > .cc-dc { grid-column: 1; grid-row: 1 / span 2; }
+#rolls .toast.rollcard.cc > .cc-main { grid-column: 2; grid-row: 1; }
+#rolls .toast.rollcard.cc { width: fit-content !important; min-width: 0 !important; margin-inline: auto; padding-right: 48px; }
