@@ -156,11 +156,50 @@ const hkey = () => keyFor(S.id || 'blank') + ':history';
 const TRACK = k => !['savedAt', 'spellFilter', 'macroSeen', 'ptyLog', 'ptyNews'].includes(k);
 let HIST = [], REDO = [], LAST = null, pendingLabel = null;
 function snapAll() { const o = {}; for (const k in S) if (TRACK(k)) o[k] = JSON.stringify(S[k]); return o; }
+// What a change was, in words, read from what's different (for changes made without a name of their own — the undo
+// history and the site's activity log show it instead of just "Change").
+const CH_NAMES = { hp: 'HP', currency: 'coins', inventory: 'inventory', spells: 'spells', slotsUsed: 'spell slots', pactUsed: 'pact slots', hdUsed: 'hit dice', death: 'death saves', conditions: 'conditions', exhaustion: 'exhaustion', effects: 'effects', concentration: 'concentration', abilities: 'ability scores', saves: 'saving throws', skills: 'skills', features: 'features', feats: 'feats', classes: 'classes', notes: 'notes', backstory: 'backstory', allies: 'allies', lore: 'lore', traits: 'personality', appearance: 'appearance', attacks: 'attacks', combat: 'actions', turn: 'turn', companions: 'companions', settings: 'settings', layout: 'layout', theme: 'colours', portrait: 'picture', name: 'name', player: 'player name', alignment: 'alignment', xp: 'XP', faith: 'faith', tools: 'tools', langs: 'languages', profs: 'proficiencies', bags: 'containers', quotes: 'quotes', rumors: 'rumours', people: 'people', goals: 'goals', goal: 'goal', customItems: 'custom items', acOverride: 'AC', speedOverride: 'speed', race: 'race', background: 'background', rollAdv: 'advantage', condTurns: 'condition timers', riders: 'riders', form: 'form', picks: 'choices', featChoices: 'feat choices', slotsOverride: 'spell slot totals' };
+function changeWords(changed, cur) {
+  const out = [], P = j => { try { return j == null ? undefined : JSON.parse(j); } catch (e) { return undefined; } }, nm = x => x == null ? '' : typeof x === 'string' ? x : String(x.name || x.dname || x.title || x.label || x.text || x.key || '').slice(0, 60);
+  const num = v => (v === '' || v == null) ? 0 : Number(v) || 0, arrow = (a, b) => `${a} → ${b}`;
+  const list = (a, b, what) => { a = Array.isArray(a) ? a : []; b = Array.isArray(b) ? b : []; const an = a.map(nm), bn = b.map(nm), r = [];
+    bn.forEach((n, i) => { if (n && !an.includes(n)) r.push('added ' + n); });
+    an.forEach(n => { if (n && !bn.includes(n)) r.push('removed ' + n); });
+    if (!r.length) b.forEach(x => { const n = nm(x), o = a.find(y => nm(y) === n); if (!n || !o || JSON.stringify(o) === JSON.stringify(x)) return;
+      const d = [];
+      if (x && o && typeof x === 'object') { if (num(o.qty) !== num(x.qty) && (o.qty != null || x.qty != null)) d.push('×' + arrow(num(o.qty) || 1, num(x.qty) || 1));
+        if (!!o.equipped !== !!x.equipped) d.push(x.equipped ? 'equipped' : 'unequipped'); if (!!o.attuned !== !!x.attuned) d.push(x.attuned ? 'attuned' : 'unattuned');
+        if (!!o.prepared !== !!x.prepared) d.push(x.prepared ? 'prepared' : 'unprepared');
+        if (o.charges && x.charges && num(o.charges.used) !== num(x.charges.used)) d.push('charges used ' + arrow(num(o.charges.used), num(x.charges.used)));
+        if (o.used != null && num(o.used) !== num(x.used)) d.push('used ' + arrow(num(o.used), num(x.used))); }
+      r.push(n + (d.length ? ' ' + d.join(', ') : ' changed')); });
+    return r.length ? r.slice(0, 3).join(', ') + (r.length > 3 ? ` (+${r.length - 3} more)` : '') : what + ' changed'; };
+  for (const k of Object.keys(changed)) { const a = P(changed[k]), b = P(cur[k]); let w = '';
+    if (k === 'hp' && a && b) { const r = []; if (num(a.cur) !== num(b.cur)) r.push('HP ' + arrow(num(a.cur), num(b.cur))); if (num(a.temp) !== num(b.temp)) r.push('temp HP ' + arrow(num(a.temp), num(b.temp))); if (num(a.base) !== num(b.base) || num(a.adj) !== num(b.adj)) r.push('max HP changed'); w = r.join(', '); }
+    else if (k === 'currency' && a && b) { const CN = { pp: 'platinum', gp: 'gold', ep: 'electrum', sp: 'silver', cp: 'copper' }; w = ['pp', 'gp', 'ep', 'sp', 'cp'].filter(c => num(a[c]) !== num(b[c])).map(c => CN[c] + ' ' + arrow(num(a[c]), num(b[c]))).join(', '); }
+    else if (k === 'slotsUsed' && Array.isArray(a) && Array.isArray(b)) w = b.map((v, i) => num(v) !== num(a[i]) ? (num(v) > num(a[i]) ? `used a level ${i + 1} slot` : `got back a level ${i + 1} slot`) : '').filter(Boolean).join(', ');
+    else if (k === 'pactUsed') w = num(b) > num(a) ? 'used a pact slot' : 'got back a pact slot';
+    else if (k === 'death' && a && b) w = 'death saves ' + arrow(`${num(a.s)}✓ ${num(a.f)}✗`, `${num(b.s)}✓ ${num(b.f)}✗`);
+    else if (k === 'exhaustion') w = 'exhaustion ' + arrow(num(a), num(b));
+    else if (k === 'concentration') w = b ? 'concentrating on ' + nm(b) : 'stopped concentrating' + (a ? ' on ' + nm(a) : '');
+    else if (k === 'abilities' && a && b) w = Object.keys(b).filter(x => num(a[x]) !== num(b[x])).map(x => x.toUpperCase() + ' ' + arrow(num(a[x]), num(b[x]))).join(', ');
+    else if (k === 'saves' && a && b) w = Object.keys(b).filter(x => !!a[x] !== !!b[x]).map(x => (b[x] ? 'proficient in ' : 'not proficient in ') + x.toUpperCase() + ' saves').join(', ');
+    else if (k === 'skills' && Array.isArray(a) && Array.isArray(b)) w = b.map((x, i) => { const o = a[i] || {}; return num(o.prof) !== num(x.prof) ? (num(x.prof) >= 2 ? 'expertise in ' : num(x.prof) ? 'proficient in ' : 'not proficient in ') + x.name : num(o.misc) !== num(x.misc) ? x.name + ' bonus ' + arrow(num(o.misc), num(x.misc)) : ''; }).filter(Boolean).join(', ');
+    else if (k === 'classes' && Array.isArray(a) && Array.isArray(b)) { const lv = c => `${c.name || c.key || 'class'} ${c.level || ''}`.trim(); w = JSON.stringify(a.map(lv)) !== JSON.stringify(b.map(lv)) ? arrow(a.map(lv).join(' / ') || 'none', b.map(lv).join(' / ')) : 'class details changed'; }
+    else if (k === 'hdUsed') w = 'hit dice used changed';
+    else if (k === 'turn' && a && b) { const r = []; if (num(a.round) !== num(b.round)) r.push('round ' + arrow(num(a.round), num(b.round))); const ua = a.used || {}, ub = b.used || {}; Object.keys(Object.assign({}, ua, ub)).forEach(x => { if (!!ua[x] !== !!ub[x]) r.push((ub[x] ? 'used ' : 'got back ') + (x === 'action' ? 'the action' : x === 'bonus' ? 'the bonus action' : x === 'reaction' ? 'the reaction' : x)); }); if (num(a.moved) !== num(b.moved)) r.push('moved ' + arrow(num(a.moved), num(b.moved)) + ' ft'); w = r.join(', ') || 'turn tracker changed'; }
+    else if (Array.isArray(a) || Array.isArray(b)) w = (CH_NAMES[k] ? CH_NAMES[k][0].toUpperCase() + CH_NAMES[k].slice(1) + ': ' : '') + list(a, b, CH_NAMES[k] || k);
+    else if (typeof b === 'string' || typeof a === 'string') { const t = CH_NAMES[k] || k; w = String(b || '').length < 40 && String(a || '').length < 40 ? `${t}: ${arrow(a || '—', b || '—')}` : 'edited ' + t; }
+    else if (typeof b === 'number' || typeof a === 'number') w = (CH_NAMES[k] || k) + ' ' + arrow(num(a), num(b));
+    else w = (CH_NAMES[k] || k) + ' changed';
+    if (w) out.push(w); }
+  const t = out.join('; '); return t ? t[0].toUpperCase() + t.slice(1, 300) : 'Change';
+}
 function commit() {
-  const label = pendingLabel || 'Change', merge = label.startsWith('Edit: ');
-  pendingLabel = null;
   const cur = snapAll(), changed = {};
   new Set([...Object.keys(cur), ...Object.keys(LAST || {})]).forEach(k => { if (cur[k] !== (LAST || {})[k]) changed[k] = (LAST || {})[k] === undefined ? null : LAST[k]; });
+  let label = pendingLabel || ''; pendingLabel = null; if (!label) { try { label = changeWords(changed, cur); } catch (e) { label = 'Change'; } }
+  const merge = label.startsWith('Edit: ');
   LAST = cur;
   if (!Object.keys(changed).length || !S.created) return;
   const now = Date.now(), top = HIST[HIST.length - 1];
@@ -1836,11 +1875,11 @@ const R20_LOGO = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAARcAAAB4CAIAAABX
 const ICON = {
   image: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>',
   clock: '<svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
-  log: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>',
+  log: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><g transform="translate(.5 0)"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></g></svg>',
   hist: '<svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>',
   sun: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
   moon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>',
-  bug: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 7.5V6a3 3 0 0 1 6 0v1.5"/><rect x="7" y="7.5" width="10" height="12.5" rx="5"/><path d="M12 11v9M3.5 13H7M17 13h3.5M4.5 8l2.6 1.8M19.5 8l-2.6 1.8M4.5 19.5l2.8-2M19.5 19.5l-2.8-2"/></svg>',
+  bug: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(0 .5)"><path d="M9 7.5V6a3 3 0 0 1 6 0v1.5"/><rect x="7" y="7.5" width="10" height="12.5" rx="5"/><path d="M12 11v9M3.5 13H7M17 13h3.5M4.5 8l2.6 1.8M19.5 8l-2.6 1.8M4.5 19.5l2.8-2M19.5 19.5l-2.8-2"/></g></svg>',
   phone: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M11 18.5h2"/></svg>',
   fsIn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>',
   fsOut: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg>',
@@ -1864,7 +1903,7 @@ function toolbarHTML() {
     settings: `<button class="tbtn" data-zi="settings" data-act="settings" title="Settings">${ICON.gear}<span class="tl">Settings</span></button>`,
     save: `<div class="savegrp" data-zi="save"><span class="save-state${/synced|view only/i.test(UI.saveState || '') ? ' live' : ''}" id="saveState" title="${esc(UI.saveState || 'Auto-saves')}">${syncHTML(UI.saveState || 'Auto-saves')}</span></div>`,
     dice: `<button class="devbtn dicebtn" data-zi="dice" data-act="diceroller" title="Dice roller" aria-label="Dice roller"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 2.5l8.5 4.9v9.2L12 21.5l-8.5-4.9V7.4z"/><path d="M12 7.5l4.3 7.4H7.7zM12 2.5v5M20.5 7.4l-4.2 7.5M3.5 7.4l4.2 7.5M12 21.5l-4.3-6.6M12 21.5l4.3-6.6"/></svg></button>`,
-    ...({ chat: `<button class="devbtn chatbtn" data-zi="chat" data-act="chatwin" title="Party chat" aria-label="Party chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 10h8M8 13h5"/></svg></button>` }),
+    ...({ chat: `<button class="devbtn chatbtn" data-zi="chat" data-act="chatwin" title="Party chat" aria-label="Party chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(0 -.5)"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 10h8M8 13h5"/></g></svg></button>` }),
     rolllog: `<button class="devbtn logbtn" data-zi="rolllog" data-act="rolllog" title="Log — every roll, plus everything else that popped up" aria-label="Log">${ICON.log}</button>`,
     // (on a phone it sits next to Log; on a computer, after the layout switch)
     ...(isMobile() && window.SHEET_PAGES ? { bug: `<button class="devbtn bugbtn" data-zi="bug" data-act="bugreport" title="Bugs, ideas &amp; feedback" aria-label="Bugs, ideas and feedback">${ICON.bug}</button>` } : {}),
@@ -1888,15 +1927,15 @@ function zoneOrder(zone, ids) {
 function renderHeader() {
   const dark = document.documentElement.getAttribute('data-theme') === 'dark';
   const pic = S.portrait || PLACEHOLDER, xp = ST('advancement') === 'xp';
-  const idf = [ST('showPlayer') ? (window.SHEET_PAGES ? `<div class="fld"><span class="lbl">Player</span><span class="identtxt" title="Comes from the player list on your party page">${esc(S.player || '—')}</span></div>` : fld('Player', inp('player', { fit: 8, ph: 'Player' }))) : '', ST('showRace') ? `<div class="fld"><span class="lbl">Race</span><span class="identtxt" title="Change your race in Settings">${esc(S.raceName || '—')}</span></div>` : '', ST('showBackground') ? `<div class="fld"><span class="lbl">Background</span><span class="identtxt" title="Change your background in Settings">${esc(S.backgroundName || '—')}</span></div>` : '',
-    ST('showAlignment') ? fld('Alignment', sel('alignment', [['', '—']].concat(DND.alignments.map(a => [a, a])))) : '', ST('showFaith') ? fld('Faith', inp('faith', { ph: '—', fit: 8 })) : ''].join('');
+  // (alignment, faith and player now ride along in the line under the name; they're edited on the Story tab)
+  const idf = '';
   $('#sec-header').innerHTML = `
   <div class="banner-row"><div class="portrait-wrap"><img id="portraitImg" src="${esc(pic)}" alt="${esc((S.name || 'Character') + '’s portrait')}">
     <label class="portrait-edit" tabindex="0" data-act="portrait" title="Change portrait" aria-label="Change portrait"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/></svg></label></div>${inspHTML()}</div>
   <div class="ident${idf ? '' : ' noid'}"><h1 class="sr-only">${esc(S.name || 'Character sheet')}</h1>
     <div class="ident-top">
       <img class="mini-portrait" src="${esc(pic)}" alt="" data-act="portrait">
-      <div class="namebox">${ST('showName') ? inp('name', { cls: 'name', label: 'Character name', ph: 'Character name', fit: 10 }) : ''}
+      <div class="namebox">${inp('name', { cls: 'name', label: 'Character name', ph: 'Character name', fit: 10 })}
         <div class="subtitle" data-calc="subtitle"></div></div>
       <div class="lvlbox${xpReady() ? ' ready' : ''}" id="lvlbox">
         <div class="lvlnum"><span class="lbl">Level</span><b data-calc="lvl"></b></div>
@@ -2765,22 +2804,29 @@ function renderFeatures() {
     const fx = fxOf(f), dcl = fxDCLine(fx, f);
     const tags = [f.source, f.hb && f.hb.on ? riderTrigText(f.hb) : '', f.col ? (f.col === 'bonus' ? 'Bonus action' : f.col === 'move' ? 'Free' : f.col[0].toUpperCase() + f.col.slice(1)) : '', max != null ? `${max}× per ${resetOf(f) === 'short' ? 'short rest' : resetOf(f) === 'long' ? 'long rest' : 'never'}` : '', dcl, fx.cost ? 'Costs ' + fxCostText(fx.cost) : '', fx.onlyRaging ? 'While raging' : ''].filter(Boolean);
     const canUse = !fxIsResource(f) && (fx.cost || fx.use || fx.target || fx.roll);
-    return `<div class="fcard${f.auto ? '' : ' custom'}${ed ? ' editing' : ''}">
-      <div class="fc-head"><b class="fc-name">${esc(f.name)}</b>${sc.map(([n, v]) => `<span class="fscale" title="${esc(n)}">${esc(v)}</span>`).join('')}<span class="grow"></span>
-        ${max != null && !f.pool && !fxIsResource(f) ? `<button class="btn sm gold" data-act="usefeat" data-i="${i}" ${left || fx.slotRestore ? '' : 'disabled'}>${f.roll || fx.roll ? 'Use & roll' : 'Use'}</button>` : f.roll ? `<button class="btn sm gold" data-act="usefeat" data-i="${i}">Roll</button>` : canUse ? `<button class="btn sm gold" data-act="usefeat" data-i="${i}">${fx.useLabel || (fx.roll ? 'Use & roll' : 'Use')}</button>` : ''}
-        <button class="icon-btn fc-edit${ed ? ' on' : ''}" data-act="toggle" data-key="fedit:${i}" title="${ed ? 'Done editing' : 'Edit this feature'}" aria-label="Edit">${ed ? '✓' : '✎'}</button></div>
-      <div class="fc-tags">${tags.map(t => `<span class="ftag">${esc(t)}</span>`).join('')}${sc.length > 1 || (sc[0] && sc[0][0].toLowerCase() !== f.name.toLowerCase()) ? sc.map(([n, v]) => `<span class="ftag">${esc(n)}: ${esc(v)}</span>`).join('') : ''}</div>
-      ${f.key === 'warlock:uaravenqueen:Sentinel Raven' ? ravenChk() : ''}
-      ${max != null ? `<div class="fc-uses"><span class="pips" data-calc-html="featpips:${i}"></span>${f.pool ? '' : `<span class="hint">${left} of ${max} left</span>`}</div>` : ''}
-      ${ed ? `<div class="fc-form">${fld('Name', inp(`features.${i}.name`, { label: 'Feature name' }))}
+    // Ledger row: one line (name, short summary, uses, Use) that opens to the full text, tags and editing.
+    const ok = 'fopen:' + (f.key || f.name); if (ed) UI.open[ok] = true; // a row being edited stays open after Done
+    const open = !!UI.open[ok];
+    const sum = String(f.desc || '').replace(/<[^>]+>/g, '').trim() || String(fullOfFeat(f) || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160);
+    return `<div class="fcard frow${f.auto ? '' : ' custom'}${ed ? ' editing' : ''}${open ? ' open' : ''}">
+      <div class="fl-sum"><button type="button" class="fl-tog" data-act="ftog" data-key="${esc(ok)}" aria-expanded="${open}"><i class="fl-car" aria-hidden="true"></i>
+        <span class="fl-t"><b class="fc-name">${esc(f.name)}</b>${sc.map(([n, v]) => `<span class="fscale" title="${esc(n)}">${esc(v)}</span>`).join('')}<i class="fl-s">${esc(sum)}</i></span></button>
+        <span class="fl-r">${fx.acts && !ed ? `<span class="fxacts fl-acts">${fxActsHTML(f, i)}</span>` : ''}${max != null && !f.pool ? `<span class="pips" data-calc-html="featpips:${i}"></span>` : ''}${max != null && !f.pool && !fxIsResource(f) ? `<button class="btn sm gold" data-act="usefeat" data-i="${i}" ${left || fx.slotRestore ? '' : 'disabled'}>${f.roll || fx.roll ? 'Use & roll' : 'Use'}</button>` : f.roll ? `<button class="btn sm gold" data-act="usefeat" data-i="${i}">Roll</button>` : canUse ? `<button class="btn sm gold" data-act="usefeat" data-i="${i}">${fx.useLabel || (fx.roll ? 'Use & roll' : 'Use')}</button>` : ''}</span></div>
+      <div class="fl-body"${open ? '' : ' inert'}><div class="fl-in">
+        <div class="fl-meta">${tags.map(t => `<span>${esc(t)}</span>`).join('')}${sc.length > 1 || (sc[0] && sc[0][0].toLowerCase() !== f.name.toLowerCase()) ? sc.map(([n, v]) => `<span>${esc(n)}: ${esc(v)}</span>`).join('') : ''}</div>
+        ${f.key === 'warlock:uaravenqueen:Sentinel Raven' ? ravenChk() : ''}
+        ${max != null ? `<div class="fc-uses">${f.pool ? `<span class="pips" data-calc-html="featpips:${i}"></span>` : `<span class="hint">${left} of ${max} left · refills on ${resetOf(f) === 'short' ? 'a short or long rest' : resetOf(f) === 'long' ? 'a long rest' : 'nothing'}</span>`}</div>` : ''}
+        ${ed ? `<div class="fc-form">${fld('Name', inp(`features.${i}.name`, { label: 'Feature name' }))}
           <div class="row">${fld('Uses', inp(`features.${i}.max`, { ph: 'unlimited', label: 'Max uses formula', title: 'A number or formula: 1+cha, prof, 5*level, paladin' }))}${fld('Refills on', sel(`features.${i}.reset`, [['short', 'Short rest'], ['long', 'Long rest'], ['none', 'Never']]))}
           ${fld('Used as', sel(`features.${i}.col`, [['', '—'], ['action', 'Action'], ['bonus', 'Bonus action'], ['reaction', 'Reaction']]))}<label class="checkline">${chk(`features.${i}.pool`)} Points pool</label></div>
           ${fld('Short summary (shown on the Combat tab)', ta(`features.${i}.desc`, { rows: 3, label: 'Description' }))}
           ${fld('Your own wording (replaces the full description when filled in)', ta(`features.${i}.full`, { rows: 5, label: 'Your own wording', ph: fullDefaultFeat(f) ? 'Optional — leave blank to use the built-in description' : 'Optional — the full description' }))}
           ${hbbOpenRow('feat', i, f.hb, f)}
           <div class="row"><span class="hint">Uses accept formulas like <code>1+cha</code>, <code>prof</code> or <code>5*level</code>.</span><span class="grow"></span>${f.kind === 'feat' ? `<button class="btn sm red" data-act="delfeatn" data-n="${esc(String(f.key).slice(5))}">Remove feat</button>` : ''}${f.auto ? `<button class="btn sm ghost" data-act="featreset" data-i="${i}">Restore original</button>` : `<button class="btn sm red" data-act="del" data-list="features" data-i="${i}">Delete</button>`}</div></div>`
-        : (fullOfFeat(f).length > 280 ? `<div class="fc-desc fc-full${UI.open['ffull:' + i] ? ' open' : ''}" data-act="toggle" data-key="ffull:${i}" title="Click to ${UI.open['ffull:' + i] ? 'collapse' : 'read all'}">${fullHTML(fullOfFeat(f))}</div>` : `<div class="fc-desc">${fullHTML(fullOfFeat(f))}</div>`)}${fx.acts && !ed ? `<div class="fxacts">${fxActsHTML(f, i)}</div>` : ''}
-      ${featSpellsHTML(f, i, ed)}
+        : `<div class="fc-desc">${fullHTML(fullOfFeat(f))}</div>`}
+        ${featSpellsHTML(f, i, ed)}
+        <div class="fl-foot"><button type="button" class="fl-edit${ed ? ' on' : ''}" data-act="toggle" data-key="fedit:${i}" title="${ed ? 'Done editing' : 'Edit this feature'}" aria-label="${ed ? 'Done editing' : 'Edit ' + esc(f.name)}">${ed ? '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>' : '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg>'}</button></div>
+      </div></div>
     </div>`;
   };
   const head = g => {
@@ -2795,7 +2841,6 @@ function renderFeatures() {
         + (r.extraSubs || []).map(xk => c.subclasses[xk] ? `<span class="subname">+ ${esc(c.subclasses[xk].name)}${N((r.extraSubLv || {})[xk]) ? ` <small class="hint">(${N(r.extraSubLv[xk])} lv)</small>` : ''}</span>` : '').join('')
         + loose.map(([n, v]) => `<span class="ftag">${esc(n)}: <b>${esc(v)}</b></span>`).join('');
     }
-    if (g === 'feat') extra = `<button class="btn sm" data-act="addfeat">+ Add feat</button>`;
     return extra;
   };
   // Known infusions live on the Infusions tab (they only do something once an item is infused).
@@ -2806,10 +2851,10 @@ function renderFeatures() {
   const sections = [...new Set(order.concat(groups))].filter(g => groups.includes(g) && (shown.some(([f]) => featGroup(f) === g) || (g === 'feat' && ff === 'all' && !q))).map(g => `<section class="fgroup"><h3 class="subh fghead"><span class="sh-dot"></span><span class="fgname">${esc(gname(g))}</span>${head(g)}</h3>
     <div class="fgrid">${shown.filter(([f]) => featGroup(f) === g).map(([f, i]) => card(f, i)).join('') || (g === 'feat' ? '<p class="hint">No feats yet. Feats from level-ups are added automatically.</p>' : '')}</div></section>`).join('');
   $('#page-features').innerHTML = `
-  <div class="panel" ${PID('featlist')}><h2><span class="grow">Features &amp; Traits</span><span class="hint lvhint" style="text-transform:none;letter-spacing:0">Total level ${totalLevel()} · proficiency ${fmt(PB())}</span><button class="btn sm" data-act="hbnew" data-k="feat">+ Homebrew feature</button></h2>
+  <div class="panel" ${PID('featlist')}><h2><span class="grow">Features &amp; Traits</span><span class="hint lvhint" style="text-transform:none;letter-spacing:0">Total level ${totalLevel()} · proficiency ${fmt(PB())}</span><span class="fl-hbtns"><button class="btn sm" data-act="addfeat">+ Add feat</button><button class="btn sm" data-act="hbnew" data-k="feat">+ Homebrew feature</button></span></h2>
     <div class="filters" style="margin-top:0"><input class="f featq" id="featQ" placeholder="Search features…" value="${esc(UI.featQ || '')}" aria-label="Search features"><button class="chip${ff === 'all' ? ' on' : ''}" data-act="featfilter" data-f="all">All</button>${groups.filter(g => g !== 'feat' || S.features.some(f => featGroup(f) === 'feat')).map(g => `<button class="chip${ff === g ? ' on' : ''}" data-act="featfilter" data-f="${g}">${esc(gname(g))}</button>`).join('')}</div>
     ${sections || '<p class="hint">No features match.</p>'}
-    <p class="hint">Features from your class, race, background and feats are added and updated automatically as you level. Tap ✎ on a card to change it.</p></div>`;
+    <p class="hint">Features from your class, race, background and feats are added and updated automatically as you level. Tap a feature to read it in full or edit it.</p></div>`;
 }
 // ---------- Inventory ----------
 const attuneMax = () => { const a = clsLv('artificer'); return a >= 18 ? 6 : a >= 14 ? 5 : a >= 10 ? 4 : 3; };
@@ -3071,7 +3116,7 @@ function renderStory() {
   $('#page-story').innerHTML = `
   <div class="story">
     <div class="stack">
-      <div class="panel" ${PID('personality')}><h2>Personality</h2><div class="traits">
+      <div class="panel" ${PID('personality')}><h2>Personality</h2><div class="story-id">${fld('Alignment', sel('alignment', [['', '—']].concat(DND.alignments.map(a => [a, a]))))}${fld('Faith', inp('faith', { ph: 'Deity or belief' }))}${window.SHEET_PAGES ? '' : fld('Player', inp('player', { ph: 'Who plays this character' }))}</div><div class="traits">
         ${fld('Personality Traits', ta('traits.personality', { rows: 2 }))}${fld('Ideals', ta('traits.ideals', { rows: 2 }))}
         ${fld('Bonds', ta('traits.bonds', { rows: 2 }))}${fld('Flaws', ta('traits.flaws', { rows: 2 }))}</div></div>
       <div class="panel" ${PID('appearance')}><h2>Appearance</h2><div class="appear">${['age', 'height', 'weight', 'eyes', 'skin', 'hair'].map(k => fld(k[0].toUpperCase() + k.slice(1), inp('appearance.' + k))).join('')}</div></div>
@@ -3400,7 +3445,8 @@ function calcText(key) {
     case 'ammo': { const am = ammoItem(S.attacks[a]); return am ? N(am.qty) + ' ammo' : ''; }
     case 'lvl': return String(totalLevel());
     case 'xpnext': return totalLevel() >= 20 ? 'max' : '/ ' + xpNext().toLocaleString();
-    case 'subtitle': return [S.raceName, classLabel(), S.backgroundName].filter(Boolean).join(' · ');
+    // (only what the character has: race, class, background, alignment, faith, and who plays them)
+    case 'subtitle': return [S.raceName, classLabel(), S.backgroundName, S.alignment, String(S.faith || '').trim() ? (/^(faith|follower|servant|devotee|priest)\b/i.test(String(S.faith).trim()) ? S.faith : 'Faith of ' + String(S.faith).trim()) : '', S.player ? 'played by ' + S.player : ''].map(x => String(x || '').trim()).filter(Boolean).map(x => x.replace(/ /g, '\u00a0')).join('\u00a0· '); // (each part stays on one line; the line only breaks between parts)
   }
   return '';
 }
@@ -3762,6 +3808,8 @@ function mainClick(e) {
     case 'add': addItem(b.dataset.list); break;
     case 'del': delItem(b.dataset.list, i); break;
     case 'up': { const L = getP(b.dataset.list); if (i > 0) { [L[i - 1], L[i]] = [L[i], L[i - 1]]; save(); render(); } break; }
+    // Features tab rows open and close in place (no redraw), so they can slide open.
+    case 'ftog': { const k = b.dataset.key, row = b.closest('.frow'), v = row ? !row.classList.contains('open') : !UI.open[k]; UI.open[k] = v; saveUI(); if (row) { row.classList.toggle('open', v); b.setAttribute('aria-expanded', v); const bd = row.querySelector('.fl-body'); if (bd) bd.inert = !v; } return; }
     case 'toggle': {
       UI.open[b.dataset.key] = !UI.open[b.dataset.key]; saveUI(); pendingLabel = null;
       // Feature cards share rows: opening one card's text opens the others in the same row too (and closing closes them).
@@ -3950,7 +3998,7 @@ function mainClick(e) {
     case 'useitem': useItem(i, b.dataset.col); break;
     case 'ispdel': { const it = S.inventory[i]; const n = it.spells.splice(N(b.dataset.j), 1)[0]; pendingLabel = `${it.name}: remove ${n}`; rebuildAuto(); save(); render(); break; }
     case 'hbnew': openHomebrew(b.dataset.k); return;
-    case 'itempaste': openItemPaste(); return;
+    case 'itempaste': openItemPaste(b.dataset.i != null ? N(b.dataset.i) : -1); return;
     case 'hbbopen': openHomebrew(b.dataset.k, N(b.dataset.i)); return;
     case 'hbopen': UI.open['hb:' + b.dataset.key] = !UI.open['hb:' + b.dataset.key]; render(); break;
     case 'addspells': openSpellPicker(b.dataset.cls); pendingLabel = null; return;
@@ -5790,6 +5838,7 @@ function openExtFx() {
 }
 
 
+
 // ---------- Fields that grow to fit their text ----------
 // Phone header card: the name gets all the room up to the corner icons (however many there are), measured, so a long
 // name isn't squeezed into a box half the size it could be.
@@ -5847,11 +5896,12 @@ function openSettings(tab) {
     ${pane('char', `
       ${row('Race', `<button class="btn sm" data-act="changerace">Change…</button>`, esc(S.raceName || '—'))}
       ${row('Background', `<button class="btn sm" data-act="changebg">Change…</button>`, esc(S.backgroundName || '—'))}
+      ${row('Alignment', `<span class="set-ctl">${sel('alignment', [['', '—']].concat(DND.alignments.map(a => [a, a])))}</span>`, '')}
+      ${row('Faith', `<span class="set-ctl">${inp('faith', { ph: 'Deity or belief', label: 'Faith' })}</span>`, 'Shows under your name as “Faith of …”')}
       ${subclassSettingsHTML()}
       ${row('Leveling', opt('advancement', [['milestone', 'Milestone'], ['xp', 'XP']]), '')}
       ${row('Ability blocks', opt('abilityStyle', [['mod', 'Modifier big'], ['score', 'Score big']]))}
       ${row('Spell sorting', opt('combatSpellSort', [['level', 'Grouped by level'], ['purpose', 'Grouped by purpose'], ['custom', 'My own categories (set up on the Spells tab)']]))}
-      <div class="setrow chkrow"><span><b>Show in header</b></span><span class="chkset">${[['showName', 'Name'], ['showPlayer', 'Player'], ['showRace', 'Race'], ['showBackground', 'Background'], ['showAlignment', 'Alignment'], ['showFaith', 'Faith']].map(([k, t]) => `<label class="checkline"><input type="checkbox" data-set="${k}"${ST(k) ? ' checked' : ''}> ${t}</label>`).join('')}</span></div>
       ${booksHTML()}
 `)}
     ${pane('dice', `
@@ -6604,15 +6654,21 @@ window.addEventListener('resize', () => $$('input.f.name').forEach(fitNameFont))
 // The line under the name (race · class · background) never runs past two lines on a computer: a long one gets smaller
 // type instead, so the top bar is the same height for every character. (Remembered per text and width.)
 let SUB_K = '';
+// The line under the name wraps only between its parts (race · class · …), never inside one. If a part is too long for a
+// line of its own it shrinks to fit. It can run to three lines before it shrinks (past that, at the smallest size, it stops
+// after three and the whole of it shows on hover).
 function fitSubtitle() { const el = $('.namebox .subtitle'); if (!el) return;
-  if (isMobile()) { if (el.style.fontSize) el.style.fontSize = ''; SUB_K = ''; return; }
-  const k = el.textContent + '|' + (el.parentElement ? el.parentElement.clientWidth : 0) + '|' + document.documentElement.style.fontSize; if (k === SUB_K && el._fit) return; SUB_K = k; el._fit = 1;
-  el.style.fontSize = ''; if (!el.textContent || !el.offsetParent) return; const base = parseFloat(getComputedStyle(el).fontSize) || 15;
+  const k = el.textContent + '|' + (el.parentElement ? el.parentElement.clientWidth : 0) + '|' + document.documentElement.style.fontSize + '|' + isMobile(); if (k === SUB_K && el._fit) return; SUB_K = k; el._fit = 1;
+  el.style.fontSize = ''; el.classList.remove('sub2'); el.removeAttribute('title'); if (!el.textContent || !el.offsetParent) return;
+  const base = parseFloat(getComputedStyle(el).fontSize) || 15;
+  const over = () => el.scrollWidth > el.clientWidth + 0.5;
   const lines = () => { const cs = getComputedStyle(el), lh = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.2; return Math.round(el.clientHeight / lh); };
-  el.classList.remove('sub2'); el.removeAttribute('title');
-  let px = base; while (lines() > 2 && px > base * 0.72) { px -= 0.5; el.style.fontSize = px + 'px'; }
-  // (still more than two lines at the smallest size: it stops after two, and the whole of it shows on hover)
-  if (lines() > 2) { el.classList.add('sub2'); el.title = el.textContent; } }
+  // (and the name plus this line never make the header taller than the portrait beside them)
+  // (measured against the header's height with a one-word line, so a long line can never make the header taller)
+  const hd = $('#sec-header'), txt = el.textContent; el.textContent = 'X'; const cap = hd ? hd.offsetHeight : 0; el.textContent = txt;
+  const tall = () => cap && hd.offsetHeight > cap;
+  let px = base; while ((over() || lines() > 3 || tall()) && px > base * 0.6) { px -= 0.5; el.style.fontSize = px + 'px'; }
+  if (lines() > 3 || tall()) { el.classList.add('sub2'); el.title = el.textContent; } }
 window.addEventListener('resize', () => { SUB_K = ''; fitSubtitle(); });
 
 // Desktop header stays one row: when the toolbar would wrap, its buttons drop their words and keep their icons.
@@ -7114,39 +7170,49 @@ function renderInfusions() {
       <li>An infusion lasts indefinitely. If you die, it fades after a number of days equal to your INT modifier (minimum 1). It also ends if you swap that infusion out when you level up.</li>
       <li>When you gain an artificer level you can replace one infusion you know with another.</li>
       <li>Infusions that need attunement only work once the wearer attunes (that uses an attunement slot).</li></ul></details></div>`;
+  // Ledger rows, same as the Features tab: one line with what matters at the table, tap to open the details.
+  const colName = c => c === 'bonus' ? 'Bonus action' : c === 'reaction' ? 'Reaction' : 'Action';
+  const row = (key, name, chip, sum, right, body, foot, cls) => { const open = !!UI.open[key];
+    return `<div class="fcard frow${cls ? ' ' + cls : ''}${open ? ' open' : ''}"><div class="fl-sum"><button type="button" class="fl-tog" data-act="ftog" data-key="${esc(key)}" aria-expanded="${open}"><i class="fl-car" aria-hidden="true"></i>
+      <span class="fl-t"><b class="fc-name">${esc(name)}</b>${chip ? `<span class="fscale">${esc(chip)}</span>` : ''}<i class="fl-s">${esc(sum)}</i></span></button>${right ? `<span class="fl-r">${right}</span>` : ''}</div>
+      <div class="fl-body"${open ? '' : ' inert'}><div class="fl-in">${body}${foot ? `<div class="fl-foot">${foot}</div>` : ''}</div></div></div>`; };
+  const meta = list => `<div class="fl-meta">${list.filter(Boolean).map(t => `<span>${esc(t)}</span>`).join('')}</div>`;
   // Active
   const actCards = act.map(([it, i]) => {
     const d = infDef(it.infusion), e = infEffect(it), on = infOn(it), ch = it.charges && it.infusion.charges ? it.charges : null;
     const bits = [e.spellAtk ? `+${e.spellAtk} spell attack rolls` : '', e.atk ? `+${e.atk} attack & damage${e.ranged ? ' (ranged)' : ''}` : '', e.ac ? `+${e.ac} AC` : '', e.resist ? `Resistance to ${e.resist}` : e.resist === '' && d.choose ? 'Pick a damage type' : '', e.speed ? `+${e.speed} ft speed` : '', e.note || ''].filter(Boolean);
     const warn = !it.equipped && !it.carried ? 'Not equipped — effect off' : d.attune && !it.attuned ? 'Needs attunement — effect off' : '';
-    return `<div class="inf-card active${on ? '' : ' off'}"><div class="inf-ch"><span class="inf-dot"></span><div class="grow"><b>${esc(it.name)}</b><div class="hint">${esc(infLabel(it.infusion))}</div></div>
-        <button class="btn sm ghost" data-act="infend" data-i="${i}" title="End this infusion">End</button></div>
-      ${bits.length ? `<div class="inf-eff">${bits.map(b => `<span class="ichip">${esc(b)}</span>`).join('')}</div>` : ''}
-      ${d.choose ? `<label class="inf-choose">Resistance <select class="f" data-infchoice="${i}">${['<option value="">— choose —</option>'].concat(d.choose.map(c => `<option${it.infusion.choice === c ? ' selected' : ''}>${c}</option>`)).join('')}</select></label>` : ''}
-      ${ch ? `<div class="inf-charges"><span class="hint">Charges</span><span class="pips" data-calc-html="infpips:${i}"></span><span class="hint">${Math.max(0, N(ch.max) - N(ch.used))}/${N(ch.max)}${d.charges[1] === 'dawn' ? ' · back at dawn' : ' · regains ' + d.charges[1] + ' at dawn'}</span></div>` : ''}
-      ${d.act ? `<div class="inf-act"><button class="btn sm gold" data-act="infuse-use" data-i="${i}" ${on && (!ch || N(ch.used) < N(ch.max)) ? '' : 'disabled'}>${esc(d.act.name)}</button><span class="hint">${d.act.col === 'bonus' ? 'Bonus action' : d.act.col === 'reaction' ? 'Reaction' : 'Action'} — ${esc(d.act.text)}</span></div>` : ''}
-      ${d.companion ? `<div class="hint">The homunculus is on the Creatures tab.</div>` : ''}
-      ${warn ? `<div class="inf-warn">${esc(warn)}${d.attune && !it.attuned && (it.equipped || it.carried) ? ` <button class="btn sm" data-act="attune" data-i="${i}">Attune</button>` : !it.equipped ? ` <button class="btn sm" data-act="infequip" data-i="${i}">Equip</button>` : ''}</div>` : ''}
-    </div>`;
+    const right = (ch ? `<span class="pips" data-calc-html="infpips:${i}"></span>` : '') + (d.act ? `<button class="btn sm gold" data-act="infuse-use" data-i="${i}" ${on && (!ch || N(ch.used) < N(ch.max)) ? '' : 'disabled'} title="${esc(colName(d.act.col))}">${esc(d.act.name)}</button>` : '');
+    const txt = DND.full['pick:infusion:' + it.infusion.name] || '';
+    const body = meta([infLabel(it.infusion), d.attune ? (it.attuned ? 'Attuned' : 'Requires attunement') : '', d.act ? colName(d.act.col) : ''])
+      + (warn ? `<div class="inf-warn">${esc(warn)}${d.attune && !it.attuned && (it.equipped || it.carried) ? ` <button class="btn sm" data-act="attune" data-i="${i}">Attune</button>` : !it.equipped ? ` <button class="btn sm" data-act="infequip" data-i="${i}">Equip</button>` : ''}</div>` : '')
+      + (bits.length ? `<div class="inf-eff">${bits.map(x => `<span class="ichip">${esc(x)}</span>`).join('')}</div>` : '')
+      + (d.choose ? `<label class="inf-choose">Resistance <select class="f" data-infchoice="${i}">${['<option value="">— choose —</option>'].concat(d.choose.map(c => `<option${it.infusion.choice === c ? ' selected' : ''}>${c}</option>`)).join('')}</select></label>` : '')
+      + (ch ? `<div class="hint">${Math.max(0, N(ch.max) - N(ch.used))} of ${N(ch.max)} charges${d.charges[1] === 'dawn' ? ' · back at dawn' : ' · regains ' + d.charges[1] + ' at dawn'}</div>` : '')
+      + (d.act ? `<div class="hint">${esc(d.act.name)} (${colName(d.act.col).toLowerCase()}): ${esc(d.act.text)}</div>` : '')
+      + (d.companion ? `<div class="hint">The homunculus is on the Creatures tab.</div>` : '')
+      + (txt ? `<div class="fc-desc">${fullHTML(txt)}</div>` : '');
+    return row('iopen:a:' + (it.id || i), it.name, '', warn || bits.join(' · ') || infLabel(it.infusion), right, body, `<button class="btn sm ghost inf-end" data-act="infend" data-i="${i}">End infusion</button>`, on ? '' : 'inf-offrow');
   }).join('');
-  const bagCards = bags.map(([b, i]) => `<div class="inf-card active"><div class="inf-ch"><span class="inf-dot"></span><div class="grow"><b>${esc(b.name)}</b><div class="hint">${esc(infLabel(b.infusion))} · container</div></div><button class="btn sm ghost" data-act="infendbag" data-i="${i}" title="End this infusion">End</button></div><div class="inf-eff"><span class="ichip">Holds ${N(b.cap) || 500} lb${b.weightless ? ', weighs a fixed ' + (N(b.weight) || 15) + ' lb' : ''}</span></div><div class="hint">Its contents are on the Inventory tab. If the infusion ends, everything inside appears around it.</div></div>`).join('');
+  const bagCards = bags.map(([b, i]) => row('iopen:b:' + (b.id || i), b.name, '', `Holds ${N(b.cap) || 500} lb${b.weightless ? ', weighs a fixed ' + (N(b.weight) || 15) + ' lb' : ''}`, '',
+    meta([infLabel(b.infusion), 'Container']) + `<div class="fc-desc">Its contents are on the Inventory tab. If the infusion ends, everything inside appears around it.</div>`,
+    `<button class="btn sm ghost inf-end" data-act="infendbag" data-i="${i}">End infusion</button>`)).join('');
   const activePanel = `<div class="panel" ${PID('infactive')}><h2><span class="grow">Infused items</span><span class="hint">${nAct} of ${aMax}</span></h2>
-    ${nAct ? `<div class="inf-grid">${actCards}${bagCards}</div>` : '<p class="hint" style="margin:0">Nothing infused right now. Pick an infusion below and choose an item.</p>'}</div>`;
+    ${nAct ? `<div class="fgrid inf-rows">${actCards}${bagCards}</div>` : '<p class="hint" style="margin:0">Nothing infused right now. Pick an infusion below and choose an item.</p>'}</div>`;
   // Known
   const knownList = infKnown().map(n => ({ name: n })).concat((S.picks.infusion || []).includes('Replicate Magic Item') ? (infReplicas().length ? infReplicas().map(r => ({ name: 'Replicate Magic Item', rep: r })) : [{ name: 'Replicate Magic Item', rep: '' }]) : []);
   const knownCards = knownList.map(k => {
     const d = INF[k.name] || {}, on = act.concat(bags).find(([it]) => it.infusion.name === k.name && (k.name !== 'Replicate Magic Item' || it.infusion.rep === k.rep));
     const lv = k.rep ? repLevel(k.rep) : d.lv || 2, needAtt = k.rep ? repAttune(k.rep) : !!d.attune;
     const txt = k.rep ? (DND.full['item:' + k.rep] || (DND.magic.find(m => m[0] === k.rep) || [])[5] || '') : (DND.full['pick:infusion:' + k.name] || '');
-    const key = 'inf:' + k.name + ':' + (k.rep || '');
-    return `<div class="inf-card${on ? ' is-on' : ''}"><div class="inf-ch"><div class="grow"><b>${esc(k.rep ? k.rep : k.name)}</b><div class="hint">${k.rep ? 'Replicate Magic Item · ' : ''}${esc(k.rep ? 'Magic item' : d.item || '')}</div></div>
-        ${on ? `<span class="ichip on">On ${esc(on[0].name)}</span>` : `<button class="btn sm gold" data-act="infpick" data-n="${esc(k.name)}" data-r="${esc(k.rep || '')}" ${k.name === 'Replicate Magic Item' && !k.rep ? 'disabled title="Choose which item first (Learn / swap)"' : ''}>Infuse…</button>`}</div>
-      <div class="inf-tags"><span class="itag">${ordn(lv)}-level+</span><span class="itag${needAtt ? ' att' : ''}">${needAtt ? 'Requires attunement' : 'No attunement'}</span>${d.charges ? `<span class="itag">${d.charges[1] === 'dawn' ? 'Once per dawn' : d.charges[0] + ' charges'}</span>` : ''}${d.act ? `<span class="itag">${d.act.col === 'bonus' ? 'Bonus action' : d.act.col === 'reaction' ? 'Reaction' : 'Action'}</span>` : ''}</div>
-      ${txt ? `<div class="inf-txt${UI.open[key] ? ' open' : ''}" data-act="toggle" data-key="${esc(key)}">${fullHTML(txt)}</div>` : ''}
-    </div>`;
+    const right = on ? `<span class="ichip on">On ${esc(on[0].name)}</span>` : `<button class="btn sm gold" data-act="infpick" data-n="${esc(k.name)}" data-r="${esc(k.rep || '')}" ${k.name === 'Replicate Magic Item' && !k.rep ? 'disabled title="Choose which item first (Learn / swap)"' : ''}>Infuse…</button>`;
+    const sum = (k.rep ? 'Replicate Magic Item' : d.item || '') + (needAtt ? ' · attunement' : '');
+    const body = meta([k.rep ? 'Replicate Magic Item' : '', k.rep ? 'Magic item' : d.item || '', ordn(lv) + '-level+', needAtt ? 'Requires attunement' : 'No attunement', d.charges ? (d.charges[1] === 'dawn' ? 'Once per dawn' : d.charges[0] + ' charges') : '', d.act ? colName(d.act.col) : ''])
+      + (txt ? `<div class="fc-desc">${fullHTML(txt)}</div>` : '');
+    return row('iopen:k:' + k.name + ':' + (k.rep || ''), k.rep ? k.rep : k.name, '', sum, right, body, '', on ? 'is-on' : '');
   }).join('');
   const knownPanel = `<div class="panel" ${PID('infknown')}><h2><span class="grow">Known infusions</span><span class="hint">${kn} of ${kMax}</span></h2>
-    ${knownList.length ? `<div class="inf-grid">${knownCards}</div>` : '<p class="hint" style="margin:0">You don\'t know any infusions yet — use Learn / swap infusions.</p>'}</div>`;
+    ${knownList.length ? `<div class="fgrid inf-rows">${knownCards}</div>` : '<p class="hint" style="margin:0">You don\'t know any infusions yet — use Learn / swap infusions.</p>'}</div>`;
   el.innerHTML = head + activePanel + knownPanel;
 }
 // ---------- Learn / swap ----------
@@ -7991,19 +8057,28 @@ function spgHead(col, g, mode, n, open, first, last) {
   return `<div class="cspg-hrow"${mode === 'custom' ? ` data-cat="${esc(g.cat)}"` : ''}>${mv ? `<span class="gdrag" data-gdrag="${esc(g.k)}" title="Drag to rearrange" aria-hidden="true">⠿</span>` : ''}${cGroupHead(col, g.k, esc(g.name), esc(String(g.icon)), n, open)}${tools}</div>`;
 }
 // Dragging a whole group (desktop): a copy of its header follows the pointer; drop it between other groups.
+// While it moves the group folds up to just its header (so an open one is easy to place); it opens again when dropped.
 let GDRAG = null;
+// Fold the dragged group to its header, keeping the header where it was on screen (so it stays under the pointer).
+function gFold(d) { const h = d.grp.firstElementChild, t0 = h ? h.getBoundingClientRect().top : 0; d.grp.classList.add('bdrag-src', 'gfold'); d.ghost.style.visibility = ''; d.line.hidden = false; const t1 = h ? h.getBoundingClientRect().top : 0; if (t1 !== t0) scrollBy(0, t1 - t0); }
 document.addEventListener('pointerdown', e => {
-  const h = e.target.closest && e.target.closest('.gdrag'); if (!h || e.button > 0 || isMobile()) return;
+  // (by its grip, or anywhere on its header except the edit / delete buttons: a plain click still folds or opens it)
+  let h = e.target.closest && e.target.closest('.gdrag');
+  if (!h && e.target.closest) { const hr = e.target.closest('#page-spells .spg > .cspg-hrow'); if (hr && !e.target.closest('.cath-tools, input, select, textarea, a')) h = hr.querySelector('.gdrag'); }
+  if (!h || e.button > 0 || isMobile()) return;
   const grp = h.closest('.spg'); if (!grp) return; e.preventDefault();
   const hd = grp.querySelector(':scope > .cspg-hrow'), r = hd.getBoundingClientRect(), ghost = document.createElement('div');
   ghost.className = 'bdrag-ghost cspg spg-ghost'; ghost.style.setProperty('--g', getComputedStyle(grp).getPropertyValue('--g')); ghost.appendChild(hd.cloneNode(true));
   Object.assign(ghost.style, { width: r.width + 'px', left: r.left + 'px', top: r.top + 'px' }); document.body.appendChild(ghost);
   const line = document.createElement('div'); line.className = 'spg-drop'; grp.before(line);
-  grp.classList.add('bdrag-src'); GDRAG = { k: h.dataset.gdrag, grp, ghost, line, dx: e.clientX - r.left, dy: e.clientY - r.top, before: null, moved: false };
+  ghost.style.visibility = 'hidden'; line.hidden = true; // (shown once it really moves)
+  GDRAG = { k: h.dataset.gdrag, grp, ghost, line, dx: e.clientX - r.left, dy: e.clientY - r.top, x0: e.clientX, y0: e.clientY, before: null, moved: false };
   document.body.classList.add('idragging');
 });
 document.addEventListener('pointermove', e => {
-  const d = GDRAG; if (!d) return; e.preventDefault(); d.moved = true;
+  const d = GDRAG; if (!d) return; e.preventDefault();
+  // (it folds once it's really moving, not on the press itself)
+  if (!d.moved) { if (Math.hypot(e.clientX - d.x0, e.clientY - d.y0) < 4) return; gFold(d); } d.moved = true;
   d.ghost.style.left = (e.clientX - d.dx) + 'px'; d.ghost.style.top = (e.clientY - d.dy) + 'px';
   const groups = [...d.grp.parentElement.querySelectorAll(':scope > .spg')].filter(g => g.dataset.gk !== 'c:none');
   let tgt = null; for (const g of groups) { const b = g.getBoundingClientRect(); if (e.clientY < b.top + Math.min(b.height, 60) / 2) { tgt = g; break; } }
@@ -8011,8 +8086,10 @@ document.addEventListener('pointermove', e => {
   d.before = tgt ? tgt.dataset.gk : null;
   const edge = 60; if (e.clientY < edge) scrollBy(0, -12); else if (e.clientY > innerHeight - edge) scrollBy(0, 12);
 }, { passive: false });
+// After a real drag the release isn't also a click on the header (which would fold or open it).
+function gNoClick() { const kill = ev => { ev.stopPropagation(); ev.preventDefault(); }; addEventListener('click', kill, true); setTimeout(() => removeEventListener('click', kill, true), 0); }
 function gdragEnd(cancel) {
-  const d = GDRAG; if (!d) return; GDRAG = null; document.body.classList.remove('idragging'); d.ghost.remove(); d.line.remove(); d.grp.classList.remove('bdrag-src');
+  const d = GDRAG; if (!d) return; GDRAG = null; if (d.moved) gNoClick(); document.body.classList.remove('idragging'); d.ghost.remove(); d.line.remove(); d.grp.classList.remove('bdrag-src', 'gfold');
   if (cancel || !d.moved || d.before === d.k) return;
   // Dropping right after itself changes nothing.
   const sib = [...d.grp.parentElement.querySelectorAll(':scope > .spg')], at = sib.indexOf(d.grp); if (sib[at + 1] && sib[at + 1].dataset.gk === d.before) return;
@@ -8048,17 +8125,21 @@ function cgStep(col, k, d) {
 }
 let CGDRAG = null;
 document.addEventListener('pointerdown', e => {
-  const h = e.target.closest && e.target.closest('.cgdrag'); if (!h || e.button > 0 || isMobile()) return;
+  let h = e.target.closest && e.target.closest('.cgdrag');
+  if (!h && e.target.closest) { const hd = e.target.closest('.cgmov > .cspg-h'); if (hd && !e.target.closest('input, select, textarea, a, .cath-tools')) h = hd.parentElement.querySelector(':scope > .cgdrag'); }
+  if (!h || e.button > 0 || isMobile()) return;
   const grp = h.closest('.cgmov'); if (!grp) return; e.preventDefault(); e.stopPropagation();
   const hd = grp.querySelector(':scope > .cspg-h') || grp, r = hd.getBoundingClientRect(), ghost = document.createElement('div');
   ghost.className = 'bdrag-ghost cspg spg-ghost ' + [...grp.classList].filter(c => /^g-/.test(c)).join(' '); const st = grp.getAttribute('style'); if (st) ghost.setAttribute('style', st); ghost.appendChild(hd.cloneNode(true));
   Object.assign(ghost.style, { position: 'fixed', width: r.width + 'px', left: r.left + 'px', top: r.top + 'px' }); document.body.appendChild(ghost);
   const line = document.createElement('div'); line.className = 'spg-drop'; grp.before(line);
-  grp.classList.add('bdrag-src'); CGDRAG = { grp, col: grp.dataset.cgcol, ghost, line, dx: e.clientX - r.left, dy: e.clientY - r.top, before: grp, moved: false };
+  ghost.style.visibility = 'hidden'; line.hidden = true; // (shown once it really moves)
+  CGDRAG = { grp, col: grp.dataset.cgcol, ghost, line, dx: e.clientX - r.left, dy: e.clientY - r.top, x0: e.clientX, y0: e.clientY, before: grp, moved: false };
   document.body.classList.add('idragging');
 }, true);
 document.addEventListener('pointermove', e => {
-  const d = CGDRAG; if (!d) return; e.preventDefault(); d.moved = true;
+  const d = CGDRAG; if (!d) return; e.preventDefault();
+  if (!d.moved) { if (Math.hypot(e.clientX - d.x0, e.clientY - d.y0) < 4) return; gFold(d); } d.moved = true;
   d.ghost.style.left = (e.clientX - d.dx) + 'px'; d.ghost.style.top = (e.clientY - d.dy) + 'px';
   const groups = [...d.grp.parentElement.querySelectorAll(':scope > .cgmov')];
   let tgt = null; for (const g of groups) { const b = g.getBoundingClientRect(); if (e.clientY < b.top + Math.min(b.height, 50) / 2) { tgt = g; break; } }
@@ -8066,7 +8147,7 @@ document.addEventListener('pointermove', e => {
   const edge = 60; if (e.clientY < edge) scrollBy(0, -12); else if (e.clientY > innerHeight - edge) scrollBy(0, 12);
 }, { passive: false });
 function cgdragEnd(cancel) {
-  const d = CGDRAG; if (!d) return; CGDRAG = null; document.body.classList.remove('idragging'); d.ghost.remove(); d.line.remove(); d.grp.classList.remove('bdrag-src');
+  const d = CGDRAG; if (!d) return; CGDRAG = null; if (d.moved) gNoClick(); document.body.classList.remove('idragging'); d.ghost.remove(); d.line.remove(); d.grp.classList.remove('bdrag-src', 'gfold');
   if (cancel || !d.moved) return;
   const keys = [...d.grp.parentElement.querySelectorAll(':scope > .cgmov')].map(g => g.dataset.cgk).filter(k => k !== d.grp.dataset.cgk);
   let at = d.before && d.before !== d.grp ? keys.indexOf(d.before.dataset.cgk) : -1; if (d.before === d.grp) return; if (at < 0) at = keys.length;
@@ -9896,7 +9977,7 @@ function renderParty() {
       return `<div class="ptya"><b>${esc(a.name)}</b><span class="hint">${esc(ptyFormula(a.def.label || '') || a.def.text || '')}</span><div class="ptya-who">${ms.map(m => `<label class="checkline"><input type="checkbox" data-aura="${esc(a.name)}" data-id="${esc(m.id)}"${on.includes(m.id) ? ' checked' : ''}> ${esc(m.name)}</label>`).join('')}</div></div>`; }).join('')}</div>` : '';
   const logP = `<div class="panel ptylogp"><h2>Party log</h2>${(S.ptyLog || []).length ? `<div class="ptylog">${S.ptyLog.slice(0, 30).map(l => `<div class="ptyl ${esc(l.dir)}"><span class="ptyl-d" aria-label="${l.dir === 'in' ? 'Received' : 'Sent'}">${l.dir === 'in' ? '↓' : '↑'}</span><span class="ptyl-t">${esc(l.text)}<small>${l.dir === 'in' ? 'from ' : 'to '}${esc(l.who)} · ${esc(ptyAgo(l.at))}</small></span></div>`).join('')}</div>` : '<p class="hint" style="margin:0">What you send and receive shows up here.</p>'}</div>`;
   const ch = PTYX().chat, chatP = ch && ch.on() ? (UI.chatPop ? `<div class="panel ptychat ptychat-popped"><h2>Party chat</h2><div class="ptychat-lock"><span aria-hidden="true">⧉</span><p>The chat is popped out in its own window.</p><button class="btn sm" data-pa="chatdock">Bring it back here</button></div></div>` : `<div class="panel ptychat"><h2><span class="grow">Party chat</span><button class="icon-btn ptychat-popbtn" data-pa="chatpop" title="Open the chat in its own window (stays open on every tab)" aria-label="Open the chat in its own window"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-8 8"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg></button></h2>${ptyChatInner()}</div>`)
-    : !P.loading ? `<div class="panel ptychat ptychat-off"><h2>Party chat</h2><div class="ptychat-lock"><span aria-hidden="true">🔒</span><p>${PTYX().owner() !== PTYX().email ? `Only ${esc(S.player || 'this character’s player')} can see and send this character’s party chat.` : 'Party chat is just for the players — as the DM, you can’t see it.'}</p></div></div>` : '';
+    : !P.loading ? `<div class="panel ptychat ptychat-off"><h2>Party chat</h2><div class="ptychat-lock"><span aria-hidden="true"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span><p>${PTYX().owner() !== PTYX().email ? `Only ${esc(S.player || 'this character’s player')} can see and send this character’s party chat.` : 'Party chat is just for the players — as the DM, you can’t see it.'}</p></div></div>` : '';
   // Party chat sits to the right of everything else (below it on a phone).
   pg.innerHTML = `<div class="ptytab">${head}<div class="ptymain${chatP ? ' haschat' : ''}"><div class="ptyleft">${cards}<div class="ptyfoot${aurasP ? '' : ' one'}">${aurasP}${logP}</div></div>${chatP}</div></div>`;
   if (!UI.chatPop) ptyChatWire(); else ptyChatWin();
@@ -10904,7 +10985,7 @@ function hbbPaint() {
   const K = HBB.kind, title = { item: 'item', feat: 'feature', spell: 'spell' }[K];
   const basic = K === 'item' ? hbbItemBasic() : K === 'feat' ? hbbFeatBasic() : hbbSpellBasic();
   const adv = HBB.adv ? `<div class="hbb-adv">${K === 'item' ? hbbItemAdv() : K === 'feat' ? hbbFeatAdv() : hbbSpellAdv()}<p class="hint hbb-fhint">Numbers can be formulas: <code>prof</code>, <code>wis</code>, <code>level</code>, <code>1d6+prof</code>. Separate several entries with commas.</p></div>` : '';
-  box.innerHTML = `<div class="hbb-head"><h3>${HBB.isNew ? 'New homebrew ' + title : 'Edit ' + esc(HBB.d.name || title)}</h3><label class="hbb-switch" title="Show every option the sheet can automate"><input type="checkbox" data-hbbadv${HBB.adv ? ' checked' : ''}><span class="tr"><i></i></span><span>Advanced</span></label></div>
+  box.innerHTML = `<div class="hbb-head"><h3>${HBB.isNew ? 'New homebrew ' + title : 'Edit ' + esc(HBB.d.name || title)}</h3>${K === 'item' && !HBB.read ? `<button type="button" class="btn sm hbb-paste" data-act="itempaste"${HBB.isNew ? '' : ` data-i="${HBB.idx}"`} title="Paste an item from a book, PDF or D&amp;D Beyond and it fills this in">Paste an item…</button>` : ''}<label class="hbb-switch" title="Show every option the sheet can automate"><input type="checkbox" data-hbbadv${HBB.adv ? ' checked' : ''}><span class="tr"><i></i></span><span>Advanced</span></label></div>
     ${HBB.read ? `<div class="hbb-read"><b>Read from the pasted text</b><ul>${HBB.read.done.map(l => `<li>✓ ${esc(l)}</li>`).join('')}${HBB.read.left.map(l => `<li class="warn">! ${esc(l)}</li>`).join('')}</ul><small class="hint">Check it below, then add it. Anything else it does stays in “What it does”.</small></div>` : ''}
     <div class="hbb-body">${basic}${adv}</div>
     <div class="actions hbb-acts">${K === 'item' ? `<label class="hbb-chk sm" title="So you (and your party) can add it again from Add an item → Homebrew"><input type="checkbox" data-hbb="_keep"${HBB.d._keep ? ' checked' : ''}><span><b>Also save to my homebrew items</b></span></label>` : ''}<span class="grow"></span><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-hbbsave>${HBB.isNew ? 'Create ' + title : 'Save'}</button></div>`;
@@ -10942,18 +11023,18 @@ function hbbItemAdv() {
   let h = '';
   if (t === 'weapon') h += bSec('wpn', '⚔', 'Weapon details', hbbSum([['_mag', d._mag ? '+' + d._mag + ' magic' : ''], ['_props', d._props], ['_loading', 'loading']]),
     bF('Magic bonus (to hit and damage)', bSeg('_mag', [['', 'None'], ['1', '+1'], ['2', '+2'], ['3', '+3']])) + bF('Properties', bChips('_props', ['Finesse', 'Light', 'Heavy', 'Two-handed', 'Thrown', 'Reach', 'Versatile', 'Special'])) + bRow(bF('Category', bSeg('_cat', [['simple', 'Simple'], ['martial', 'Martial']])), d._kind === 'ranged' ? bChk('_loading', 'Loading', 'Only one shot per action, bonus action or reaction') : ''));
-  h += bSec('prot', '🛡', 'Protection', hbbSum([[P + 'resist', 'Resist ' + (hbbV(P + 'resist') || '')], [P + 'immune', 'Immune ' + (hbbV(P + 'immune') || '')], [P + 'vuln', 'Vulnerable ' + (hbbV(P + 'vuln') || '')], [P + 'condImmune'], [P + 'ac', 'AC +' + hbbV(P + 'ac')], [P + 'saveAll', 'Saves +' + hbbV(P + 'saveAll')]]) || 'Resistances, immunities, AC',
+  h += bSec('prot', '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/></svg>', 'Protection', hbbSum([[P + 'resist', 'Resist ' + (hbbV(P + 'resist') || '')], [P + 'immune', 'Immune ' + (hbbV(P + 'immune') || '')], [P + 'vuln', 'Vulnerable ' + (hbbV(P + 'vuln') || '')], [P + 'condImmune'], [P + 'ac', 'AC +' + hbbV(P + 'ac')], [P + 'saveAll', 'Saves +' + hbbV(P + 'saveAll')]]) || 'Resistances, immunities, AC',
     bF('Resistant to', bChips(P + 'resist', DND.damageTypes)) + bF('Immune to', bChips(P + 'immune', DND.damageTypes)) + bF('Vulnerable to', bChips(P + 'vuln', DND.damageTypes)) + bF('Can’t be', bChips(P + 'condImmune', HBB_CONDS)) + bRow(bF('AC bonus', bIn(P + 'ac', { ph: '1' })), bF('Bonus to all saves', bIn(P + 'saveAll', { ph: '1' }))));
   h += bSec('move', '🪽', 'Movement & senses', hbbSum([[P + 'speed', '+' + hbbV(P + 'speed') + ' ft'], [P + 'fly', 'Fly'], [P + 'swim', 'Swim'], [P + 'climb', 'Climb'], [P + 'sense']]) || 'Speed, flying, darkvision',
     bRow(bF('Extra speed (ft)', bIn(P + 'speed', { ph: '10' })), bF('Fly (ft)', bIn(P + 'fly', { ph: '30 or walk' })), bF('Swim (ft)', bIn(P + 'swim', { ph: 'walk' })), bF('Climb (ft)', bIn(P + 'climb', { ph: 'walk' }))) + bF('Senses', bIn(P + 'sense', { ph: 'Darkvision 60 ft' })));
   h += bSec('bon', '✚', 'Bonuses', hbbSum([[P + 'skillBonus'], [P + 'init', 'Initiative +' + hbbV(P + 'init')], [P + 'initAdv', 'Adv. on initiative'], [P + 'maxHp', 'Max HP +' + hbbV(P + 'maxHp')], [P + 'adv', 'Advantage notes']]) || 'Skills, initiative, max HP',
     bF('Skill bonuses', bIn(P + 'skillBonus', { ph: 'Stealth +2, Perception +1' })) + bRow(bF('Initiative bonus', bIn(P + 'init', { ph: '2 or wis' })), bF('Max HP bonus', bIn(P + 'maxHp', { ph: 'level' }))) + bChk(P + 'initAdv', 'Advantage on initiative') + bF('Advantage on (a reminder)', bIn(P + 'adv', { ph: 'Saves against being frightened; …' })));
-  h += bSec('use', '⚡', 'When you use it', hbbSum([[P + 'roll', 'Rolls ' + hbbV(P + 'roll')], [P + 'heal', 'Heals ' + hbbV(P + 'heal')], [P + 'temp', 'Temp HP'], [P + 'saveAb', 'Save'], [P + 'dash', 'Dash'], [P + 'refuel', 'Recovers a slot'], [P + 'costFrom', 'Costs']]) || 'Rolls, healing, saves',
+  h += bSec('use', '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>', 'When you use it', hbbSum([[P + 'roll', 'Rolls ' + hbbV(P + 'roll')], [P + 'heal', 'Heals ' + hbbV(P + 'heal')], [P + 'temp', 'Temp HP'], [P + 'saveAb', 'Save'], [P + 'dash', 'Dash'], [P + 'refuel', 'Recovers a slot'], [P + 'costFrom', 'Costs']]) || 'Rolls, healing, saves',
     bRow(bF('Roll', bIn(P + 'roll', { ph: '2d6+wis' })), bF('What the roll is', bIn(P + 'rollNote', { ph: 'fire damage' }))) + bRow(bChk(P + 'healRoll', 'The roll heals me'), bChk(P + 'selfDmg', 'The roll hurts me')) +
     bRow(bF('Targets make a save', bSel(P + 'saveAb', hbbAbOpts, { label: 'Save ability' })), bF('Save DC', bIn(P + 'dc', { ph: '15, or spell' }))) +
     bRow(bF('Heal yourself', bIn(P + 'heal', { ph: '2d4+2' })), bF('Temp HP', bIn(P + 'temp', { ph: '1d10' }))) +
     bRow(bF('Spends', bSel(P + 'costFrom', [['', 'Nothing']].concat(res), { label: 'Spends' })), hbbV(P + 'costFrom') ? bF('How many', bIn(P + 'costN', { num: 1, ph: '1' })) : '', bF('Recovers a spell slot up to', bIn(P + 'refuel', { num: 1, ph: 'level' }))) + bChk(P + 'dash', 'Lets you Dash', 'Adds your speed to this turn’s movement'));
-  h += bSec('eff', '✨', 'Starts an effect', hbbV(P + 'effName') ? hbbV(P + 'effName') : 'A buff that lasts a while', hbbEffFields(P));
+  h += bSec('eff', '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 15l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7z"/></svg>', 'Starts an effect', hbbV(P + 'effName') ? hbbV(P + 'effName') : 'A buff that lasts a while', hbbEffFields(P));
   if (comps.length) h += bSec('sum', '🐾', 'Summons a creature', hbbV(P + 'summon') || 'A companion', bF('Summons', bSel(P + 'summon', [['', '—']].concat(comps.map(c => [c, c])), { label: 'Summons' })));
   h += bSec('sp', '📜', 'Spells it lets you cast', (d.spells || []).join(', ') || 'None', hbbSpellList() + bRow(bChk('spellOnce', 'Leveled spells once per long rest'), bChk('spellAtWill', 'At will (no slot)')) + bF('Cast with', bSel(P + 'spellAb', [['', 'Your spellcasting'], ...AB.map(a => [a, ABN[a]])], { label: 'Cast with' })));
   if (t !== 'weapon') h += bSec('atk', '🗡', 'Gives you an attack', hbbV(P + 'atkName') || 'A special attack', hbbAtkFields(P));
@@ -11013,7 +11094,7 @@ function hbbFeatBasic() {
   const d = HBB.d;
   let h = bF('Name', bIn('name', { ph: 'e.g. Stormborn Fury', cls: 'hbb-name', label: 'Feature name' }));
   h += bF('Using it takes', bSeg('col', hbbUseCols('Nothing — it’s passive, or adds to something else'), { wrap: true }), !d.col && !hbbV('hb.on') ? 'It won’t get its own button in Combat. Pick an action type to use it from Combat, or make it add to another ability below (like Divine Smite).' : '');
-  if (d.col && !HBB.adv) h += `<div class="hbb-card"><div class="hbb-ct">⚡ When you use it</div>` + bRow(bF('Roll', bIn('hb.roll', { ph: '2d6+wis' }), 'Dice or a formula'), bF('What the roll is', bIn('hb.rollNote', { ph: 'radiant damage' }))) + bRow(bF('Targets make a save', bSel('hb.saveAb', hbbAbOpts, { label: 'Save ability' })), hbbV('hb.saveAb') ? bF('Save DC', bIn('hb.dc', { ph: 'spell, or 8+prof+wis' })) : '') + `<p class="hint">More (healing, temp HP, effects, costs) under <b>Advanced</b>.</p></div>`;
+  if (d.col && !HBB.adv) h += `<div class="hbb-card"><div class="hbb-ct"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg> When you use it</div>` + bRow(bF('Roll', bIn('hb.roll', { ph: '2d6+wis' }), 'Dice or a formula'), bF('What the roll is', bIn('hb.rollNote', { ph: 'radiant damage' }))) + bRow(bF('Targets make a save', bSel('hb.saveAb', hbbAbOpts, { label: 'Save ability' })), hbbV('hb.saveAb') ? bF('Save DC', bIn('hb.dc', { ph: 'spell, or 8+prof+wis' })) : '') + `<p class="hint">More (healing, temp HP, effects, costs) under <b>Advanced</b>.</p></div>`;
   h += `<div class="hbb-card"><div class="hbb-ct">↻ Uses</div>` + bF('How often can you use it?', bSeg('_limited', [['', 'As often as I like'], ['1', 'A limited number of times']]));
   if (d._limited) h += bRow(bF('Times', bIn('max', { ph: '1, prof, 1+cha…', label: 'How many times' }), 'A number, or a formula like <code>prof</code> or <code>1+wis</code>'), bF('Comes back on', bSeg('reset', [['short', 'Short rest'], ['long', 'Long rest'], ['none', 'Never']], { wrap: true })));
   h += `</div>`;
@@ -11025,13 +11106,13 @@ function hbbFeatAdv() {
   const d = HBB.d, P = 'hb.', comps = typeof COMP_RULES === 'object' ? Object.keys(COMP_RULES) : [];
   const res = S.features.filter(f => f !== S.features[HBB.idx] && featMax(f) != null).map(f => [f.dname || f.name, f.dname || f.name]);
   let h = '';
-  h += bSec('use', '⚡', 'When you use it', hbbSum([[P + 'roll', 'Rolls ' + hbbV(P + 'roll')], [P + 'heal', 'Heals'], [P + 'temp', 'Temp HP'], [P + 'saveAb', 'Save'], [P + 'dash', 'Dash'], [P + 'costFrom', 'Costs']]) || 'Rolls, healing, saves, costs',
+  h += bSec('use', '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>', 'When you use it', hbbSum([[P + 'roll', 'Rolls ' + hbbV(P + 'roll')], [P + 'heal', 'Heals'], [P + 'temp', 'Temp HP'], [P + 'saveAb', 'Save'], [P + 'dash', 'Dash'], [P + 'costFrom', 'Costs']]) || 'Rolls, healing, saves, costs',
     bRow(bF('Roll', bIn(P + 'roll', { ph: '2d6+wis' })), bF('What the roll is', bIn(P + 'rollNote', { ph: 'radiant damage' }))) + bRow(bChk(P + 'healRoll', 'The roll heals me'), bChk(P + 'selfDmg', 'The roll hurts me')) +
     bRow(bF('Targets make a save', bSel(P + 'saveAb', hbbAbOpts, { label: 'Save ability' })), bF('Save DC', bIn(P + 'dc', { ph: 'spell, or 8+prof+wis' }))) +
     bRow(bF('Heal yourself', bIn(P + 'heal', { ph: '1d8+level' })), bF('Temp HP', bIn(P + 'temp', { ph: 'cha+level' }))) +
     bRow(bF('Also spends', bSel(P + 'costFrom', [['', 'Nothing']].concat(res), { label: 'Also spends' })), hbbV(P + 'costFrom') ? bF('How many', bIn(P + 'costN', { num: 1, ph: '1' })) : '') + bChk(P + 'dash', 'Lets you Dash') + bF('Message when used', bIn(P + 'text', { ph: 'A reminder of what happens' })));
-  h += bSec('eff', '✨', 'Starts an effect', hbbV(P + 'effName') || 'A buff that lasts a while', hbbEffFields(P));
-  h += bSec('always', '🛡', 'Always on', hbbSum([[P + 'resist', 'Resist ' + (hbbV(P + 'resist') || '')], [P + 'immune', 'Immune'], [P + 'ac', 'AC'], [P + 'speed', 'Speed'], [P + 'fly', 'Fly'], [P + 'sense'], [P + 'skillBonus'], [P + 'maxHp', 'Max HP']]) || 'Resistances, speeds, bonuses',
+  h += bSec('eff', '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 15l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7z"/></svg>', 'Starts an effect', hbbV(P + 'effName') || 'A buff that lasts a while', hbbEffFields(P));
+  h += bSec('always', '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/></svg>', 'Always on', hbbSum([[P + 'resist', 'Resist ' + (hbbV(P + 'resist') || '')], [P + 'immune', 'Immune'], [P + 'ac', 'AC'], [P + 'speed', 'Speed'], [P + 'fly', 'Fly'], [P + 'sense'], [P + 'skillBonus'], [P + 'maxHp', 'Max HP']]) || 'Resistances, speeds, bonuses',
     bF('Resistant to', bChips(P + 'resist', DND.damageTypes)) + bF('Immune to', bChips(P + 'immune', DND.damageTypes)) + bF('Vulnerable to', bChips(P + 'vuln', DND.damageTypes)) + bF('Can’t be', bChips(P + 'condImmune', HBB_CONDS)) +
     bRow(bF('AC bonus', bIn(P + 'ac', { ph: '1' })), bF('Extra speed', bIn(P + 'speed', { ph: '10' })), bF('Fly', bIn(P + 'fly', { ph: 'walk' })), bF('Swim', bIn(P + 'swim', { ph: 'walk' })), bF('Climb', bIn(P + 'climb', { ph: 'walk' }))) +
     bRow(bF('Senses', bIn(P + 'sense', { ph: 'Darkvision 60 ft' })), bF('Skill bonuses', bIn(P + 'skillBonus', { ph: 'Insight +2' }))) + bRow(bF('Saves bonus', bIn(P + 'saveAll', { ph: '1' })), bF('Initiative bonus', bIn(P + 'init', { ph: 'wis' })), bF('Max HP bonus', bIn(P + 'maxHp', { ph: 'level' }))) +
@@ -11164,14 +11245,20 @@ function hbbRiderFields(kind) {
 }
 
 // Paste an item's text from a book / PDF / D&D Beyond → the builder, filled in, to check and add.
-function openItemPaste() {
+// From the builder itself (idx = the inventory item being edited) it fills that item in, and Cancel goes back to the builder.
+function openItemPaste(idx) {
+  idx = idx >= 0 && S.inventory[idx] ? idx : -1; const back = HBB && HBB.kind === 'item' ? HBB : null;
+  const reopen = () => { if (!back) return; setTimeout(() => { HBB = back; openModal('<div id="hbb"></div>', () => { HBB = null; }, true); hbbPaint(); }, 0); };
   openModal(`<h3>Paste an item</h3><p class="hint">Paste a magic item — its name, the type line (“Weapon (longsword), rare (requires attunement)”), then its text. Bonuses, charges, spells, extra damage, resistances and speeds become automation you can check before adding it.</p>
     <textarea class="f" id="ipaste" rows="10" aria-label="Item text" placeholder="Ring of Protection&#10;Ring, rare (requires attunement)&#10;You gain a +1 bonus to AC and saving throws while wearing this ring."></textarea>
-    <div class="actions"><span class="grow"></span><button class="btn" data-act="close">Cancel</button><button class="btn gold" id="ipasteGo">Read item</button></div>`, null, true);
+    <div class="actions"><span class="grow"></span><button class="btn" data-act="close">Cancel</button><button class="btn gold" id="ipasteGo">Read item</button></div>`, reopen, true);
   setTimeout(() => { const t = $('#ipaste'); if (t) t.focus(); }, 30);
   $('#ipasteGo').onclick = () => { const v = $('#ipaste').value; if (!v.trim()) return; const ctx = { weapons: DND.weapons, armor: DND.armor, spells: DND.spells.map(x => x.name) }, r = ItemParse.parse(v, ctx);
     if (!r) { toast('That didn’t look like an item — the first line should be its name.', 'fumble'); return; }
-    const it = ItemParse.toItem(r.spec, ctx); it.id = uid(); closeModal(true); openHomebrew('item', -1, it, { done: r.done, left: r.left }); };
+    let it = ItemParse.toItem(r.spec, ctx); it.id = uid();
+    // (filling in an item you already have keeps where it is and whether it's worn, attuned or infused)
+    if (idx >= 0) { const cur = S.inventory[idx]; it = Object.assign({}, cur, it, { id: cur.id, qty: cur.qty, equipped: cur.equipped, attuned: cur.attuned, carried: cur.carried, bag: cur.bag, infusion: cur.infusion }); }
+    closeModal(true); openHomebrew('item', idx, it, { done: r.done, left: r.left }); };
 }
 
 // ==== ITEMPARSE START — shared with the DM's Desk (desk/build.sh copies this block into desk.js; edit it only here) ====
@@ -11604,6 +11691,8 @@ function renderFeatModal() {
   openModal(`<h3>Add a feat</h3><p class="hint" style="margin:0 0 8px">For feats from your DM, a background or a race. Feats taken at level up are added there automatically.</p>
     <div id="featm">${choiceUI(CH, 'feat', { type: 'feat', n: 1 })}</div>
     <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="featok">Add feat</button></div>`, null, true);
+  // the same searchable feat list as character creation and level up (and the follow-up choices as lists too)
+  wz3FeatLists('#modal-body', sheetFeatOK); wz3ChoiceLists('#modal-body');
 }
 function featModalOK() {
   const n = ansList(FEATM.ans, 'feat')[0]; if (!n) { toast('Choose a feat first.'); return; }

@@ -716,12 +716,18 @@ html.mobile .deathtile .death { grid-template-columns: auto auto auto auto; gap:
 .sumcell { font-size: .82rem; color: var(--soft); min-width: 220px; max-width: 360px; }
 .sp-sum { font-size: .8rem; color: var(--soft); margin-top: 2px; }
 .always.known { background: transparent; border-color: var(--line); color: var(--soft); }
-.castopts { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; margin-top: 6px; }
-.castopt { border: 1px solid var(--gold); background: var(--gold-soft); color: var(--ink); border-radius: 9px; padding: 9px 10px; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; }
-.castopt span { font-size: .74rem; color: var(--soft); }
-@media (hover:hover){:where(html:not(.mobile)) .castopt:hover:not([disabled]){ background: var(--gold); }}
-.castopt[disabled] { opacity: .4; cursor: not-allowed; }
-.castopt.ghost { background: transparent; border-color: var(--line); }
+.castopts { display: flex; flex-direction: column; margin-top: 10px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--panel2); }
+.castopt { position: relative; display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 10px; row-gap: 1px; width: 100%; min-height: 40px; padding: 9px 34px 9px 14px; border: 0; border-top: 1px solid rgba(127,127,127,.2); border-radius: 0; background: transparent; color: var(--ink); text-align: left; cursor: pointer; transition: background-color .12s ease; }
+.castopt:first-child { border-top: 0; }
+.castopt b { font-size: .9rem; font-weight: 650; line-height: 1.3; }
+.castopt span { flex: 1 1 180px; font-size: .78rem; line-height: 1.35; color: var(--soft); }
+.castopt::after { content: ""; position: absolute; right: 15px; top: 50%; width: 6px; height: 6px; border-top: 2px solid currentColor; border-right: 2px solid currentColor; transform: translateY(-50%) rotate(45deg); opacity: .25; transition: opacity .12s ease, right .12s ease; }
+@media (hover:hover){:where(html:not(.mobile)) .castopt:hover:not([disabled]){ background: var(--gold-soft); }}
+@media (hover:hover){:where(html:not(.mobile)) .castopt:hover:not([disabled])::after{ opacity: 1; right: 12px; color: var(--gold-ink); }}
+.castopt:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+.castopt[disabled] { opacity: .45; cursor: not-allowed; }
+.castopt[disabled]::after { display: none; }
+.castopt.ghost { color: var(--soft); }
 .checkline.big { font-size: .95rem; font-weight: 600; margin: 4px 0 8px; }
 /* Features */
 .clsrow { border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; margin-bottom: 8px; background: var(--panel2); }
@@ -912,7 +918,7 @@ html.mobile .btn.rest { min-height: 44px; font-size: .95rem; }
 .lvlnum b { display: block; font-size: 2rem; line-height: 1; color: var(--banner-ink); }
 .lvlright { display: flex; flex-direction: column; gap: 4px; }
 .lvbtn { font-size: .95rem; padding: 7px 14px; }
-.lvlbox.ready { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold), 0 0 18px rgba(224,165,38,.45); }
+.lvlbox.ready { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold); }
 .lvlbox.ready .lvbtn { animation: pulse 1.6s infinite; }
 .xprow { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 .xprow .lbl { margin: 0; }
@@ -1015,7 +1021,7 @@ html.mobile .rest-actions { grid-template-columns: 1fr 1fr; }
 html.mobile .pbar { flex-wrap: wrap; }
 html.mobile .flow { columns: 1; }
 
-.btn.gold, .tbtn.gold, .lvbtn, .tabcount, .tbtn.on, .pbar button.on, .lvtabs b{ color: var(--on-gold, #1D2536); }@media (hover:hover){:where(html:not(.mobile)) .castopt:hover:not([disabled]){ color: var(--on-gold, #1D2536); }}
+.btn.gold, .tbtn.gold, .lvbtn, .tabcount, .tbtn.on, .pbar button.on, .lvtabs b { color: var(--on-gold, #1D2536); }
 .qrow textarea.f, .goal textarea.f { flex: 1; resize: none; min-height: 0; }
 /* Ability blocks with the score big and the modifier small */
 .ab.swap { display: flex; flex-direction: column; align-items: center; }
@@ -1032,7 +1038,7 @@ html.mobile .xprow { justify-content: space-between; }
 html.mobile .ident-grid .fld { flex: 1 1 140px; }
 
 .btn .hdleft { color: inherit; opacity: .85; font-weight: 600; margin-left: 4px; }
-.btn.gold .hint, .castopt span { color: inherit; opacity: .8; }
+.btn.gold .hint { color: inherit; opacity: .8; }
 
 /* ===== Round 4 ===== */
 /* Header */
@@ -1810,8 +1816,8 @@ html.mobile .advtile .advopt { height: 40px; font-size: .9rem; }
 .econ .readied { border: 1px solid var(--gold); background: var(--gold-soft); border-radius: 10px; padding: 8px 10px; margin-bottom: 8px; }
 .econ .readied .opt-head { gap: 6px; }
 .econ .readied.gone { opacity: .6; }
-#modal-body .castopt.on { outline: 2px solid var(--gold); background: var(--gold); color: #1d2536; }
-#modal-body .castopt.on span { color: #1d2536; }
+#modal-body .castopt.on { background: var(--gold-soft); box-shadow: inset 3px 0 0 var(--gold); }
+#modal-body .castopt.on::after { opacity: 1; right: 15px; width: 5px; height: 10px; border-top: 0; border-bottom: 2px solid var(--gold-ink); border-right-color: var(--gold-ink); transform: translateY(-60%) rotate(45deg); }
 
 /* Nat 1 Roll house rule */
 .rc-n1 { display: inline-block; margin: 3px 0; padding: 2px 8px; border-radius: 6px; background: rgba(200,60,60,.18); color: var(--ink); font-size: .85rem; }
@@ -2474,9 +2480,9 @@ html .tile.hp > .hp-wrap { flex: 1; }
 .tile.hp .btn.hpi[data-act=heal] { color: var(--heal-ink); border-color: var(--heal); background: var(--heal-soft); }
 .tile.hp .btn.hpi { transition: filter .15s, box-shadow .15s, transform .1s; }
 @media (hover:hover){:where(html:not(.mobile)) .tile.hp .btn.hpi:hover{ filter: brightness(1.12) saturate(1.15); }}
-@media (hover:hover){:where(html:not(.mobile)) .tile.hp .btn.hpi[data-act=dmg]:hover{ border-color: var(--dmg); box-shadow: 0 0 0 1px var(--dmg), 0 0 10px color-mix(in srgb, var(--dmg) 45%, transparent); }}
-@media (hover:hover){:where(html:not(.mobile)) .tile.hp .btn.hpi[data-act=heal]:hover{ border-color: var(--heal); box-shadow: 0 0 0 1px var(--heal), 0 0 10px color-mix(in srgb, var(--heal) 45%, transparent); }}
-@media (hover:hover){:where(html:not(.mobile)) .tile.hp .btn.hpi.tmpbtn:hover{ border-color: var(--temp); box-shadow: 0 0 0 1px var(--temp), 0 0 10px color-mix(in srgb, var(--temp) 45%, transparent); }}
+@media (hover:hover){:where(html:not(.mobile)) .tile.hp .btn.hpi[data-act=dmg]:hover{ border-color: var(--dmg); box-shadow: 0 0 0 1px var(--dmg); }}
+@media (hover:hover){:where(html:not(.mobile)) .tile.hp .btn.hpi[data-act=heal]:hover{ border-color: var(--heal); box-shadow: 0 0 0 1px var(--heal); }}
+@media (hover:hover){:where(html:not(.mobile)) .tile.hp .btn.hpi.tmpbtn:hover{ border-color: var(--temp); box-shadow: 0 0 0 1px var(--temp); }}
 @media (hover:hover){:root[data-theme="dark"]:not(.mobile) .tile.hp .btn.hpi:hover{ filter: brightness(1.25) saturate(1.1); }}
 
 /* AC tile: plain number with an ⓘ for the breakdown */
@@ -2877,9 +2883,9 @@ body.gdragging .gridl > [data-pid] { transition: none; }
 .chp2 .btn.hpi.dmg { color: var(--dmg-ink); border-color: var(--dmg); background: var(--dmg-soft); }
 .chp2 .btn.hpi.heal { color: var(--heal-ink); border-color: var(--heal); background: var(--heal-soft); }
 .chp2 .btn.hpi.tmp { color: var(--temp-ink); border-color: var(--temp); background: var(--temp-soft); }
-@media (hover:hover){:where(html:not(.mobile)) .chp2 .btn.hpi.dmg:hover{ box-shadow: 0 0 0 1px var(--dmg), 0 0 10px color-mix(in srgb, var(--dmg) 45%, transparent); }}
-@media (hover:hover){:where(html:not(.mobile)) .chp2 .btn.hpi.heal:hover{ box-shadow: 0 0 0 1px var(--heal), 0 0 10px color-mix(in srgb, var(--heal) 45%, transparent); }}
-@media (hover:hover){:where(html:not(.mobile)) .chp2 .btn.hpi.tmp:hover{ box-shadow: 0 0 0 1px var(--temp), 0 0 10px color-mix(in srgb, var(--temp) 45%, transparent); }}
+@media (hover:hover){:where(html:not(.mobile)) .chp2 .btn.hpi.dmg:hover{ box-shadow: 0 0 0 1px var(--dmg); }}
+@media (hover:hover){:where(html:not(.mobile)) .chp2 .btn.hpi.heal:hover{ box-shadow: 0 0 0 1px var(--heal); }}
+@media (hover:hover){:where(html:not(.mobile)) .chp2 .btn.hpi.tmp:hover{ box-shadow: 0 0 0 1px var(--temp); }}
 .cm-card .chp.chp2 { flex-basis: 220px; gap: 10px; padding: 8px; }
 .cm-card .chp2 .chp-ring { width: 78px; height: 78px; }
 .cm-card .chp2 .chp-center { inset: 11px; }
@@ -3115,7 +3121,7 @@ html.mobile #tipbox .tipfx { width: 76px; height: 76px; }
 .insp.one { cursor: pointer; font: inherit; color: inherit; padding: 4px 14px; }
 @media (hover:hover){:where(html:not(.mobile)) .insp.one:hover{ background: var(--gold-soft); }}
 .insp.one .insp-n { font-size: 1.15rem; transition: transform .15s; }
-.insp.one.on .insp-n { transform: scale(1.12); text-shadow: 0 0 8px rgba(201,150,43,.55); }
+.insp.one.on .insp-n { transform: scale(1.12); }
 .insp.one:active .insp-n { transform: scale(.9); }
 
 /* on an actual phone the layout switch is hidden: it always uses the phone layout */
@@ -3679,7 +3685,7 @@ html.mobile.hasbug .namebox { padding-right: 148px; }
 .hbb-seg:not(.pills) button + button { border-left: 1px solid var(--line2); }
 .hbb-seg.pills button { border: 1px solid var(--line2); border-radius: 999px; background: var(--field); padding: 3px 10px; }
 @media (hover:hover){:where(html:not(.mobile)) .hbb-seg button:hover{ background: var(--gold-soft); }}
-.hbb-seg button.on { background: var(--gold); color: var(--gold-ink); border-color: var(--gold); }
+.hbb-seg button.on{ background: var(--gold); color: var(--on-gold, #1D2536); border-color: var(--gold); }@media (hover:hover){:where(html:not(.mobile)) .hbb-seg button.on:hover{ background: var(--gold); color: var(--on-gold, #1D2536); border-color: var(--gold); }}
 .hbb-seg .ic { font-size: 14px; line-height: 1; }
 .hbb-seg.big button { padding: 5px 12px; }
 .hbb-card { border: 1px solid var(--line); border-radius: 10px; background: var(--panel2); padding: 8px 10px 10px; display: flex; flex-direction: column; gap: 8px; }
@@ -4043,7 +4049,7 @@ html.mwin .skman { display: grid; grid-template-columns: 1fr 1fr; column-gap: 22
 /* Header with Player/Race/Background/Alignment/Faith all off: the whole row drops so its bottom lines up with the portrait's bottom */
 html:not(.mobile) .ident.noid { padding-bottom: 0 !important; margin-bottom: 0 !important; }
 html:not(.mobile) .ident.noid .ident-top { align-items: flex-end !important; padding-bottom: 0 !important; margin-bottom: 0 !important; }
-html:not(.mobile) .ident.noid .namebox { align-self: flex-end; }
+html:not(.mobile) .ident.noid .namebox { align-self: center; position: relative; top: -2px; } /* name and the line under it centred on the portrait */
 html:not(.mobile) .ident.noid .subtitle { margin-bottom: -4px; }
 /* The info button on condition chips sits dead centre on the chip */
 .cchip .notetip { display: inline-flex !important; align-items: center; justify-content: center; align-self: center; width: 16px; height: 16px; padding: 0; margin: 0 0 0 3px; line-height: 16px; vertical-align: middle; }
@@ -4838,6 +4844,7 @@ html:not(.mobile) .toolbar [data-zi="history"].iconly .ti { display: block !impo
    Same sizes as before; only the text moves. */
 @supports (text-box: trim-both cap alphabetic) {
   .cchip .ccn, .addc > .tt, .advb .al { display: block; text-box: trim-both cap alphabetic; }
+  .cchip > .ccn { top: 0; }
   .addc, .advb { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; }
   .addc { min-height: 22px; }
   .advb { min-height: 21px; }
@@ -4916,4 +4923,125 @@ html.mobile .setx > .stpane.nopage { display: none !important; }
 /* character creation on a phone: no background band behind the step markers */
 html.mobile #wizard .wz3 .wz-head { background: none !important; }
 html.mobile #wizard .wz3 .wz-steps { background: none !important; box-shadow: none !important; }
+
+/* ---------- Features tab: ledger rows ----------
+   One soft rounded row per feature (name, short summary, uses, Use); tapping it slides open the full text, tags and Edit. */
+:is(#page-features, #page-infusions) .fgroup { margin-top: 16px; }
+:is(#page-features, #page-infusions) .fgroup .subh.fghead { margin: 0 0 6px; padding: 0 12px; background: none; border: 0; box-shadow: none; }
+:is(#page-features, #page-infusions) .fgrid { display: flex; flex-direction: column; gap: 4px; grid-template-columns: none !important; }
+:is(#page-features, #page-infusions) .fcard.frow { display: block; padding: 0; border: 0; border-radius: 12px; background: color-mix(in srgb, var(--ink) 3%, transparent); box-shadow: none; min-width: 0; transition: background-color .18s ease, box-shadow .18s ease; }
+@media (hover: hover) { @media (hover:hover){:where(html:not(.mobile)) :is(#page-features, #page-infusions) .fcard.frow:hover{ background: color-mix(in srgb, var(--ink) 5.5%, transparent); }} }
+:is(#page-features, #page-infusions) .fcard.frow.open { background: var(--panel2); box-shadow: 0 0 0 1px color-mix(in srgb, var(--gold) 28%, transparent), 0 6px 18px rgba(0,0,0,.18); }
+:is(#page-features, #page-infusions) .fcard.frow.editing { box-shadow: 0 0 0 2px var(--gold); }
+:is(#page-features, #page-infusions) .fl-sum { display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 0 12px 0 0; border-radius: 12px; }
+:is(#page-features, #page-infusions) .fl-tog { flex: 1 1 auto; min-width: 0; align-self: stretch; display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 10px; align-items: center; padding: 7px 0 7px 12px; border: 0; border-radius: 12px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+:is(#page-features, #page-infusions) .fl-tog:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+:is(#page-features, #page-infusions) .fcard.frow.custom .fl-tog { box-shadow: inset 3px 0 0 color-mix(in srgb, var(--gold) 70%, transparent); }
+:is(#page-features, #page-infusions) .fl-car { width: 7px; height: 7px; margin-left: 3px; border-right: 2px solid var(--soft); border-bottom: 2px solid var(--soft); border-radius: 0 0 2px 0; transform: rotate(-45deg); transition: transform .2s ease, border-color .2s ease; }
+:is(#page-features, #page-infusions) .frow.open .fl-car { transform: rotate(45deg); border-color: var(--gold); }
+:is(#page-features, #page-infusions) .fl-t { min-width: 0; display: flex; align-items: baseline; gap: 4px 10px; flex-wrap: wrap; }
+:is(#page-features, #page-infusions) .fl-t .fc-name { font-size: .95rem; font-weight: 650; }
+:is(#page-features, #page-infusions) .fl-t .fscale { align-self: center; }
+:is(#page-features, #page-infusions) .fl-s { flex: 1 1 0; min-width: 0; font-style: normal; font-size: .82rem; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+:is(#page-features, #page-infusions) .fl-r { display: flex; align-items: center; gap: 10px; }
+:is(#page-features, #page-infusions) .fl-r .btn { white-space: nowrap; }
+:is(#page-features, #page-infusions) .fl-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .22s ease; }
+:is(#page-features, #page-infusions) .frow.open .fl-body { grid-template-rows: 1fr; }
+:is(#page-features, #page-infusions) .fl-in { overflow: hidden; min-height: 0; padding: 0 14px 0 38px; display: flex; flex-direction: column; gap: 8px; }
+:is(#page-features, #page-infusions) .frow.open .fl-in { padding-bottom: 12px; }
+:is(#page-features, #page-infusions) .fl-in .fc-desc { max-width: 78ch; color: var(--ink); }
+:is(#page-features, #page-infusions) .fl-foot { display: flex; justify-content: flex-start; }
+html.mobile :is(#page-features, #page-infusions) .fl-s { display: none; }
+html.mobile :is(#page-features, #page-infusions) .fl-in { padding-left: 14px; }
+@media (prefers-reduced-motion: reduce) { :is(#page-features, #page-infusions) .fl-body, :is(#page-features, #page-infusions) .fl-car, :is(#page-features, #page-infusions) .fcard.frow { transition: none; } }
+:is(#page-features, #page-infusions) .fl-s { transition: opacity .18s ease; }
+:is(#page-features, #page-infusions) .frow.open .fl-s { opacity: 0; }
+/* Buttons inside an open row sit on the row's own colour, so give them a fill and edge of their own. */
+:is(#page-features, #page-infusions) .fl-in .btn:not(.gold):not(.red) { background: var(--field); border: 1px solid var(--line); color: var(--ink); }
+@media (hover: hover) { @media (hover:hover){:where(html:not(.mobile)) :is(#page-features, #page-infusions) .fl-in .btn:not(.gold):not(.red):hover{ border-color: var(--gold); }} }
+/* The row's header is a control: double-clicking it shouldn't select its words. */
+:is(#page-features, #page-infusions) .fl-sum { -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+/* Condition chips: the ⓘ sits right after the word (just the chip's own gap between them). */
+.cchip > .notetip { margin-left: 0; }
+:is(#page-features, #page-infusions) .fl-r { flex: none; } :is(#page-features, #page-infusions) .fl-r .pips { flex-wrap: nowrap; white-space: nowrap; }
+/* Open feature: a quiet meta line, the text, then its actions as accent chips. Editing is a pencil at the row's right end. */
+:is(#page-features, #page-infusions) .fl-in { gap: 10px; }
+:is(#page-features, #page-infusions) .fl-in > :first-child { padding-top: 12px; border-top: 1px solid color-mix(in srgb, var(--ink) 8%, transparent); }
+:is(#page-features, #page-infusions) .fl-meta { display: flex; flex-wrap: wrap; gap: 2px 0; font-size: .74rem; font-weight: 600; letter-spacing: .02em; color: var(--soft); }
+:is(#page-features, #page-infusions) .fl-meta span + span::before { content: "·"; margin: 0 7px; opacity: .6; }
+:is(#page-features, #page-infusions) .fl-in .fc-desc { font-size: .9rem; line-height: 1.6; }
+:is(#page-features, #page-infusions) .fl-in .fc-uses .hint { font-size: .8rem; }
+:is(#page-features, #page-infusions) .fl-in .fxacts { gap: 6px; margin-top: 0; }
+:is(#page-features, #page-infusions) .fl-in .fxacts .btn.fxact { background: color-mix(in srgb, var(--gold) 14%, transparent); border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent); color: var(--ink); border-radius: 999px; padding: 4px 14px; font-weight: 650; }
+@media (hover: hover) { @media (hover:hover){:where(html:not(.mobile)) :is(#page-features, #page-infusions) .fl-in .fxacts .btn.fxact:hover{ background: color-mix(in srgb, var(--gold) 26%, transparent); border-color: var(--gold); }} }
+:is(#page-features, #page-infusions) .fl-in .fxacts .btn.fxact small { opacity: .75; font-weight: 600; }
+:is(#page-features, #page-infusions) .fl-in > :last-child { margin-bottom: 2px; }
+:is(#page-features, #page-infusions) .fl-edit { flex: none; width: 30px; height: 30px; display: inline-grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--soft); cursor: pointer; opacity: 0; visibility: hidden; transition: opacity .15s ease, background-color .15s ease, color .15s ease; }
+:is(#page-features, #page-infusions) .frow.open .fl-edit, :is(#page-features, #page-infusions) .frow.editing .fl-edit { opacity: 1; visibility: visible; }
+@media (hover: hover) { @media (hover:hover){:where(html:not(.mobile)) :is(#page-features, #page-infusions) .frow:hover .fl-edit{ opacity: 1; visibility: visible; }} @media (hover:hover){:where(html:not(.mobile)) :is(#page-features, #page-infusions) .fl-edit:hover{ background: color-mix(in srgb, var(--ink) 9%, transparent); color: var(--ink); }} }
+:is(#page-features, #page-infusions) .fl-edit:focus-visible { opacity: 1; visibility: visible; outline: 2px solid var(--gold); outline-offset: 1px; }
+:is(#page-features, #page-infusions) .fl-edit.on { background: var(--gold); color: var(--on-gold, #1D2536); }
+html.mobile :is(#page-features, #page-infusions) .fl-edit { width: 34px; height: 34px; }
+/* Open text uses the row's full width. */
+:is(#page-features, #page-infusions) .fl-in .fc-desc { max-width: none; }
+/* Keyboard focus rings the whole row rather than just its header. */
+:is(#page-features, #page-infusions) .fl-tog:focus-visible { outline: none; }
+:is(#page-features, #page-infusions) .fcard.frow:has(.fl-tog:focus-visible) { box-shadow: 0 0 0 2px color-mix(in srgb, var(--gold) 70%, transparent); }
+/* Choice windows size to their options instead of stretching across the screen (computers; phones keep the full-width sheet). */
+html:not(.mobile) .modal.wide:has(> .castopts):not(:has(.settabs)) { width: fit-content; min-width: min(440px, 94vw); max-width: min(640px, 94vw); }
+/* No options to list: just the sentence, without the empty list box around it. */
+.castopts:not(:has(.castopt)) { border: 0; background: none; overflow: visible; }
+.castopts > p.hint { margin: 0; }
+/* A feature's own actions (Dash / Disengage / Hide…) sit in the row header where Use goes, so they work without opening it. */
+:is(#page-features, #page-infusions) .fl-acts { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: 5px; margin: 0; }
+:is(#page-features, #page-infusions) .fl-acts .btn.fxact { background: color-mix(in srgb, var(--gold) 14%, transparent); border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent); color: var(--ink); border-radius: 999px; padding: 3px 11px; font-size: .78rem; font-weight: 650; white-space: nowrap; }
+@media (hover: hover) { @media (hover:hover){:where(html:not(.mobile)) :is(#page-features, #page-infusions) .fl-acts .btn.fxact:hover{ background: color-mix(in srgb, var(--gold) 26%, transparent); border-color: var(--gold); }} }
+:is(#page-features, #page-infusions) .fl-acts .btn.fxact small { opacity: .75; font-weight: 600; }
+/* Phones: the actions get their own line under the name. */
+html.mobile :is(#page-features, #page-infusions) .fl-sum:has(.fl-acts) { flex-wrap: wrap; padding-bottom: 8px; }
+html.mobile :is(#page-features, #page-infusions) .fl-sum:has(.fl-acts) .fl-r { flex: 1 1 100%; flex-wrap: wrap; justify-content: flex-start; padding-left: 38px; }
+html.mobile :is(#page-features, #page-infusions) .fl-sum:has(.fl-acts) .fl-acts { justify-content: flex-start; flex: 1 1 auto; }
+html.mobile :is(#page-features, #page-infusions) .fl-acts .btn.fxact { min-height: 32px; padding: 4px 12px; }
+/* Edit lives at the bottom right of an open feature, so the header's buttons reach the row's right edge. */
+:is(#page-features, #page-infusions) .fl-sum { padding-right: 10px; }
+:is(#page-features, #page-infusions) .fl-foot { display: flex; justify-content: flex-end; margin-top: -6px; }
+:is(#page-features, #page-infusions) .fl-foot .fl-edit { opacity: 1; visibility: visible; }
+:is(#page-features, #page-infusions) .fl-in > .fl-foot:last-child { margin-bottom: -4px; }
+/* …tucked into the corner instead of taking a line of its own. */
+:is(#page-features, #page-infusions) .fl-in { position: relative; }
+:is(#page-features, #page-infusions) .fl-foot, :is(#page-features, #page-infusions) .fl-in > .fl-foot:last-child { position: absolute; right: 8px; bottom: 6px; margin: 0; }
+:is(#page-features, #page-infusions) .fl-in > :nth-last-child(2) { padding-right: 34px; }
+:is(#page-features, #page-infusions) .frow:not(.open) .fl-foot { visibility: hidden; }
+/* Room for the pencil only at the end of the last line: the words use the full width and drop a line only if they'd reach it. */
+:is(#page-features, #page-infusions) .fl-in > :nth-last-child(2) { padding-right: 0; display: flow-root; }
+:is(#page-features, #page-infusions) .fl-in > :nth-last-child(2):not(:has(p, li))::after,
+:is(#page-features, #page-infusions) .fl-in > :nth-last-child(2) :is(p, li):last-child:not(:has(~ *))::after { content: ""; float: right; width: var(--footw, 30px); height: 1em; }
+
+/* Infusions tab: the same ledger rows. "End infusion" sits at the bottom right of an open row. */
+#page-infusions .fl-in .fl-foot { position: static !important; margin: 0 !important; justify-content: flex-end; }
+#page-infusions .fl-in > :nth-last-child(2) { padding-right: 0; }
+#page-infusions .fl-in > :nth-last-child(2)::after, #page-infusions .fl-in > :nth-last-child(2) :is(p, li)::after { content: none !important; }
+#page-infusions .fl-in .inf-end { color: var(--soft); }
+@media (hover: hover) { @media (hover:hover){:where(html:not(.mobile)) #page-infusions .fl-in .btn.inf-end:hover{ color: var(--red); border-color: var(--red); }} }
+#page-infusions .frow.inf-offrow .fc-name { opacity: .65; }
+#page-infusions .frow.inf-offrow .fl-s { color: var(--red); }
+#page-infusions .frow.is-on .fl-car { border-color: var(--gold); }
+#page-infusions .inf-rows .inf-warn, #page-infusions .inf-rows .inf-eff { margin: 0; }
+#page-infusions .fl-r .ichip.on { white-space: nowrap; }
+#page-features .fl-hbtns { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.hbb-head { flex-wrap: wrap; row-gap: 6px; }
+.hbb-head .hbb-paste { white-space: nowrap; }
+/* A group being dragged folds to its header while it moves (it opens again once dropped). */
+.spg.gfold > :not(.cspg-hrow), .cgmov.gfold > :not(.cspg-h):not(.cgdrag) { display: none !important; }
+/* The grip sits above the header button that starts under it, so it gets the grab cursor and the press. */
+.cspg-hrow > .gdrag, .cgmov > .cgdrag { z-index: 3; }
+.cspg-hrow > .gdrag-off { z-index: auto; }
+/* Story tab: alignment, faith (and player, in the single-file sheet) above the personality traits. */
+.story-id { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 12px; }
+.setrow .set-ctl { flex: 0 0 min(200px, 55%); margin-left: auto; } .setrow .set-ctl .f { width: 100% !important; max-width: none !important; min-width: 0 !important; box-sizing: border-box; }
+/* Top-right icon buttons: an even icon size in the 28px inside of the button, so the icon lands on whole pixels and sits dead centre. */
+.devbtn svg, .devbtn.logbtn svg { width: 18px; height: 18px; display: block; }
+/* The line under the name breaks only between its parts (each part's spaces are non-breaking; see fitSubtitle). */
+.namebox .subtitle { overflow-wrap: normal; word-break: normal; overflow-x: hidden; max-width: 100%; box-sizing: border-box; }
+.namebox .subtitle.sub2, html:not(.mobile) .namebox .subtitle.sub2 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; }
 
