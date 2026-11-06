@@ -5117,6 +5117,18 @@ html.mobile .tile:is([data-zi="ac"], [data-zi="init"], [data-zi="speed"], [data-
 
 html.mobile .tile:is([data-zi="ac"],[data-zi="init"],[data-zi="speed"],[data-zi="prof"],[data-zi="passive"],[data-zi="hd"]) > .lbl { display: flex; flex-direction: column; justify-content: flex-end; }
 html.mobile .tile[data-zi="init"] > .roll.big { margin-top: -6px; margin-bottom: -6px; }
+/* Ready an action: picked straight from the Action column */
+.readybar { margin: 0 0 12px; padding: 12px 14px; border: 1px solid var(--gold); border-radius: 12px; background: color-mix(in srgb, var(--gold) 9%, var(--panel, transparent)); }
+.readybar .rb-h { display: flex; align-items: center; gap: 10px; }
+.readybar .rb-h b { flex: 1; font-size: 1rem; color: var(--gold-ink); }
+.readybar p { margin: 6px 0 10px; font-size: .82rem; line-height: 1.4; color: var(--soft); }
+.readybar .f { width: 100%; box-sizing: border-box; }
+.readybar .rb-other { display: flex; gap: 8px; margin-top: 8px; }
+.readybar .rb-other .f { flex: 1; min-width: 0; }
+html.readying .econ:not(.col-action) { opacity: .4; transition: opacity .2s; }
+html.readying .econ.col-action :is(.atkbtn, button.roll, [data-act="cast"], .chip[data-act="markopt"], .opt .btn:not(.notetip)) { box-shadow: 0 0 0 2px var(--gold); }
+html.readying .econ.col-action .chip[data-act="markopt"][data-name="Ready" i] { box-shadow: none; opacity: .5; }
+@media (prefers-reduced-motion: no-preference) { html.readying .readybar { animation: rbIn .2s ease-out; } @keyframes rbIn { from { opacity: 0; transform: translateY(-4px); } } }
 
 </style>
 </head>
@@ -14280,7 +14292,7 @@ function renderVitals() {
         <div class="hp-center">${f ? inp('form.hp', { num: 1, cls: 'cur', label: 'Form HP' }) + `<div class="hp-max">of ${N(f.maxhp)}</div>` : `<div class="curline">` + inp('hp.cur', { num: 1, cls: 'cur', label: 'Current HP' }) + `<span class="tmpbadge" data-calc="tmpb" title="Temporary hit points"></span></div><div class="hp-max">of <span class="maxv" data-calc="hpmaxv"></span></div>`}</div></div>
       <div class="hp-side">
         ${f ? `<div class="formnote">Your HP: <b data-calc="truehp"></b> <button class="btn sm" data-act="endform">Revert</button></div>` : ''}
-        <div class="hp-actions"><div class="hp-amtrow"><select class="f hptype sel-dmg" id="hpType" aria-label="Damage type (resistances and immunities apply)" title="Damage type: your resistances and immunities apply"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="hpAmt" type="text" inputmode="text" autocomplete="off" enterkeyhint="done" placeholder="Amount" aria-label="HP amount: type -20 (or 20) and press Enter for damage, +20 to heal"></div>
+        <div class="hp-actions"><div class="hp-amtrow"><select class="f hptype sel-dmg" id="hpType" aria-label="Damage type (resistances and immunities apply)" title="Damage type: your resistances and immunities apply">${dmgTypeOpts()}</select><input class="f" id="hpAmt" type="text" inputmode="text" autocomplete="off" enterkeyhint="done" placeholder="Amount" aria-label="HP amount: type -20 (or 20) and press Enter for damage, +20 to heal"></div>
           <button class="btn red hpi" data-act="dmg" title="Take damage" aria-label="Take damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-act="heal" title="Heal" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmpbtn" data-act="tmphp" title="Gain temporary HP (they don't stack — the higher stays). 0 clears them." aria-label="Gain temporary HP">${ICON.hpTemp}</button></div>
         <div class="rest-actions"><button class="btn rest short" data-act="short" title="1 hour: spend Hit Dice, refresh short-rest features and Pact slots"><span class="ri">${ICON.hourglass}</span><span class="rl">Short Rest</span></button><button class="btn rest long" data-act="long" title="8 hours: full HP, all slots, features and Hit Dice"><span class="ri">${ICON.moon}</span><span class="rl">Long Rest</span></button></div>
       </div>
@@ -14831,6 +14843,9 @@ function postSheetRoll(t) {
 const SPI = n => DND.spellIndex[String(n || '').toLowerCase()];
 const AUTO = n => DND.spellAuto[n] || {};
 const DMGTYPES = DND.damageTypes.map(t => t.toLowerCase());
+// A damage-type list for "take damage" boxes. Bludgeoning, piercing and slashing also come as "(magical)": magical
+// weapons get past resistance to nonmagical attacks (Stoneskin, many monsters).
+const dmgTypeOpts = (none = 'Any') => `<option value="">${none}</option>` + DND.damageTypes.map(t => { const v = t.toLowerCase(); return `<option value="${v}">${t}</option>` + (/^(bludgeoning|piercing|slashing)$/.test(v) ? `<option value="${v} (magical)">${t} (magical)</option>` : ''); }).join('');
 function casterFor(key) { return casters().find(c => c.key === key); }
 const isPrepCaster = key => { const c = casterFor(key); return !!(c && c.prepared); };
 function spReady(sp) { if (sp.always || N(sp.level) === 0) return true; if (!casterFor(sp.cls)) return true; return isPrepCaster(sp.cls) ? !!sp.prepared : true; }
@@ -15658,7 +15673,7 @@ function renderCombat() {
     return `<div class="econ col-${key}" data-col="${key}" data-zi="${key}">
       <div class="econ-head"><span class="badge b-${key}"></span><h3>${title}</h3>
         ${key !== 'move' ? `<button class="pill" data-act="econ" data-col="${key}" title="Mark used / ready">Ready</button>` : ''}</div>
-      <div class="econ-body">${body}</div>
+      <div class="econ-body">${key === 'action' ? readyBarHTML() : ''}${body}</div>
 </div>`;
   };
   const cur = UI.econTab || 'action';
@@ -16072,6 +16087,7 @@ document.addEventListener('click', e => { try { e._pc = !!(e.target.closest && e
 const TABSCROLL = {}; let tabFadeT = 0;
 function mainClick(e) {
   if (e.target.closest('#wizard')) return wizClick(e);
+  if (READY_MODE && readyTap(e)) return;
   const menu = e.target.closest('.menu');
   $$('.menu.open').forEach(m => { if (m !== menu) m.classList.remove('open'); });
   const am = e.target.closest('[data-asimode]'); if (am) return asiModeClick(am);
@@ -16236,8 +16252,8 @@ function mainClick(e) {
     case 'updatesheet': closeModal(true); $('#updateFile').value = ''; $('#updateFile').click(); pendingLabel = null; return;
     case 'useobjplain': closeModal(true); S.turn.used.action = true; pendingLabel = 'Use an Object'; update(); toast('<b>Use an Object</b> — action spent.', '', 4000); break;
     case 'markopt': if (b.dataset.col === 'action' && /^ready$/i.test(b.dataset.name)) openReady(); else markOpt(b); break;
-    case 'readypick': $$('#modal-body .castopt').forEach(x => x.classList.toggle('on', x === b)); READY_PICK = b.dataset.k; break;
-    case 'readygo': readyGo(); break;
+    case 'readycancel': readyEnd(); break;
+    case 'readyother': { const o = READY_MODE ? READY_MODE.other.trim() : ''; if (!o) { toast('Type what you want to ready, or tap something in your Action column.'); const x = $('#readyOther'); if (x) x.focus(); break; } const t = READY_MODE.trig; READY_MODE = null; document.documentElement.classList.remove('readying'); readyGo('other', t, o); break; }
     case 'oacast': closeModal(true); castSpell(i, 'reaction'); render('combat'); break;
     case 'oago': { closeModal(true); S.turn.used.reaction = true; const a = S.attacks[i]; attackRoll(i, true, { label: 'Opportunity Attack · ' + a.name, offTurn: true, notes: hasFeature('Sentinel') ? ['Sentinel: on a hit, its speed drops to 0 this turn'] : [] }); render('combat'); break; }
     case 'searchgo': { closeModal(true); S.turn.used[b.dataset.col || 'action'] = true; pendingLabel = 'Search'; update(); doRoll('skill:' + b.dataset.k); break; }
@@ -16912,7 +16928,6 @@ function nextTurn() {
 }
 // ---------- Ready action ----------
 // Ready: pick what you'll do and the trigger; it waits in the Reaction column until you fire it with your reaction.
-let READY_PICK = '';
 function readyChoices() {
   const out = [];
   S.attacks.forEach((a, i) => { if (atkShown(a)) out.push({ k: 'atk:' + i, name: 'Attack: ' + a.name, sub: atkHit(a) >= 0 ? '+' + atkHit(a) + ' to hit' : atkHit(a) + ' to hit' }); });
@@ -16920,26 +16935,53 @@ function readyChoices() {
   (S.combat.action || []).forEach(o => { if (!/^(ready|attack)$/i.test(o.name)) out.push({ k: 'std:' + o.name, name: o.name, sub: o.text || '' }); });
   return out;
 }
+// Ready: you pick what you'll do straight from your Action column (an attack, a spell, a standard action or anything
+// else there); a bar at the top of the column holds the trigger and a "something else" box.
+let READY_MODE = null;
 function openReady() {
   if (incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take actions or reactions.`, 'fumble'); return; }
   if ((S.turn.used || {}).action) { toast('Your action is already used this turn.', 'fumble'); return; }
-  READY_PICK = '';
-  const ch = readyChoices();
-  openModal(`<h3>Ready an action</h3>
-    <p class="hint" style="margin:0 0 8px">Uses your action now. When the trigger happens before your next turn, use your reaction to do it. Readying a spell means casting it now and holding it with concentration.</p>
-    ${fld('Trigger', '<input class="f" id="readyTrig" placeholder="e.g. when the goblin comes through the door" autofocus>')}
-    <div class="lbl" style="margin-top:8px">What you'll do</div>
-    <div class="castopts">${ch.map(c => `<button class="castopt" data-act="readypick" data-k="${esc(c.k)}"><b>${esc(c.name)}</b><span>${esc(c.sub)}</span></button>`).join('')}
-      <button class="castopt ghost" data-act="readypick" data-k="other"><b>Something else…</b><span>type it below</span></button></div>
-    ${fld('Something else', '<input class="f" id="readyOther" placeholder="e.g. pull the lever">')}
-    <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="readygo">Ready it</button></div>`);
+  READY_MODE = { trig: '', other: '' }; UI.econTab = 'action'; document.documentElement.classList.add('readying'); render('combat');
+  // (scrolled so it sits just under whatever stays pinned at the top: the header on a computer, the column tabs on a phone)
+  const bar = $('.readybar'); if (bar) { const r = bar.getBoundingClientRect(); let top = 0;
+    $$('header.banner, #page-combat .seg').forEach(x => { const cs = getComputedStyle(x); if (/sticky|fixed/.test(cs.position)) top = Math.max(top, N(parseFloat(cs.top)) + x.offsetHeight); });
+    if (r.top < top + 8 || r.bottom > innerHeight) scrollTo({ top: Math.max(0, scrollY + r.top - top - 16), behavior: 'smooth' }); }
 }
-function readyGo() {
-  const other = ($('#readyOther') && $('#readyOther').value.trim()) || '', trig = ($('#readyTrig') && $('#readyTrig').value.trim()) || '';
-  const k = READY_PICK || (other ? 'other' : '');
-  if (!k) { toast('Pick what you want to ready.'); return; }
-  if (k === 'other' && !other) { toast('Type what you want to ready.'); return; }
-  const c = readyChoices().find(x => x.k === k);
+function readyEnd() { READY_MODE = null; document.documentElement.classList.remove('readying'); render('combat'); }
+function readyBarHTML() {
+  if (!READY_MODE) return '';
+  return `<div class="readybar"><div class="rb-h"><b>Ready an action</b><button class="btn sm" data-act="readycancel">Cancel</button></div>
+    <p>Tap what you'll do below. It uses your action now; when the trigger happens before your next turn, you do it with your reaction. Spells are cast now and held with concentration.</p>
+    <input class="f" id="readyTrig" placeholder="Trigger (optional): when the goblin comes through the door" value="${esc(READY_MODE.trig)}" aria-label="Trigger">
+    <div class="rb-other"><input class="f" id="readyOther" placeholder="Or something else: pull the lever" value="${esc(READY_MODE.other)}" aria-label="Something else to ready"><button class="btn sm gold" data-act="readyother">Ready it</button></div></div>`;
+}
+document.addEventListener('input', e => { if (!READY_MODE || !e.target) return; if (e.target.id === 'readyTrig') READY_MODE.trig = e.target.value; else if (e.target.id === 'readyOther') READY_MODE.other = e.target.value; });
+document.addEventListener('keydown', e => { if (READY_MODE && e.key === 'Escape' && !$('#modal').classList.contains('open')) readyEnd(); });
+// While readying, a tap in the Action column picks that thing instead of doing it. (true = handled)
+function readyTap(e) {
+  if (!READY_MODE) return false;
+  const el = e.target.closest('[data-roll], [data-act]'); if (!el || el.closest('.readybar') || el.closest('#modal')) return false;
+  const col = el.closest('.econ'); if (!col || col.dataset.col !== 'action') return false;
+  const act = el.dataset.act || '', roll = el.dataset.roll || '';
+  if (/^(notetip|toggle|menu|twohand|econ)$/.test(act)) return false; // (info, open/close a group, grip: they still work)
+  let k = '', name = '';
+  const m = /^(atk|dmg):(\d+)$/.exec(roll); if (m) k = 'atk:' + m[2];
+  else if (act === 'attack') k = 'atk:' + N(el.dataset.i);
+  else if (act === 'cast') k = 'sp:' + N(el.dataset.i);
+  else if (act === 'markopt') { if (/^ready$/i.test(el.dataset.name || '')) { readyEnd(); return true; }
+    if (/^attack$/i.test(el.dataset.name || '')) { e.preventDefault(); toast('Tap the ⚔ (or a roll) next to the weapon you’ll attack with.'); return true; }
+    k = 'std:' + el.dataset.name; }
+  else { const o = el.closest('.opt'), n = o && o.querySelector('.opt-name'); if (n) { k = 'other'; name = n.textContent.trim(); } }
+  if (!k) return false;
+  e.preventDefault(); e.stopPropagation();
+  const trig = READY_MODE.trig.trim(); READY_MODE = null; document.documentElement.classList.remove('readying');
+  readyGo(k, trig, name); return true;
+}
+function readyGo(k, trig, other) {
+  trig = String(trig || '').trim(); other = String(other || '').trim();
+  if (!k || (k === 'other' && !other)) { toast('Pick what you want to ready.'); return; }
+  const c = k === 'other' ? null : readyChoices().find(x => x.k === k);
+  if (k !== 'other' && !c) { toast('That can’t be readied.'); render('combat'); return; }
   const r = { k, name: k === 'other' ? other : c.name.replace(/^Attack: /, 'Attack with '), trigger: trig };
   if (k.startsWith('sp:')) { const sp = S.spells[N(k.slice(3))]; r.spell = sp && sp.name; r.level = sp ? N(sp.level) : 0; r.i = N(k.slice(3)); }
   // A readied spell is cast now and held, so its slot is spent now, whether or not it ever goes off.
@@ -19745,7 +19787,7 @@ function compCard(c, i, mini, inCol) {
   const hp = c.count > 1 ? `<div class="grpHp">${(c.hps || []).map((h, k) => `<label class="ghp"><span>#${k + 1}</span>${inp(`companions.${i}.hps.${k}`, { num: 1, cls: 'sm', label: c.name + ' ' + (k + 1) + ' HP' })}</label>`).join('')}<span class="hint">of ${N(c.maxhp)} each</span></div>`
     : c.maxhp ? `<div class="chp chp2"><div class="chp-ring"><div class="ring-svg">${hpRingSVG(c.hp, c.maxhp, c.temp)}</div>
         <div class="chp-center"><div class="curline">${inp(`companions.${i}.hp`, { num: 1, cls: 'cur', label: c.name + ' current HP' })}${N(c.temp) ? `<span class="tmpbadge">+${N(c.temp)}</span>` : ''}</div><div class="hp-max">of ${N(c.maxhp)}</div></div></div>
-        <div class="chp-side"><select class="f ptyqt sel-dmg" id="chpt${i}" aria-label="Damage type for ${esc(c.name)}" title="Damage type"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="chp${i}" type="text" autocomplete="off" placeholder="Amount" aria-label="${esc(c.name)} HP: -20 (or 20) for damage, +20 to heal, then Enter">
+        <div class="chp-side"><select class="f ptyqt sel-dmg" id="chpt${i}" aria-label="Damage type for ${esc(c.name)}" title="Damage type">${dmgTypeOpts()}</select><input class="f" id="chp${i}" type="text" autocomplete="off" placeholder="Amount" aria-label="${esc(c.name)} HP: -20 (or 20) for damage, +20 to heal, then Enter">
           <div class="chp-btns"><button class="btn hpi dmg" data-act="comphp" data-i="${i}" data-d="-1" title="Damage ${esc(c.name)}" aria-label="Damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-act="comphp" data-i="${i}" data-d="1" title="Heal ${esc(c.name)}" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmp" data-act="comphp" data-i="${i}" data-d="0" title="Give ${esc(c.name)} temporary HP (they don't stack — the higher stays)" aria-label="Temporary HP">${ICON.hpTemp}</button></div></div></div>` : '';
   return `<div class="${mini ? 'cm-card' : inCol ? 'comp2 incol' : 'panel comp2'}"><div class="comp-h2">${picThumb(c.tmpl ? `compMods.${c.tmpl}.img` : `companions.${i}.img`, c.name)}<div class="grow"><b class="cname">${esc(c.name)}</b><div class="ctags">${(inCol ? [] : tags).map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div></div>
       ${inCol ? compCmdBtn(c, i) : ''}<button class="icon-btn" data-act="compedit" data-i="${i}" title="Edit ${esc(c.name)}" aria-label="Edit">✎</button>${c.tmpl && COMP_RULES[c.tmpl] && COMP_RULES[c.tmpl].always ? '' : `<button class="btn sm ghost" data-act="dismiss" data-i="${i}">Dismiss</button>`}</div>
@@ -22340,7 +22382,7 @@ function ptyCardHTML(m) {
   const more = [['coins', 'Give coins'], ['help', 'Help (advantage on their next roll)'], down && !m.dead && !m.stable ? ['stab', 'Stabilize (Medicine, DC 10)'] : null, ['note', 'Send a message']].filter(Boolean);
   const hp = max ? `<div class="chp chp2"><div class="chp-ring"><div class="ring-svg">${hpRingSVG(cur, max, m.temp, f ? ' form' : '')}</div>
       <div class="chp-center"><div class="curline"><b class="ptym-cur">${cur}</b>${N(m.temp) ? `<span class="tmpbadge">+${N(m.temp)}</span>` : ''}</div><div class="hp-max">of ${max}</div></div></div>
-      ${act ? `<div class="chp-side"><select class="f ptyqt sel-dmg" id="ptyqt-${esc(id)}" aria-label="Damage type for ${esc(m.name)}" title="Damage type: their resistances and immunities apply"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="ptyq-${esc(id)}" autocomplete="off" placeholder="Amount" aria-label="Amount for ${esc(m.name)}: -20 (or 20) for damage, +20 to heal, then Enter">
+      ${act ? `<div class="chp-side"><select class="f ptyqt sel-dmg" id="ptyqt-${esc(id)}" aria-label="Damage type for ${esc(m.name)}" title="Damage type: their resistances and immunities apply">${dmgTypeOpts()}</select><input class="f" id="ptyq-${esc(id)}" autocomplete="off" placeholder="Amount" aria-label="Amount for ${esc(m.name)}: -20 (or 20) for damage, +20 to heal, then Enter">
         <div class="chp-btns"><button class="btn hpi dmg" data-pa="qdmg" data-id="${esc(id)}" title="Damage ${esc(m.name)}" aria-label="Damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-pa="qheal" data-id="${esc(id)}" title="Heal ${esc(m.name)}" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmp" data-pa="qtemp" data-id="${esc(id)}" title="Give ${esc(m.name)} temporary HP" aria-label="Temporary HP">${ICON.hpTemp}</button></div></div>` : ''}</div>` : '';
   return `<div class="panel comp2 ptym${down ? ' ' + down : ''}" data-mid="${esc(id)}"><div class="comp-h2">${m.thumb ? `<span class="picth"${/^#[0-9a-f]{6}$/i.test(m.acc || '') ? ` style="border-color:${m.acc}"` : ''}><img src="${esc(m.thumb)}" alt=""></span>` : `<span class="picadd">${esc(String(m.name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join(''))}</span>`}
       <div class="grow"><b class="cname${String(m.name || '').length > 26 ? ' n3' : String(m.name || '').length > 17 ? ' n2' : ''}" title="${esc(m.name || '')}">${esc(m.name || 'A character')}</b>${m.player ? `<div class="ptym-pl">${esc(m.player)}</div>` : ''}</div>
@@ -22542,7 +22584,7 @@ function ptyAmount(kind, ids) {
   PTY_AMT = { kind, ids };
   const T = { heal: 'Heal', temp: 'Temporary HP for', dmg: 'Damage' }[kind];
   openModal(`<h3>${T} ${esc(ptyNames(ids))}</h3>
-    <div class="row">${fld('Amount, or a roll like 2d4+2', `<input class="f" id="ptyAmt" autofocus placeholder="${kind === 'dmg' ? 'e.g. 7' : 'e.g. 1d8+3'}">`)}${kind === 'dmg' ? fld('Type', `<select class="f sel-dmg" id="ptyType"><option value="">—</option>${(DND.damageTypes || []).map(t => `<option>${esc(String(t).toLowerCase())}</option>`).join('')}</select>`) : ''}</div>
+    <div class="row">${fld('Amount, or a roll like 2d4+2', `<input class="f" id="ptyAmt" autofocus placeholder="${kind === 'dmg' ? 'e.g. 7' : 'e.g. 1d8+3'}">`)}${kind === 'dmg' ? fld('Type', `<select class="f sel-dmg" id="ptyType">${dmgTypeOpts('—')}</select>`) : ''}</div>
     ${fld('From what (they see this)', `<input class="f" id="ptyWhy" placeholder="${kind === 'heal' ? 'e.g. a potion, first aid' : kind === 'dmg' ? 'e.g. my fireball' : 'e.g. inspiring words'}">`)}
     <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-pa="amt" data-k="${kind}">${kind === 'heal' ? 'Heal' : kind === 'temp' ? 'Give temp HP' : 'Deal damage'}</button></div>`);
 }
@@ -22932,8 +22974,8 @@ function ptyCatchUp() {
 }
 setTimeout(ptyCatchUp, 2500); setInterval(ptyCatchUp, 20000);
 // Damage after resistances and immunities this sheet knows about.
-function ptyResist(n, type) { type = String(type || '').toLowerCase(); if (!type) return [n, '']; const D = defensesDetail(), has = arr => arr.some(x => /^all damage/.test(x.k) ? !new RegExp('except[^.]*\\b' + type + '\\b').test(x.k) : x.k.includes(type)); // ("all damage except psychic": every type but that one)
-  const vul = (D.vuln || []).some(x => x.k.includes(type));
+function ptyResist(n, type) { type = String(type || '').toLowerCase(); if (!type) return [n, '']; const magical = /\(magical\)/.test(type); type = type.replace(/\s*\(magical\)/, '').trim(); const D = defensesDetail(), hits = x => !(magical && /non-?magical|aren['’]t (?:silvered|adamantine|magical)/.test(x.k)), has = arr => arr.filter(hits).some(x => /^all damage/.test(x.k) ? !new RegExp('except[^.]*\\b' + type + '\\b').test(x.k) : x.k.includes(type)); // ("all damage except psychic": every type but that one)
+  const vul = (D.vuln || []).filter(hits).some(x => x.k.includes(type));
   if (has(D.immune)) return [0, 'immune']; if (has(D.resist)) return vul ? [n, 'resistant and vulnerable'] : [Math.floor(n / 2), 'resistant']; if (vul) return [n * 2, 'vulnerable']; return [n, '']; }
 function ptyApply(m) {
   const d = cleanData(m.data || {}), who = m.fromName || 'Someone', why = d.why || who;
@@ -24109,6 +24151,7 @@ function lvChoiceDefs(t) {
   if (c.asi.includes(nl)) defs.push({ id: 'asi', def: { type: 'asiOrFeat' } });
   (c.choices || []).concat((s && s.choices) || []).forEach((ch, k) => { if (ch.level === nl) defs.push({ id: 'ch' + k + '.' + ch.type, def: ch }); });
   if (t.isNew && c.mc && c.mc.skills) defs.push({ id: 'mcskill', def: { type: 'skill', n: c.mc.skills, from: c.skills.from } });
+  { const tc = t.isNew && c.mc && clsToolChoice(c.mc.profs); if (tc) defs.push({ id: 'mctool', def: { type: 'tool', n: tc.n, from: tc.from, label: `${c.name} multiclass ${tc.n > 1 ? 'tools' : 'tool'}` } }); }
   return defs;
 }
 function asiOrFeatUI(CH, id) {
@@ -24204,7 +24247,7 @@ function finishLevelUp() {
   if (sub && sub.profs && t.nl === t.c.sub.level) { if (sub.profs.armorCats) S.profs.armor = [...new Set((S.profs.armor || []).concat(sub.profs.armorCats))]; if (sub.profs.weaponCats) S.profs.weapons = [...new Set((S.profs.weapons || []).concat(sub.profs.weaponCats))]; S.profArmor = profArmorText(); S.profWeapons = profWeaponText(); }
   const notes = [];
   lvChoiceDefs({ ...t, row: clsRows().find(r => r.key === t.key), isNew: t.isNew }).forEach(d => {
-    const cid = d.id === 'asi' ? `asi.${t.key}.${t.nl}` : d.id === 'mcskill' ? `mc.${t.key}.skills` : `ch.${t.key}.${d.id.slice(2).split('.')[0]}.${t.nl}.${d.def.type}`;
+    const cid = d.id === 'asi' ? `asi.${t.key}.${t.nl}` : d.id === 'mcskill' ? `mc.${t.key}.skills` : d.id === 'mctool' ? `mc.${t.key}.tools` : `ch.${t.key}.${d.id.slice(2).split('.')[0]}.${t.nl}.${d.def.type}`;
     S.answered = S.answered || {};
     if (d.def.type === 'asiOrFeat') { if (asiDone(LV.ans, d.id)) S.answered[cid] = (LV.ans[d.id] || []).slice(); const r = applyAsiOrFeat(LV.ans, d.id); if (r) notes.push(r); return; }
     const v = ansList(LV.ans, d.id); if (!v.length) return;
@@ -24409,6 +24452,18 @@ function wzRacialSpells() {
   return out;
 }
 function wzClassRows() { return W.classes.filter(r => CL[r.key]); }
+// Tools a class lets you choose ("one artisan's tool", "three musical instruments", "one artisan's tool or musical
+// instrument"), from its proficiencies (or its multiclassing ones). null when there's nothing to choose.
+function clsToolChoice(txt) {
+  const t = String(txt || '').toLowerCase(), W1 = { one: 1, a: 1, an: 1, two: 2, three: 3, four: 4 };
+  const num = m => W1[m] || N(m) || 1;
+  let m = /\b(one|two|three|four|\d+|an?)\s+(?:type of\s+)?artisan'?s?'?\s+tools?\s+or\s+(?:one\s+)?musical\s+instruments?/.exec(t);
+  if (m) return { n: num(m[1]), from: ['artisan', 'instrument'] };
+  m = /\b(one|two|three|four|\d+|an?)\s+(?:type of\s+)?musical\s+instruments?/.exec(t); if (m) return { n: num(m[1]), from: 'instrument' };
+  m = /\b(one|two|three|four|\d+|an?)\s+(?:type of\s+)?artisan'?s?'?\s+tools?/.exec(t); if (m) return { n: num(m[1]), from: 'artisan' };
+  m = /\b(one|two|three|four|\d+|an?)\s+(?:type of\s+)?gaming\s+sets?/.exec(t); if (m) return { n: num(m[1]), from: 'gaming' };
+  return null;
+}
 function wzTotalLevel() { return wzClassRows().reduce((t, r) => t + N(r.level), 0); }
 function wzClassChoiceDefs() {
   const out = []; const rows = wzClassRows();
@@ -24416,6 +24471,7 @@ function wzClassChoiceDefs() {
     const c = CL[r.key], s = r.sub ? c.subclasses[r.sub] : null, L = N(r.level);
     if (ri === 0) out.push({ id: `cls.skills`, def: { type: 'skill', n: c.skills.n, from: c.skills.from, label: `${c.name} skills` }, cls: r.key });
     else if (c.mc && c.mc.skills) out.push({ id: `mc.${r.key}.skills`, def: { type: 'skill', n: c.mc.skills, from: c.skills.from, label: `${c.name} multiclass skill` }, cls: r.key });
+    { const tc = clsToolChoice(ri === 0 ? c.tools : c.mc && c.mc.profs); if (tc) out.push({ id: ri === 0 ? 'cls.tools' : `mc.${r.key}.tools`, def: { type: 'tool', n: tc.n, from: tc.from, label: `${c.name} ${tc.n > 1 ? 'tools' : 'tool'}${ri ? ' (multiclass)' : ''}` }, cls: r.key }); }
     c.asi.filter(l => l <= L).forEach(l => out.push({ id: `asi.${r.key}.${l}`, def: { type: 'asiOrFeat' }, cls: r.key, lvl: l }));
     (c.choices || []).concat((s && s.choices) || []).forEach((ch, k) => { if (ch.level <= L) out.push({ id: `ch.${r.key}.${k}.${ch.level}.${ch.type}`, def: { ...ch, label: `${choiceLabel(ch)} (${c.name} ${ch.level})` }, cls: r.key }); });
   });
@@ -25169,6 +25225,10 @@ function owedChoices() {
     // Class options are counted: enough picks of that kind means they're done.
     const need = {}; all.forEach(ch => { if (ch.level <= L && DND.options[ch.type]) need[ch.type] = (need[ch.type] || 0) + (ch.n || 1); });
     c.asi.filter(l => l <= L).forEach(l => out.push({ id: `asi.${r.key}.${l}`, def: { type: 'asiOrFeat' }, cls: r.key, lvl: l, label: `${c.name} ${l}: Ability Score Improvement or feat` }));
+    // The tools the class lets you choose (an artificer's artisan's tool, a bard's instruments…): owed when the sheet
+    // doesn't already have that many of that kind (character creation used to skip this choice).
+    { const tc = clsToolChoice(ri === 0 ? c.tools : c.mc && c.mc.profs); if (tc) { const pool = toolsFrom(tc.from).map(x => x.toLowerCase()), have = (S.tools || []).filter(t => pool.includes(String(t.name || '').toLowerCase())).length;
+      if (have < tc.n) out.push({ id: ri === 0 ? 'cls.tools' : `mc.${r.key}.tools`, def: { type: 'tool', n: tc.n - have, from: tc.from }, cls: r.key, lvl: 1, label: `${c.name}: ${tc.n > 1 ? `${tc.n} tool proficiencies` : 'tool proficiency'}${ri ? ' (multiclass)' : ''}` }); } }
     all.forEach((ch, k) => { if (ch.level > L) return; const id = `ch.${r.key}.${k}.${ch.level}.${ch.type}`;
       if (DND.options[ch.type] && (S.picks[ch.type] || []).length >= need[ch.type]) return;
       out.push({ id, def: ch, cls: r.key, lvl: ch.level, label: `${c.name} ${ch.level}: ${ch.label || choiceLabel(ch)}${(ch.n || 1) > 1 ? ' × ' + ch.n : ''}` }); });

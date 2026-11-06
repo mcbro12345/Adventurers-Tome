@@ -6,6 +6,7 @@ document.addEventListener('click', e => { try { e._pc = !!(e.target.closest && e
 const TABSCROLL = {}; let tabFadeT = 0;
 function mainClick(e) {
   if (e.target.closest('#wizard')) return wizClick(e);
+  if (READY_MODE && readyTap(e)) return;
   const menu = e.target.closest('.menu');
   $$('.menu.open').forEach(m => { if (m !== menu) m.classList.remove('open'); });
   const am = e.target.closest('[data-asimode]'); if (am) return asiModeClick(am);
@@ -170,8 +171,8 @@ function mainClick(e) {
     case 'updatesheet': closeModal(true); $('#updateFile').value = ''; $('#updateFile').click(); pendingLabel = null; return;
     case 'useobjplain': closeModal(true); S.turn.used.action = true; pendingLabel = 'Use an Object'; update(); toast('<b>Use an Object</b> — action spent.', '', 4000); break;
     case 'markopt': if (b.dataset.col === 'action' && /^ready$/i.test(b.dataset.name)) openReady(); else markOpt(b); break;
-    case 'readypick': $$('#modal-body .castopt').forEach(x => x.classList.toggle('on', x === b)); READY_PICK = b.dataset.k; break;
-    case 'readygo': readyGo(); break;
+    case 'readycancel': readyEnd(); break;
+    case 'readyother': { const o = READY_MODE ? READY_MODE.other.trim() : ''; if (!o) { toast('Type what you want to ready, or tap something in your Action column.'); const x = $('#readyOther'); if (x) x.focus(); break; } const t = READY_MODE.trig; READY_MODE = null; document.documentElement.classList.remove('readying'); readyGo('other', t, o); break; }
     case 'oacast': closeModal(true); castSpell(i, 'reaction'); render('combat'); break;
     case 'oago': { closeModal(true); S.turn.used.reaction = true; const a = S.attacks[i]; attackRoll(i, true, { label: 'Opportunity Attack · ' + a.name, offTurn: true, notes: hasFeature('Sentinel') ? ['Sentinel: on a hit, its speed drops to 0 this turn'] : [] }); render('combat'); break; }
     case 'searchgo': { closeModal(true); S.turn.used[b.dataset.col || 'action'] = true; pendingLabel = 'Search'; update(); doRoll('skill:' + b.dataset.k); break; }
@@ -846,7 +847,6 @@ function nextTurn() {
 }
 // ---------- Ready action ----------
 // Ready: pick what you'll do and the trigger; it waits in the Reaction column until you fire it with your reaction.
-let READY_PICK = '';
 function readyChoices() {
   const out = [];
   S.attacks.forEach((a, i) => { if (atkShown(a)) out.push({ k: 'atk:' + i, name: 'Attack: ' + a.name, sub: atkHit(a) >= 0 ? '+' + atkHit(a) + ' to hit' : atkHit(a) + ' to hit' }); });
@@ -854,26 +854,53 @@ function readyChoices() {
   (S.combat.action || []).forEach(o => { if (!/^(ready|attack)$/i.test(o.name)) out.push({ k: 'std:' + o.name, name: o.name, sub: o.text || '' }); });
   return out;
 }
+// Ready: you pick what you'll do straight from your Action column (an attack, a spell, a standard action or anything
+// else there); a bar at the top of the column holds the trigger and a "something else" box.
+let READY_MODE = null;
 function openReady() {
   if (incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take actions or reactions.`, 'fumble'); return; }
   if ((S.turn.used || {}).action) { toast('Your action is already used this turn.', 'fumble'); return; }
-  READY_PICK = '';
-  const ch = readyChoices();
-  openModal(`<h3>Ready an action</h3>
-    <p class="hint" style="margin:0 0 8px">Uses your action now. When the trigger happens before your next turn, use your reaction to do it. Readying a spell means casting it now and holding it with concentration.</p>
-    ${fld('Trigger', '<input class="f" id="readyTrig" placeholder="e.g. when the goblin comes through the door" autofocus>')}
-    <div class="lbl" style="margin-top:8px">What you'll do</div>
-    <div class="castopts">${ch.map(c => `<button class="castopt" data-act="readypick" data-k="${esc(c.k)}"><b>${esc(c.name)}</b><span>${esc(c.sub)}</span></button>`).join('')}
-      <button class="castopt ghost" data-act="readypick" data-k="other"><b>Something else…</b><span>type it below</span></button></div>
-    ${fld('Something else', '<input class="f" id="readyOther" placeholder="e.g. pull the lever">')}
-    <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="readygo">Ready it</button></div>`);
+  READY_MODE = { trig: '', other: '' }; UI.econTab = 'action'; document.documentElement.classList.add('readying'); render('combat');
+  // (scrolled so it sits just under whatever stays pinned at the top: the header on a computer, the column tabs on a phone)
+  const bar = $('.readybar'); if (bar) { const r = bar.getBoundingClientRect(); let top = 0;
+    $$('header.banner, #page-combat .seg').forEach(x => { const cs = getComputedStyle(x); if (/sticky|fixed/.test(cs.position)) top = Math.max(top, N(parseFloat(cs.top)) + x.offsetHeight); });
+    if (r.top < top + 8 || r.bottom > innerHeight) scrollTo({ top: Math.max(0, scrollY + r.top - top - 16), behavior: 'smooth' }); }
 }
-function readyGo() {
-  const other = ($('#readyOther') && $('#readyOther').value.trim()) || '', trig = ($('#readyTrig') && $('#readyTrig').value.trim()) || '';
-  const k = READY_PICK || (other ? 'other' : '');
-  if (!k) { toast('Pick what you want to ready.'); return; }
-  if (k === 'other' && !other) { toast('Type what you want to ready.'); return; }
-  const c = readyChoices().find(x => x.k === k);
+function readyEnd() { READY_MODE = null; document.documentElement.classList.remove('readying'); render('combat'); }
+function readyBarHTML() {
+  if (!READY_MODE) return '';
+  return `<div class="readybar"><div class="rb-h"><b>Ready an action</b><button class="btn sm" data-act="readycancel">Cancel</button></div>
+    <p>Tap what you'll do below. It uses your action now; when the trigger happens before your next turn, you do it with your reaction. Spells are cast now and held with concentration.</p>
+    <input class="f" id="readyTrig" placeholder="Trigger (optional): when the goblin comes through the door" value="${esc(READY_MODE.trig)}" aria-label="Trigger">
+    <div class="rb-other"><input class="f" id="readyOther" placeholder="Or something else: pull the lever" value="${esc(READY_MODE.other)}" aria-label="Something else to ready"><button class="btn sm gold" data-act="readyother">Ready it</button></div></div>`;
+}
+document.addEventListener('input', e => { if (!READY_MODE || !e.target) return; if (e.target.id === 'readyTrig') READY_MODE.trig = e.target.value; else if (e.target.id === 'readyOther') READY_MODE.other = e.target.value; });
+document.addEventListener('keydown', e => { if (READY_MODE && e.key === 'Escape' && !$('#modal').classList.contains('open')) readyEnd(); });
+// While readying, a tap in the Action column picks that thing instead of doing it. (true = handled)
+function readyTap(e) {
+  if (!READY_MODE) return false;
+  const el = e.target.closest('[data-roll], [data-act]'); if (!el || el.closest('.readybar') || el.closest('#modal')) return false;
+  const col = el.closest('.econ'); if (!col || col.dataset.col !== 'action') return false;
+  const act = el.dataset.act || '', roll = el.dataset.roll || '';
+  if (/^(notetip|toggle|menu|twohand|econ)$/.test(act)) return false; // (info, open/close a group, grip: they still work)
+  let k = '', name = '';
+  const m = /^(atk|dmg):(\d+)$/.exec(roll); if (m) k = 'atk:' + m[2];
+  else if (act === 'attack') k = 'atk:' + N(el.dataset.i);
+  else if (act === 'cast') k = 'sp:' + N(el.dataset.i);
+  else if (act === 'markopt') { if (/^ready$/i.test(el.dataset.name || '')) { readyEnd(); return true; }
+    if (/^attack$/i.test(el.dataset.name || '')) { e.preventDefault(); toast('Tap the ⚔ (or a roll) next to the weapon you’ll attack with.'); return true; }
+    k = 'std:' + el.dataset.name; }
+  else { const o = el.closest('.opt'), n = o && o.querySelector('.opt-name'); if (n) { k = 'other'; name = n.textContent.trim(); } }
+  if (!k) return false;
+  e.preventDefault(); e.stopPropagation();
+  const trig = READY_MODE.trig.trim(); READY_MODE = null; document.documentElement.classList.remove('readying');
+  readyGo(k, trig, name); return true;
+}
+function readyGo(k, trig, other) {
+  trig = String(trig || '').trim(); other = String(other || '').trim();
+  if (!k || (k === 'other' && !other)) { toast('Pick what you want to ready.'); return; }
+  const c = k === 'other' ? null : readyChoices().find(x => x.k === k);
+  if (k !== 'other' && !c) { toast('That can’t be readied.'); render('combat'); return; }
   const r = { k, name: k === 'other' ? other : c.name.replace(/^Attack: /, 'Attack with '), trigger: trig };
   if (k.startsWith('sp:')) { const sp = S.spells[N(k.slice(3))]; r.spell = sp && sp.name; r.level = sp ? N(sp.level) : 0; r.i = N(k.slice(3)); }
   // A readied spell is cast now and held, so its slot is spent now, whether or not it ever goes off.
