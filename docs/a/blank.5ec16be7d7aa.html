@@ -5130,6 +5130,10 @@ html.readying .econ.col-action :is(.atkbtn, button.roll, [data-act="cast"], .chi
 html.readying .econ.col-action .chip[data-act="markopt"][data-name="Ready" i] { box-shadow: none; opacity: .5; }
 @media (prefers-reduced-motion: no-preference) { html.readying .readybar { animation: rbIn .2s ease-out; } @keyframes rbIn { from { opacity: 0; transform: translateY(-4px); } } }
 
+/* damage-type boxes: wide enough for "Magical bludgeoning", and always one line */
+select.sel-dmg { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 12.5em; }
+@media (max-width: 380px) { select.sel-dmg { font-size: .78rem !important; padding-left: 6px !important; } }
+
 </style>
 </head>
 <body>
@@ -14845,7 +14849,7 @@ const AUTO = n => DND.spellAuto[n] || {};
 const DMGTYPES = DND.damageTypes.map(t => t.toLowerCase());
 // A damage-type list for "take damage" boxes. Bludgeoning, piercing and slashing also come as "(magical)": magical
 // weapons get past resistance to nonmagical attacks (Stoneskin, many monsters).
-const dmgTypeOpts = (none = 'Any') => `<option value="">${none}</option>` + DND.damageTypes.map(t => { const v = t.toLowerCase(); return `<option value="${v}">${t}</option>` + (/^(bludgeoning|piercing|slashing)$/.test(v) ? `<option value="${v} (magical)">${t} (magical)</option>` : ''); }).join('');
+const dmgTypeOpts = (none = 'Any') => `<option value="">${none}</option>` + DND.damageTypes.map(t => { const v = t.toLowerCase(); return `<option value="${v}">${t}</option>` + (/^(bludgeoning|piercing|slashing)$/.test(v) ? `<option value="${v} (magical)">Magical ${v}</option>` : ''); }).join('');
 function casterFor(key) { return casters().find(c => c.key === key); }
 const isPrepCaster = key => { const c = casterFor(key); return !!(c && c.prepared); };
 function spReady(sp) { if (sp.always || N(sp.level) === 0) return true; if (!casterFor(sp.cls)) return true; return isPrepCaster(sp.cls) ? !!sp.prepared : true; }
