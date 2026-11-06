@@ -440,6 +440,9 @@ const wpnBind = a => a && a.item ? fxActive().find(e => e.item === a.item && e.w
 const buffSum = k => selfBuffs().reduce((t, b) => t + N(b[k]), 0);
 const blessed = () => selfBuffs().some(b => b.bless) || (S.conditions || []).includes('Blessed');
 const hasted = () => selfBuffs().some(b => b.speedMult) || (S.conditions || []).includes('Hasted');
+// A spell's duration as shown: one that isn't concentration on this sheet (unticked, e.g. cast from an item that
+// doesn't need it) drops the "Concentration, up to" part — "Concentration, up to 1 hour" reads "1 hour".
+function spDurTxt(s) { const d = String((s && s.duration) || ''); if (!s || s.conc) return d; if (!/^\s*concentration/i.test(d)) return d; const t = d.replace(/^\s*concentration\s*,?\s*/i, '').replace(/^up to\s+/i, ''); return t !== d ? t.charAt(0).toUpperCase() + t.slice(1) : d; }
 function parseDur(d) {
   d = String(d || '').toLowerCase();
   if (/instant/.test(d)) return 0;
@@ -2693,7 +2696,7 @@ function renderSpells() {
   const order = cust ? spCustomOrder() : S.spells.map((s, i) => i).sort((a, b) => N(S.spells[a].level) - N(S.spells[b].level) || String(S.spells[a].name).localeCompare(S.spells[b].name));
   const f = S.spellFilter || 'all';
   const shown = order.filter(i => { const s = S.spells[i]; if (f === 'ready' && !spReady(s)) return false; if (/^\d$/.test(f) && String(N(s.level)) !== f) return false; if (f.startsWith('c:') && s.cls !== f.slice(2)) return false; return true; });
-  const meta = s => [s.time, s.range, s.duration].filter(Boolean).map(esc).join(' · ');
+  const meta = s => [s.time, s.range, spDurTxt(s)].filter(Boolean).map(esc).join(' · ');
   const detail = (s, i) => `<div class="detail-grid">
       ${fld('Name', inp(`spells.${i}.name`))}${fld('Your name for it', inp(`spells.${i}.flavor`, { ph: 'e.g. Smog Beam' }))}${fld('Level', inp(`spells.${i}.level`, { num: 1 }))}${fld('Casting time', inp(`spells.${i}.time`))}${fld('Range', inp(`spells.${i}.range`))}
       ${fld('Duration', inp(`spells.${i}.duration`))}${fld('Components', inp(`spells.${i}.comps`))}${fld('School', inp(`spells.${i}.school`))}
@@ -2718,7 +2721,7 @@ function renderSpells() {
   const rowT = i => { const s = S.spells[i], open = UI.open['spell:' + i];
     return `<tr class="${spReady(s) ? '' : 'unprep'}" data-si="${i}"><td class="spc-p" style="text-align:center">${prepCell(s, i)}</td>
         <td class="spname">${cust ? spOrdCtl(i) : ''}<b class="spn">${spDisp(s)}</b><button class="notetip" data-tip="${i}" data-tipkind="sp" aria-label="What ${esc(s.name)} does">ⓘ</button> ${spellTags(s, true)}${spItem(s) ? ` <span class="tag cls" title="From an item">◆ ${esc(spItem(s).name)}</span>` : cs.length > 1 || !CL[s.cls] ? ` <span class="tag cls">${esc(clsName(s.cls))}</span>` : ''}<small class="spmeta">${esc([s.time, s.range, s.duration].filter(Boolean).join(' · '))}</small></td>
-        <td class="nowrap spc-t">${esc(s.time || '')}</td><td class="nowrap spc-r">${esc(s.range || '')}</td><td class="nowrap spc-d">${esc(s.duration || '')}</td>
+        <td class="nowrap spc-t">${esc(s.time || '')}</td><td class="nowrap spc-r">${esc(s.range || '')}</td><td class="nowrap spc-d">${esc(spDurTxt(s))}</td>
         <td class="sumcell">${esc(s.summary || '')}</td>
         <td class="nowrap spc-c">${castBtn(i)}</td><td class="spc-o"><button class="btn ghost sm" data-act="toggle" data-key="spell:${i}" aria-expanded="${!!open}" title="Details / edit">${open ? '▴' : '▾'}</button></td><td class="spc-x">${del('spells', i)}</td></tr>${open ? `<tr class="detail"><td></td><td colspan="8">${detail(s, i)}</td></tr>` : ''}`; };
   const mode = spMode(), gl = spGroupsFor(mode, shown, f === 'all'), movable = gl.filter(g => g.k !== 'c:none');
@@ -4137,10 +4140,10 @@ function mainClick(e) {
     case 'roberoll': robeRoll(); break;
     case 'robeview': if (ROBE) { ROBE.view = b.dataset.v; ROBE.edit = null; ROBE.msg = ''; renderRobe(); } break;
     case 'robecnt': if (ROBE && ROBE.edit) { const k = b.dataset.k; ROBE.edit[k] = Math.max(0, Math.min(40, N(ROBE.edit[k]) + N(b.dataset.d))); renderRobe(); } break;
-    case 'robesave': if (ROBE && ROBE.edit) { const it = S.inventory[ROBE.i]; if (it) { it.robe = Object.assign({ log: [] }, it.robe || {}, { p: Object.assign({}, ROBE.edit) }); pendingLabel = 'Robe of Useful Items: patches'; save(); render(); } ROBE.view = 'main'; ROBE.edit = null; ROBE.msg = ''; renderRobe(); } break;
+    case 'robesave': if (ROBE && ROBE.edit) { const it = robeItem(); if (it) { it.robe = Object.assign({ log: [] }, it.robe || {}, { p: Object.assign({}, ROBE.edit) }); pendingLabel = 'Robe of Useful Items: patches'; save(); render(); } ROBE.view = 'main'; ROBE.edit = null; ROBE.msg = ''; renderRobe(); } break;
     case 'robedet': robeDetach(b.dataset.k); break;
     case 'robescroll': robeDetach('scroll', b.dataset.v); break;
-    case 'robewear': if (ROBE) { const it = S.inventory[ROBE.i]; if (it && !it.equipped) { equipItem(ROBE.i); } renderRobe(); } break;
+    case 'robewear': if (ROBE) { const it = robeItem(); if (it && !it.equipped) { equipItem(S.inventory.indexOf(it)); } renderRobe(); } break;
     case 'unpack': unpackItem(i); break;
     case 'throwit': throwItem(i); break;
     case 'decktype': S.deck.variant = b.dataset.v; DECK.last = null; save(); renderDeck(); break;
@@ -5009,7 +5012,7 @@ function castSpell(i, col, force) {
   if (base > 0 && usable.length === 1 && !extras && !opts.some(o => o.k === 'slot' && o.L > usable[0].L && o.left)) { const o = usable[0]; return executeCast(i, o.k, o.L, col, {}); }
   CASTING = { i, col };
   openModal(`<h3>Cast ${esc(spLabel(sp))}</h3>
-    <p class="hint" style="margin:0 0 8px">${esc(sp.summary || '')}${sp.duration ? ' · ' + esc(sp.duration) : ''}</p>
+    <p class="hint" style="margin:0 0 8px">${esc(sp.summary || '')}${sp.duration ? ' · ' + esc(spDurTxt(sp)) : ''}</p>
     ${extras}
     ${base > 0 ? `<div class="lbl" style="margin-top:8px">Cast using</div><div class="castopts">${opts.map(o => `<button class="castopt" data-act="castgo" data-k="${o.k}" data-l="${o.L}" ${o.left > 0 ? '' : 'disabled'}><b>${esc(o.label)}</b><span>${o.k === 'slot' ? o.left + ' left' : o.k === 'pact' ? o.left + ' left' : ''}${o.L > base && o.k !== 'free' ? ' · upcast' : ''}</span></button>`).join('')}
       <button class="castopt ghost" data-act="castgo" data-k="none" data-l="${base}"><b>No slot</b><span>scroll, item or DM ruling</span></button></div>`
@@ -5517,7 +5520,7 @@ function buildMacros() {
     if (sm.dice && adeptFor(sm.type)) lines.push(`*Elemental Adept (${adeptFor(sm.type)}): count each 1 on the damage dice as a 2; ignores ${adeptFor(sm.type)} resistance*`);
     if (sm.heal && sm.heal !== 'all') lines.push(`**Healing (${sm.heal}):** [[${sm.heal}]]`);
     if (!sm.dice && !sm.heal) lines.push(`**Effect:** ${sp.summary || '—'}`);
-    lines.push(`**Duration:** ${sp.duration || '—'}`);
+    lines.push(`**Duration:** ${spDurTxt(sp) || '—'}`);
     M('Spells', sp.name, `casts ${sp.name}`, lines, `${N(sp.level) ? ORD[N(sp.level) - 1] + ' level' : 'Cantrip'}${sm.dice ? ' · ' + sm.dice : sm.heal ? ' · heal ' + sm.heal : ''}`);
   });
   casters().forEach(c => { const ci = castInfo(c.key); M('Spells', `${c.name} Spell Attack`, 'makes a spell attack', [`**Attack Roll (to hit):** [[${d20x(ci.atk)}]]`, `**Save DC:** ${ci.dc}`], sgn(ci.atk) + ' · DC ' + ci.dc); });
@@ -6635,7 +6638,7 @@ function spFeatTip(btn) {
     const sp = S.spells[i]; if (!sp) return null; const sm = spellMath(sp), ci = spellCI(sp), L = N(sp.level);
     const head = `${L ? ORD[L - 1] + '-level' : 'Cantrip'}${sp.school ? ' ' + esc(String(sp.school).toLowerCase()) : ''}${sp.ritual ? ' (ritual)' : ''}`;
     const math = [sm.attack ? `${fmt(ci.atk)} to hit` : '', sm.save ? `DC ${ci.dc} ${esc(sm.save)} save${sm.half ? ' (half on success)' : ''}` : '', sm.dice ? `${esc(sm.dice)} ${esc(sm.type)}` : '', sm.heal ? `heals ${esc(sm.heal)}` : '', sm.temp ? `${esc(sm.temp)} temp HP` : ''].filter(Boolean).join(' · ');
-    return { name: sp.name, html: `<div class="hint">${head}</div>` + line('Casting time', esc(sp.time || '')) + line('Range', esc(sp.range || '')) + line('Components', esc(sp.comps || '')) + line('Duration', esc((sp.conc ? 'Concentration, ' : '') + (sp.duration || ''))) + (fullOfSpell(sp) ? `<div class="tipdesc">${fullHTML(fullOfSpell(sp))}</div>` : '') + (math ? `<div class="tiphb">${math}</div>` : '') + (sm.note ? `<div class="hint">${esc(sm.note)}</div>` : '') + (sp.note ? `<div class="hint">${esc(sp.note)}</div>` : '') + `<div class="hint">${esc([CL[sp.cls] ? CL[sp.cls].name : '', sp.src || ''].filter(Boolean).join(' · '))}</div>` };
+    return { name: sp.name, html: `<div class="hint">${head}</div>` + line('Casting time', esc(sp.time || '')) + line('Range', esc(sp.range || '')) + line('Components', esc(sp.comps || '')) + line('Duration', esc((sp.conc && !/^\s*concentration/i.test(sp.duration || '') ? 'Concentration, ' : '') + spDurTxt(sp))) + (fullOfSpell(sp) ? `<div class="tipdesc">${fullHTML(fullOfSpell(sp))}</div>` : '') + (math ? `<div class="tiphb">${math}</div>` : '') + (sm.note ? `<div class="hint">${esc(sm.note)}</div>` : '') + (sp.note ? `<div class="hint">${esc(sp.note)}</div>` : '') + `<div class="hint">${esc([CL[sp.cls] ? CL[sp.cls].name : '', sp.src || ''].filter(Boolean).join(' · '))}</div>` };
   }
   const f = S.features[i]; if (!f) return null; const max = featMax(f), info = typeof fxInfoLine === 'function' ? fxInfoLine(f) : '';
   return { name: f.name, html: (f.source ? `<div class="hint">${esc(f.source)}</div>` : '') + (fullOfFeat(f) ? `<div class="tipdesc">${fullHTML(fullOfFeat(f))}</div>` : '') + (info ? `<div class="tiphb">${esc(info)}</div>` : '') + (max != null ? `<div class="hint">${Math.max(0, max - N(f.used))} of ${max} uses left${f.reset ? ' · resets on a ' + esc(f.reset) + ' rest' : ''}</div>` : '') };
@@ -7024,10 +7027,13 @@ const robeLeft = it => { const p = (it && it.robe && it.robe.p) || {}; return Ob
 const robeD100 = () => 1 + Math.floor(Math.random() * 100);
 const robeKindOf = r => ROBE_RAND.find(k => r >= ROBE_P[k].r[0] && r <= ROBE_P[k].r[1]);
 let ROBE = null;
-function openRobe(i, view) { const it = S.inventory[i]; if (!isRobeItem(it)) return; ROBE = { i, view: view || (it.robe ? 'main' : 'setup'), msg: '', q: '' }; renderRobe(); }
+function openRobe(i, view) { const it = S.inventory[i]; if (!isRobeItem(it)) return; ROBE = { i, id: it.id, view: view || (it.robe ? 'main' : 'setup'), msg: '', q: '' }; renderRobe(); }
+// The robe the window is about: found by its id (the sheet can change underneath — a save from your other device, an
+// item added or removed — and its place in the inventory with it).
+function robeItem() { if (!ROBE) return null; if (ROBE.id) { const k = S.inventory.findIndex(x => x && x.id === ROBE.id); if (k >= 0) { ROBE.i = k; return S.inventory[k]; } } return S.inventory[ROBE.i] || null; }
 function robeBase() { const p = {}; ROBE_FIXED.forEach(k => p[k] = 2); return p; }
 function robeRoll() {
-  const it = S.inventory[ROBE.i]; if (!it) return;
+  const it = robeItem(); if (!it) return;
   const r = rollExpr('4d4', { need: true, label: 'Robe of Useful Items: extra patches' }), n = N(r.total) || 10, p = robeBase(), rolls = [];
   for (let k = 0; k < n; k++) { const d = robeD100(), kind = robeKindOf(d); p[kind] = N(p[kind]) + 1; rolls.push([d, kind]); }
   it.robe = { p, rolled: rolls, log: [] }; ROBE.view = 'main'; ROBE.msg = `<b>${n} extra patches</b> (4d4): ${rolls.map(([d, k]) => `${esc(ROBE_P[k].n)} <small>(${d})</small>`).join(', ')}.`;
@@ -7038,7 +7044,7 @@ function robeTile(k, n, i, act) {
   return `<div class="robe-p${n ? '' : ' gone'}"><div class="robe-pt"><b>${esc(P.n)}</b>${n > 1 ? `<span class="robe-n">×${n}</span>` : ''}</div><p>${esc(P.d)}</p>${act ? act : `<button class="btn sm gold" data-act="robedet" data-k="${k}" ${n ? '' : 'disabled'}>Detach</button>`}</div>`;
 }
 function renderRobe() {
-  const it = S.inventory[ROBE.i]; if (!it) return closeModal(); let h = `<div id="robem"><h3>${esc(it.name)}</h3>`;
+  const it = robeItem(); if (!it) return closeModal(); let h = `<div id="robem"><h3>${esc(it.name)}</h3>`;
   if (ROBE.view === 'setup') {
     h += `<p class="hint">Every robe has two each of a dagger, bullseye lantern, steel mirror, 10-foot pole, hempen rope and sack, plus <b>4d4 more patches</b> your DM rolls or picks.</p>
       <div class="bagpresets"><button class="bagpreset" data-act="roberoll"><b>Roll the extra patches</b><small>4d4 patches, each rolled on the d100 table</small></button><button class="bagpreset" data-act="robeview" data-v="edit"><b>My DM told me what they are</b><small>Count each kind of patch yourself</small></button></div>`;
@@ -7085,7 +7091,7 @@ function robeScrollItem(name) {
   return it;
 }
 function robeDetach(k, spell) {
-  const it = S.inventory[ROBE.i]; if (!it || !it.robe) return; const p = it.robe.p, P = ROBE_P[k]; if (!N(p[k])) return;
+  const it = robeItem(); if (!it || !it.robe) return; const p = it.robe.p, P = ROBE_P[k]; if (!N(p[k])) return;
   if (!it.equipped) { toast('Wear the robe first — patches only come off while you have it on.', 'fumble'); return; }
   if (incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take actions.`, 'fumble'); return; }
   if (k === 'scroll' && !spell) { ROBE.view = 'scroll'; ROBE.q = ''; renderRobe(); return; }
@@ -11593,13 +11599,12 @@ function rebuildAuto() {
     (pk.fixed || []).concat(...pk.picks.map(p => [].concat(ch[p.key] || []))).filter(Boolean).forEach(n => { const lv = N((SPI(n) || {}).level);
       want.push({ n, cls: 'feat', src: fn, note: lv > 0 ? 'once per long rest without a slot' : '', once: lv > 0, ab, featAb: true }); }); });
   // Spells an item lets you cast, while you're using it (equipped, or carried if ticked; attuned if it needs it)
-  S.inventory.forEach(it => { if (!hbItemOn(it)) return; const st = itemStores(it), noConc = ITEM_NOCONC.test([it.notes, it.desc, it.description, it.text].filter(Boolean).join(' ')); (it.spells || []).forEach(n => want.push({ n, cls: 'other', noConc, src: it.name, note: st ? 'stored — gone once cast' : it.spellAtWill ? 'at will' : it.spellOnce ? 'once per long rest' : '', once: !st && !!it.spellOnce && !it.spellAtWill, atWill: !st && !!it.spellAtWill, stored: st, lvl: N((it.spellLevels || {})[n]), ab: (it.hb && it.hb.spellAb) || '', itemId: it.id })); });
+  S.inventory.forEach(it => { if (!hbItemOn(it)) return; const st = itemStores(it); (it.spells || []).forEach(n => want.push({ n, cls: 'other', src: it.name, note: st ? 'stored — gone once cast' : it.spellAtWill ? 'at will' : it.spellOnce ? 'once per long rest' : '', once: !st && !!it.spellOnce && !it.spellAtWill, atWill: !st && !!it.spellAtWill, stored: st, lvl: N((it.spellLevels || {})[n]), ab: (it.hb && it.hb.spellAb) || '', itemId: it.id })); });
   const keyOf = (n, cls) => n.toLowerCase() + '|' + cls;
   const wantKeys = new Set(want.map(w => keyOf(w.n, w.cls)));
   S.spells = S.spells.filter(s => !s.auto || wantKeys.has(keyOf(s.name, s.cls)));
   want.forEach(w => {
     const ex0 = S.spells.find(s => keyOf(s.name, s.cls) === keyOf(w.n, w.cls) && s.always && s.auto);
-    if (ex0 && w.noConc && ex0.conc) ex0.conc = false;
     if (ex0 && w.stored) { storedUse(ex0, w); ex0.item = w.itemId; ex0.ab = w.ab || (casters()[0] || {}).ab || 'cha'; ex0.note = w.src + ': ' + w.note; return; }
     if (ex0 && ex0.usesOnly && w.itemId) { delete ex0.usesOnly; delete ex0.stored; delete ex0.uses; }
     if (ex0 && (w.itemId || w.atWill || ex0.atWill)) { ex0.atWill = !!w.atWill && N(ex0.level) > 0; if (w.once && N(ex0.level) > 0) { if (!ex0.uses) ex0.uses = { max: '1', reset: 'long', used: 0 }; } else if (w.itemId || ex0.atWill) delete ex0.uses; if (w.itemId) { ex0.item = w.itemId; ex0.ab = w.ab || (casters()[0] || {}).ab || 'cha'; } ex0.note = w.src + (w.note ? ': ' + w.note : ''); return; }
@@ -11610,7 +11615,6 @@ function rebuildAuto() {
     if (w.once && N(sp.level) > 0) sp.uses = { max: '1', reset: 'long', used: 0 };
     if (w.atWill && N(sp.level) > 0) sp.atWill = true;
     if (w.itemId) { sp.item = w.itemId; sp.ab = w.ab || (casters()[0] || {}).ab || 'cha'; }
-    if (w.noConc) sp.conc = false;
     if (w.stored) storedUse(sp, w);
     if (w.featAb) sp.ab = w.ab;
     if (w.cls === 'race') { sp.ab = w.ab; if (/once per long rest|1\/long rest|once per day/i.test(w.note || '') && N(sp.level) > 0) { sp.uses = { max: '1', reset: 'long', used: 0 }; const lv = String(w.note).match(/as (\d)(?:st|nd|rd|th)[- ]level/i); if (lv) sp.uses.level = N(lv[1]); } }
@@ -11636,8 +11640,6 @@ function storedUse(sp, w) {
   sp.usesOnly = true; sp.stored = true; sp.uses.reset = 'never'; sp.prepared = true;
   if (w.lvl > N(sp.level)) sp.uses.level = w.lvl; else delete sp.uses.level;
 }
-// An item that says its spells need no concentration ("cast Stoneskin without concentration")
-const ITEM_NOCONC = /without (?:requiring |needing |the need for |using )?concentration|(?:doesn['’]?t|does not|don['’]?t|do not|never) (?:require|need|take|use) concentration|no concentration (?:is )?(?:required|needed)|not require concentration/i;
 function spellEntry(n, cls) {
   const d = SPI(n) || { name: n, level: 1, school: '', time: '1 action', range: '', comps: '', duration: '', conc: false, ritual: false, summary: '', src: '' };
   return { name: d.name, level: d.level, school: d.school, time: d.time, range: d.range, comps: d.comps, duration: d.duration, conc: d.conc, ritual: d.ritual, summary: d.summary, src: d.src, cls, prepared: false, always: false, note: '' };
@@ -13041,6 +13043,40 @@ function keepLocal(next, cur) {
   return next;
 }
 let GUESTCLAIM = false, GUESTDONE = false;
+// ----- The same character open in two places (a phone and a computer, a player and a co-editor) -----
+// Each copy remembers the sheet as the cloud last had it (CLOUD_BASE). When another copy's save arrives while this one
+// has changes of its own that aren't saved yet, the two are merged instead of one wiping out the other: whatever only
+// one side changed comes through, items are matched by their id, and counts both sides changed (gold, patches, uses)
+// add up both changes. Only a real clash on the same field keeps this copy's value.
+let CLOUD_BASE = null, CLOUD_BASE_AT = 0, EDIT_N = 0, SYNC_N = 0;
+const cloudDirty = () => EDIT_N > SYNC_N;
+function sheetMerge(b, l, r) {
+  const js = v => JSON.stringify(v);
+  const sl = js(l), sr = js(r); if (sl === sr) return l;
+  const sb = js(b); if (sl === sb) return r; if (sr === sb) return l;
+  if (typeof l === 'number' && typeof r === 'number' && typeof b === 'number') return Math.abs(l) > 1e11 || Math.abs(r) > 1e11 ? Math.max(l, r) : b + (l - b) + (r - b); // (times: the later one)
+  const obj = v => v && typeof v === 'object' && !Array.isArray(v);
+  if (Array.isArray(l) && Array.isArray(r)) {
+    const idd = a => Array.isArray(a) && a.length > 0 && a.every(x => obj(x) && x.id != null && x.id !== '');
+    if ((idd(l) || !l.length) && (idd(r) || !r.length) && (idd(b) || !(b && b.length))) {
+      const B = new Map((b || []).map(x => [x.id, x])), R = new Map(r.map(x => [x.id, x])), L = new Set(l.map(x => x.id)), out = [];
+      l.forEach(x => { const rx = R.get(x.id), bx = B.get(x.id);
+        if (!rx) { if (bx && js(bx) === js(x)) return; out.push(x); return; } // (gone there and untouched here: gone)
+        out.push(bx ? sheetMerge(bx, x, rx) : x); });
+      r.forEach(x => { if (!L.has(x.id) && !B.has(x.id)) out.push(x); }); // new there
+      return out;
+    }
+    // logs (entries stamped with a time, no id): both sides' entries, in time order
+    if ([l, r].every(a => a.every(x => obj(x) && typeof x.t === 'number'))) { const seen = new Set(), out = []; l.concat(r).forEach(x => { const k = js(x); if (!seen.has(k)) { seen.add(k); out.push(x); } }); return out.sort((x, y) => x.t - y.t); }
+    return l;
+  }
+  if (obj(l) && obj(r)) {
+    const bb = obj(b) ? b : {}, o = {};
+    new Set(Object.keys(l).concat(Object.keys(r))).forEach(k => { const v = sheetMerge(bb[k], l[k], r[k]); if (v !== undefined) o[k] = v; });
+    return o;
+  }
+  return l;
+}
 let CLOUD = null, DBX = null, cloudBusy = false, cloudAgain = false, cloudTimer = null, cloudPending = null, cloudFails = 0, cloudParts = 1, cloudUnsub = null, cloudRO = false;
 const clock = () => new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 // The toolbar slot is small: show a short label, keep the full sentence as the hover text.
@@ -13051,18 +13087,24 @@ function setSyncState(t) { UI.saveState = t; UI.saveFull = t; const el = $('#sav
 // On the website, edits are gathered into one save after 1.5s of quiet (never held longer than 6s), and anything
 // waiting is saved at once when the tab is hidden or closed — far fewer database writes, still near-live for others.
 let cloudFirst = 0;
-function cloudPush() { if (!CLOUD || !S.created || cloudRO) return; clearTimeout(cloudTimer);
+function cloudPush() { EDIT_N++; if (!CLOUD || !S.created || cloudRO) return; clearTimeout(cloudTimer);
   if (!window.SHEET_PAGES) { cloudTimer = setTimeout(cloudWrite, 350); return; }
   const now = Date.now(); if (!cloudFirst) cloudFirst = now;
   cloudTimer = setTimeout(() => { cloudFirst = 0; cloudWrite(); }, Math.max(0, Math.min(1500, cloudFirst + 6000 - now))); }
-function cloudFlush() { if (cloudTimer && cloudFirst) { clearTimeout(cloudTimer); cloudTimer = null; cloudFirst = 0; cloudWrite(); } }
+function cloudFlush() { if (cloudTimer && cloudFirst) { clearTimeout(cloudTimer); cloudTimer = null; cloudFirst = 0; cloudWrite(true); } }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') cloudFlush(); });
 addEventListener('pagehide', cloudFlush);
 const partRef = k => DBX.doc('sheets/part' + k);
-async function cloudWrite() {
+async function cloudWrite(force) {
   if (!CLOUD || !S.created || cloudRO) return;
   if (cloudBusy) { cloudAgain = true; return; }
+  // another copy saved while this one was busy (a popup open, typing): take that in first, so neither copy's changes are lost
+  if (cloudPending && CLOUD_BASE && N(cloudPending.savedAt) > CLOUD_BASE_AT) {
+    if (busyEditing() && !force) { clearTimeout(cloudTimer); cloudTimer = setTimeout(cloudWrite, 800); return; }
+    adoptRemote(cloudPending, true); if (typeof ROBE !== 'undefined' && ROBE && $('#robem')) try { renderRobe(); } catch (e) {}
+  }
   cloudBusy = true;
+  const n0 = EDIT_N;
   try {
     const str = JSON.stringify(S), at = N(S.savedAt) || Date.now(), parts = [];
     for (let i = 0; i < str.length; i += PART) parts.push(str.slice(i, i + PART));
@@ -13070,7 +13112,7 @@ async function cloudWrite() {
     for (let k = 1; k < parts.length; k++) await partRef(k).set({ savedAt: at, k, data: parts[k] });
     await CLOUD.set({ v: 2, savedAt: at, tab: TAB, n: parts.length, data: parts[0], guestDone: GUESTDONE || GUESTCLAIM });
     for (let k = parts.length; k < cloudParts; k++) { try { await partRef(k).delete(); } catch (e) {} }
-    cloudParts = parts.length; cloudFails = 0;
+    cloudParts = parts.length; cloudFails = 0; CLOUD_BASE = str; CLOUD_BASE_AT = at; SYNC_N = Math.max(SYNC_N, n0);
     setSyncState('Live · synced ' + clock());
   } catch (e) {
     const c = e && e.code;
@@ -13092,20 +13134,24 @@ async function cloudText(d, partOf) {
 }
 // Typing in a field or working in a popup: wait, then catch up (a re-render would steal focus or the popup's place).
 function busyEditing() { const a = document.activeElement; return $('#modal').classList.contains('open') || $('#wizard').classList.contains('open') || !!(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && !a.closest('#page-nothing')); }
-function adoptRemote(d) {
+function adoptRemote(d, force) {
   let next; try { next = JSON.parse(d.sheet); } catch (e) { return; }
   if (!next || !next.created || !S.created) return;
-  if (busyEditing()) { cloudPending = d; return; }
+  if (busyEditing() && !force) { cloudPending = d; return; }
   cloudPending = null;
   const sx = scrollX, sy = scrollY;
+  let mine = false;
+  if (CLOUD_BASE && cloudDirty()) { try { const at = Math.max(N(next.savedAt), N(S.savedAt)); next = sheetMerge(JSON.parse(CLOUD_BASE), JSON.parse(JSON.stringify(S)), next); next.savedAt = at; mine = true; } catch (e) {} }
+  CLOUD_BASE = d.sheet; CLOUD_BASE_AT = N(d.savedAt);
   S = keepLocal(migrate(next), S); if (applyFixes(S)) rebuildAuto();
+  if (mine) { S.savedAt = Date.now(); writeLocal(); }
   try { localStorage.setItem(keyFor(S.id), JSON.stringify(S)); } catch (e) {}
   HIST = []; REDO = []; LAST = snapAll(); histButtons();
   applySources(S.sources); applyTheme(); render();
   scrollTo(sx, sy);
   setSyncState('Live · synced ' + clock());
 }
-setInterval(() => { if (cloudPending && !busyEditing() && N(cloudPending.savedAt) > N(S.savedAt)) adoptRemote(cloudPending); else if (cloudPending && N(cloudPending.savedAt) <= N(S.savedAt)) cloudPending = null; }, 400);
+setInterval(() => { if (!cloudPending || busyEditing()) return; if (CLOUD_BASE ? N(cloudPending.savedAt) > CLOUD_BASE_AT : N(cloudPending.savedAt) > N(S.savedAt)) adoptRemote(cloudPending); else cloudPending = null; }, 400);
 function cloudListen(ref, onFirst) {
   let checked = false;
   if (cloudUnsub) { try { cloudUnsub(); } catch (e) {} }
@@ -13113,9 +13159,10 @@ function cloudListen(ref, onFirst) {
     const d = snap.exists ? snap.data() : null;
     if (d) { cloudParts = Math.max(cloudParts, N(d.n) || 1); if (d.guestDone) GUESTDONE = true; }
     if (!checked) { if (snap.metadata.fromCache) return; checked = true; CLOUD = ref; if (await onFirst(d)) return; }
-    if (d && (d.sheet || d.v === 2) && d.tab !== TAB && N(d.savedAt) > N(S.savedAt)) {
+    const newer = () => CLOUD_BASE ? N(d.savedAt) > CLOUD_BASE_AT : N(d.savedAt) > N(S.savedAt);
+    if (d && (d.sheet || d.v === 2) && d.tab !== TAB && newer()) {
       const txt = await cloudText(d);
-      if (txt && N(d.savedAt) > N(S.savedAt)) adoptRemote({ savedAt: d.savedAt, sheet: txt });
+      if (txt && newer()) adoptRemote({ savedAt: d.savedAt, sheet: txt });
     }
   }, e => {
     const c = e && e.code;
@@ -13144,7 +13191,7 @@ function cloudListen(ref, onFirst) {
         // A newer copy of the sheet file is replacing the synced one: never lose the player's own settings, theme or layout.
         if (d && !cloudRO && !FROM_LOCAL) { try { const txt = await cloudText(d); const old = txt && JSON.parse(txt); if (old && old.id === S.id) { keepPrefs(S, old); hdrReset(S); try { applyTheme(); render(); } catch (e) {} } } catch (e) {} }
         if (!cloudRO) cloudWrite(); }
-      else if (d) setSyncState(cloudRO ? 'Live · view only (you can\'t edit this sheet)' : 'Live · synced ' + clock());
+      else if (d) { if (N(d.savedAt) === N(S.savedAt)) { CLOUD_BASE = JSON.stringify(S); CLOUD_BASE_AT = N(d.savedAt); SYNC_N = EDIT_N; } setSyncState(cloudRO ? 'Live · view only (you can\'t edit this sheet)' : 'Live · synced ' + clock()); }
     });
   } catch (e) {}
 })();

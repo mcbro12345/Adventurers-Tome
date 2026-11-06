@@ -1053,10 +1053,13 @@ const robeLeft = it => { const p = (it && it.robe && it.robe.p) || {}; return Ob
 const robeD100 = () => 1 + Math.floor(Math.random() * 100);
 const robeKindOf = r => ROBE_RAND.find(k => r >= ROBE_P[k].r[0] && r <= ROBE_P[k].r[1]);
 let ROBE = null;
-function openRobe(i, view) { const it = S.inventory[i]; if (!isRobeItem(it)) return; ROBE = { i, view: view || (it.robe ? 'main' : 'setup'), msg: '', q: '' }; renderRobe(); }
+function openRobe(i, view) { const it = S.inventory[i]; if (!isRobeItem(it)) return; ROBE = { i, id: it.id, view: view || (it.robe ? 'main' : 'setup'), msg: '', q: '' }; renderRobe(); }
+// The robe the window is about: found by its id (the sheet can change underneath — a save from your other device, an
+// item added or removed — and its place in the inventory with it).
+function robeItem() { if (!ROBE) return null; if (ROBE.id) { const k = S.inventory.findIndex(x => x && x.id === ROBE.id); if (k >= 0) { ROBE.i = k; return S.inventory[k]; } } return S.inventory[ROBE.i] || null; }
 function robeBase() { const p = {}; ROBE_FIXED.forEach(k => p[k] = 2); return p; }
 function robeRoll() {
-  const it = S.inventory[ROBE.i]; if (!it) return;
+  const it = robeItem(); if (!it) return;
   const r = rollExpr('4d4', { need: true, label: 'Robe of Useful Items: extra patches' }), n = N(r.total) || 10, p = robeBase(), rolls = [];
   for (let k = 0; k < n; k++) { const d = robeD100(), kind = robeKindOf(d); p[kind] = N(p[kind]) + 1; rolls.push([d, kind]); }
   it.robe = { p, rolled: rolls, log: [] }; ROBE.view = 'main'; ROBE.msg = `<b>${n} extra patches</b> (4d4): ${rolls.map(([d, k]) => `${esc(ROBE_P[k].n)} <small>(${d})</small>`).join(', ')}.`;
@@ -1067,7 +1070,7 @@ function robeTile(k, n, i, act) {
   return `<div class="robe-p${n ? '' : ' gone'}"><div class="robe-pt"><b>${esc(P.n)}</b>${n > 1 ? `<span class="robe-n">×${n}</span>` : ''}</div><p>${esc(P.d)}</p>${act ? act : `<button class="btn sm gold" data-act="robedet" data-k="${k}" ${n ? '' : 'disabled'}>Detach</button>`}</div>`;
 }
 function renderRobe() {
-  const it = S.inventory[ROBE.i]; if (!it) return closeModal(); let h = `<div id="robem"><h3>${esc(it.name)}</h3>`;
+  const it = robeItem(); if (!it) return closeModal(); let h = `<div id="robem"><h3>${esc(it.name)}</h3>`;
   if (ROBE.view === 'setup') {
     h += `<p class="hint">Every robe has two each of a dagger, bullseye lantern, steel mirror, 10-foot pole, hempen rope and sack, plus <b>4d4 more patches</b> your DM rolls or picks.</p>
       <div class="bagpresets"><button class="bagpreset" data-act="roberoll"><b>Roll the extra patches</b><small>4d4 patches, each rolled on the d100 table</small></button><button class="bagpreset" data-act="robeview" data-v="edit"><b>My DM told me what they are</b><small>Count each kind of patch yourself</small></button></div>`;
@@ -1114,7 +1117,7 @@ function robeScrollItem(name) {
   return it;
 }
 function robeDetach(k, spell) {
-  const it = S.inventory[ROBE.i]; if (!it || !it.robe) return; const p = it.robe.p, P = ROBE_P[k]; if (!N(p[k])) return;
+  const it = robeItem(); if (!it || !it.robe) return; const p = it.robe.p, P = ROBE_P[k]; if (!N(p[k])) return;
   if (!it.equipped) { toast('Wear the robe first — patches only come off while you have it on.', 'fumble'); return; }
   if (incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take actions.`, 'fumble'); return; }
   if (k === 'scroll' && !spell) { ROBE.view = 'scroll'; ROBE.q = ''; renderRobe(); return; }
