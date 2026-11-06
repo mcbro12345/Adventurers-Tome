@@ -1904,3 +1904,6 @@ body.dk-ldragging, body.dk-ldragging * { cursor: grabbing !important; user-selec
 .dk-tkdz-i { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; background: rgba(201,150,43,.18); color: var(--gold); margin-bottom: 4px; }
 .dk .dk-tkdrop .dk-tkdz-i svg { width: 24px !important; height: 24px !important; margin: 0; }
 
+
+/* damage-type boxes: one line, cut short with … if the box is narrow */
+select.sel-dmg { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

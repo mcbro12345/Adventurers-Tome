@@ -4445,3 +4445,6 @@ html.readying .econ:not(.col-action) { opacity: .4; transition: opacity .2s; }
 html.readying .econ.col-action :is(.atkbtn, button.roll, [data-act="cast"], .chip[data-act="markopt"], .opt .btn:not(.notetip)) { box-shadow: 0 0 0 2px var(--gold); }
 html.readying .econ.col-action .chip[data-act="markopt"][data-name="Ready" i] { box-shadow: none; opacity: .5; }
 @media (prefers-reduced-motion: no-preference) { html.readying .readybar { animation: rbIn .2s ease-out; } @keyframes rbIn { from { opacity: 0; transform: translateY(-4px); } } }
+
+/* damage-type boxes: one line, cut short with … if the box is narrow */
+select.sel-dmg { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
