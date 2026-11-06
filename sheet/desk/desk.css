@@ -1905,6 +1905,6 @@ body.dk-ldragging, body.dk-ldragging * { cursor: grabbing !important; user-selec
 .dk .dk-tkdrop .dk-tkdz-i svg { width: 24px !important; height: 24px !important; margin: 0; }
 
 
-/* damage-type boxes: wide enough for "Magical bludgeoning", and always one line */
+/* damage-type boxes: wide enough for "Bludgeoning (magical)", and always one line */
 select.sel-dmg { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 12.5em; }
 @media (max-width: 380px) { select.sel-dmg { font-size: .78rem !important; padding-left: 6px !important; } }

@@ -3892,7 +3892,7 @@ async function ptyRecall(fs, EMAIL, pid, to, ref, from, fromName) {
   await ptySend(fs, EMAIL, pid, to, 'undo', { ref }, from, fromName); return 'undone';
 }
 
-const ptyDtLabel = t => /\(magical\)/i.test(t) ? 'Magical ' + t.replace(/\s*\(magical\)/i, '').toLowerCase() : t;
+const ptyDtLabel = t => t;
 const PTY_DT = ['Acid', 'Bludgeoning', 'Bludgeoning (magical)', 'Cold', 'Fire', 'Force', 'Lightning', 'Necrotic', 'Piercing', 'Piercing (magical)', 'Poison', 'Psychic', 'Radiant', 'Slashing', 'Slashing (magical)', 'Thunder'];
 function partyModule(H) {
   const { fs, EMAIL, IS_ADMIN, modal, toast, esc, close, root, G } = H;
