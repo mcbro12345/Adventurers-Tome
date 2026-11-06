@@ -440,6 +440,9 @@ const wpnBind = a => a && a.item ? fxActive().find(e => e.item === a.item && e.w
 const buffSum = k => selfBuffs().reduce((t, b) => t + N(b[k]), 0);
 const blessed = () => selfBuffs().some(b => b.bless) || (S.conditions || []).includes('Blessed');
 const hasted = () => selfBuffs().some(b => b.speedMult) || (S.conditions || []).includes('Hasted');
+// A spell's duration as shown: one that isn't concentration on this sheet (unticked, e.g. cast from an item that
+// doesn't need it) drops the "Concentration, up to" part — "Concentration, up to 1 hour" reads "1 hour".
+function spDurTxt(s) { const d = String((s && s.duration) || ''); if (!s || s.conc) return d; if (!/^\s*concentration/i.test(d)) return d; const t = d.replace(/^\s*concentration\s*,?\s*/i, '').replace(/^up to\s+/i, ''); return t !== d ? t.charAt(0).toUpperCase() + t.slice(1) : d; }
 function parseDur(d) {
   d = String(d || '').toLowerCase();
   if (/instant/.test(d)) return 0;
@@ -932,10 +935,11 @@ function useAct(fi, j, col) {
   // Attack-roll options (e.g. the Force Ballista): roll to hit first; a 20 doubles the damage dice.
   let hit = null; if (a.atk) { const bonus = a.atk === 'spell' ? castInfo(f.cls).atk : N(a.atk); const d = d20Expr(bonus, 'attack'); hit = rollExpr(d.expr, { label: (a.name || f.name) + ' attack' }); hit.crit = hit.d20 >= 20; hit.nat1 = hit.d20 === 1; hit.bonus = bonus; }
   const r = a.roll ? rollExpr(hit && hit.crit ? critDice(fxRollExpr(a.roll)) : fxRollExpr(a.roll), { label: (a.name || f.name) + ': ' + (a.rollNote || 'roll').replace(/\s*\(.*$/, '') }) : null;
+  const n1 = hit && hit.nat1 ? nat1Roll(a.atk === 'spell' ? { t: 'spell', lvl: 1 } : {}) : null; // (house rule: the d4 is the last roll)
   const dc = fxDCLine(a.dc ? a : fx, f);
   pendingLabel = 'Use ' + nm; update(); render();
   const heal = r && a.healRoll ? { label: 'Heal me', fn: () => useAmt(r, nm + ': healing', n => healSelf(n, `${nm}: +${n} HP`)) } : null;
-  if (hit) { toast(`<b class="total">${hit.total}</b><div class="rc-body"><div class="rc-name">${esc(nm)}</div><div class="rc-lbl">${hit.crit ? 'CRITICAL HIT' : hit.nat1 ? 'Natural 1 — miss' : 'to hit'}</div><div class="det">Hit: ${esc(hit.detail)}${r ? ' · Dmg: ' + esc(r.detail) : ''}</div>${a.rollNote ? `<div class="det">${esc(a.rollNote)}</div>` : ''}${lines.map(l => `<div class="det">${esc(l)}</div>`).join('')}</div>${r ? `<div class="rc-dmg${hit.nat1 ? ' void' : ''}"><b>${r.total}</b><span>${esc((String(a.rollNote || 'damage').split(/[ (]/)[0]) || 'damage')}</span></div>` : ''}`, hit.crit ? 'crit' : hit.nat1 ? 'fumble' : '', 9000, [{ label: 'Undo', fn: () => undo(1) }]); return; }
+  if (hit) { toast(`<b class="total">${hit.total}</b><div class="rc-body"><div class="rc-name">${esc(nm)}</div><div class="rc-lbl">${hit.crit ? 'CRITICAL HIT' : hit.nat1 ? 'Natural 1 — miss' : 'to hit'}</div>${fumHTML(n1)}<div class="det">Hit: ${esc(hit.detail)}${r ? ' · Dmg: ' + esc(r.detail) : ''}</div>${a.rollNote ? `<div class="det">${esc(a.rollNote)}</div>` : ''}${lines.map(l => `<div class="det">${esc(l)}</div>`).join('')}</div>${r ? `<div class="rc-dmg${hit.nat1 ? ' void' : ''}"><b>${r.total}</b><span>${esc((String(a.rollNote || 'damage').split(/[ (]/)[0]) || 'damage')}</span></div>` : ''}`, hit.crit ? 'crit' : hit.nat1 ? 'fumble' : '', 9000, [{ label: 'Undo', fn: () => undo(1) }]); return; }
   toast(`${r ? `<b class="total">${r.total}</b>` : ''}<div><div><b>${esc(nm)}</b>${cost ? ' · ' + esc(fxCostText(cost)) : ''}</div>${r ? `<div class="det">${esc(r.detail)}${a.rollNote ? ' ' + esc(a.rollNote) : ''}</div>` : ''}${dc ? `<div class="det">${esc(dc)}</div>` : ''}${a.text ? `<div class="det">${esc(fxText(a.text))}</div>` : ''}${lines.map(l => `<div class="det">${esc(l)}</div>`).join('')}</div>`, '', 9000, [heal, typeof ptyFeatAct === 'function' ? ptyFeatAct(nm, r, f) : null, { label: 'Undo', fn: () => undo(1) }].filter(Boolean));
 }
 // Blessing of the Forge: pick the armor or weapon to bless.
@@ -1610,7 +1614,7 @@ function r20Lines(label, expr, first) {
   let em = '', line = '', m;
   // Named rolls that end in "attack" come first, so Sneak Attack isn't read as an attack with a weapon called "Sneak".
   if (/^sneak attack/i.test(L)) { em = 'strikes a vital spot'; line = `**Sneak Attack (${e}):** [[${e}]]`; }
-  else if (/^nat 1 roll$/i.test(L)) { em = 'rolls a natural 1'; line = `**Nat 1 Roll:** [[${e}]]`; }
+  else if (/^(nat 1 roll|critical fumble)$/i.test(L)) { em = 'fumbles'; line = `**Critical Fumble:** [[${e}]]`; }
   else if (/^divine smite/i.test(L)) { em = 'smites with divine radiance'; line = `**Radiant Damage (${e}):** [[${e}]]`; }
   else if ((m = /^(.*) spell attack$/i.exec(L))) { const own = CL[Object.keys(CL).find(k => CL[k].name === m[1])]; em = own ? 'makes a spell attack' : `casts ${m[1]}`; line = `**Spell Attack (to hit):** [[${e}]]`; }
   else if ((m = /^(.*) spell damage(?: \((.*)\))?$/i.exec(L))) { em = `casts ${m[1]}`; line = `**Damage (${e}${m[2] ? ' ' + m[2] : ''}):** [[${e}]]`; }
@@ -1668,7 +1672,23 @@ function d20Expr(bonus, kind, ab) {
   return { expr: base + sgn(bonus - ex) + bless + extra, rm, bless, ex, dieNames, bonus };
 }
 // House rule (Settings → Rules): a natural 1 on an attack roll also rolls a d4, always the last roll.
-function nat1Roll() { return ST('nat1Roll') ? rollExpr('1d4', { label: 'Nat 1 Roll' }) : null; }
+// Critical fumbles: d4 on the table for the kind of attack — t 'melee', 'ranged' or 'spell' (lvl, melee); unknown shows both weapon rows.
+const FUMBLE = {
+  ranged: ['Self damage (1d4)', 'Lose half your movement and no Extra Attack', 'Friendly fire', 'Weapon malfunction — spend your next action fixing it'],
+  melee: ['Self damage (1d4)', 'Lose half your movement and no Extra Attack', 'Overextend — lose your reaction', 'Create an opening — triggers an attack of opportunity'],
+  spell: ['Self damage (1d4 × spell level)', 'Magic malfunction — no spells or cantrips for 1 turn', 'Strain — make a concentration check if concentrating', 'Create an opening (melee) / friendly fire (ranged)'] };
+function nat1Roll(info) {
+  if (!ST('nat1Roll')) return null; info = info || {};
+  const r = rollExpr('1d4', { label: 'Critical Fumble' }); if (r.skipped) return r;
+  const n = Math.min(4, Math.max(1, r.total)), t = info.t;
+  let text = t === 'spell' && n === 4 ? (info.melee ? 'Create an opening — triggers an attack of opportunity' : 'Friendly fire')
+    : FUMBLE[t] ? FUMBLE[t][n - 1] : n >= 3 ? `Melee: ${FUMBLE.melee[n - 1]} · Ranged: ${FUMBLE.ranged[n - 1]}` : FUMBLE.melee[n - 1];
+  if (n === 1) { const lv = t === 'spell' ? Math.max(1, N(info.lvl)) : 1, d = rollExpr('1d4', { label: 'Critical Fumble: self damage' }), dmg = d.skipped ? 0 : d.total * lv;
+    if (!d.skipped) { text = `Self damage: ${dmg}${lv > 1 ? ` (${d.total} × level ${lv})` : ''}`; setTimeout(() => toast(`<div><b>Critical fumble</b><div class="det">You hurt yourself for ${dmg} damage.</div></div>`, 'fumble', 9000, { label: `Take ${dmg} damage`, fn: () => { takeDamage(dmg); save(); render(); } }), 80); } }
+  if (n === 3 && t === 'melee' && S.inCombat && S.turn && S.turn.used) S.turn.used.reaction = true;
+  if (n === 3 && t === 'spell' && S.concentration && typeof concCheck === 'function') setTimeout(() => concCheck(10, true), 120);
+  r.fum = text; return r; }
+const fumHTML = n1 => n1 && !n1.skipped ? `<div class="rc-n1"><b>Critical Fumble ${n1.total}:</b> ${esc(n1.fum || '')}</div>` : '';
 function d20(label, bonus, kind, ab, rows) {
   const dx = d20Expr(bonus, kind, ab), { expr, rm, bless, ex } = dx;
   STAT_KIND = ({ attack: 'attack', save: 'save' })[kind] || ''; let r; try { r = rollExpr(expr, { label }); } finally { STAT_KIND = ''; }
@@ -1676,9 +1696,9 @@ function d20(label, bonus, kind, ab, rows) {
   let floorUp = 0; if (fl && r.d20 != null && r.d20 < fl) { floorUp = fl - r.d20; r.total += floorUp; r.detail += ` (d20 ${r.d20} counts as ${fl})`; r.d20 = fl; }
   const math = mathHTML([d20Math(r, dx, rows || ROLL_ROWS, 'Roll', floorUp ? [`d20 counts as ${fl}`, floorUp] : null)]);
   const note = [rm.mode !== 'normal' ? (rm.mode === 'adv' ? 'Advantage: ' : 'Disadvantage: ') + rm.why.join(', ') : '', bless ? 'Bless +1d4' : '', ex ? `Exhaustion −${ex}` : '', rm.auto ? 'Automatic failure (condition)' : ''].filter(Boolean).join(' · ');
-  const n1 = kind === 'attack' && r.d20 === 1 ? nat1Roll() : null;
+  const n1 = (kind === 'attack' || / attack$/i.test(label)) && r.d20 === 1 ? nat1Roll(/spell attack/i.test(label) ? { t: 'spell' } : (() => { const a = (S.attacks || []).find(x => x.name + ' attack' === label); return a ? { t: a.kind === 'melee' ? 'melee' : 'ranged' } : {}; })()) : null; // (companions' to-hit rolls too)
   if (['attack', 'save', 'check'].includes(kind)) LAST_D20 = { t: Date.now(), label, bonus, kind, ab, rows, total: r.skipped ? null : r.total };
-  toast(`<b class="total">${r.total}</b><div><div>${esc(label)}</div><div class="det dd">${esc(r.detail)}</div>${note ? `<div class="det">${esc(note)}</div>` : ''}${n1 ? `<div class="rc-n1"><b>Nat 1 Roll:</b> ${n1.total}</div>` : ''}${math}</div>`, r.d20 === 20 ? 'crit' : r.d20 === 1 ? 'fumble' : '', ['attack', 'save', 'check'].includes(kind) && !r.skipped && typeof inspAct === 'function' && inspFx() ? 9000 : undefined, ['attack', 'save', 'check'].includes(kind) && !r.skipped && typeof inspAct === 'function' ? inspAct(r.total, label) : null);
+  toast(`<b class="total">${r.total}</b><div><div>${esc(label)}</div><div class="det dd">${esc(r.detail)}</div>${note ? `<div class="det">${esc(note)}</div>` : ''}${fumHTML(n1)}${math}</div>`, r.d20 === 20 ? 'crit' : r.d20 === 1 ? 'fumble' : '', ['attack', 'save', 'check'].includes(kind) && !r.skipped && typeof inspAct === 'function' && inspFx() ? 9000 : undefined, ['attack', 'save', 'check'].includes(kind) && !r.skipped && typeof inspAct === 'function' ? inspAct(r.total, label) : null);
   return r;
 }
 const doubleDice = e => String(e || '').replace(/(\d*)d(\d+)/gi, (m, n, sd) => (2 * (N(n) || 1)) + 'd' + sd);
@@ -2010,7 +2030,7 @@ function renderVitals() {
         <div class="hp-center">${f ? inp('form.hp', { num: 1, cls: 'cur', label: 'Form HP' }) + `<div class="hp-max">of ${N(f.maxhp)}</div>` : `<div class="curline">` + inp('hp.cur', { num: 1, cls: 'cur', label: 'Current HP' }) + `<span class="tmpbadge" data-calc="tmpb" title="Temporary hit points"></span></div><div class="hp-max">of <span class="maxv" data-calc="hpmaxv"></span></div>`}</div></div>
       <div class="hp-side">
         ${f ? `<div class="formnote">Your HP: <b data-calc="truehp"></b> <button class="btn sm" data-act="endform">Revert</button></div>` : ''}
-        <div class="hp-actions"><div class="hp-amtrow"><select class="f hptype sel-dmg" id="hpType" aria-label="Damage type (resistances and immunities apply)" title="Damage type: your resistances and immunities apply"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="hpAmt" type="text" inputmode="text" autocomplete="off" enterkeyhint="done" placeholder="Amount" aria-label="HP amount: type -20 (or 20) and press Enter for damage, +20 to heal"></div>
+        <div class="hp-actions"><div class="hp-amtrow"><select class="f hptype sel-dmg" id="hpType" aria-label="Damage type (resistances and immunities apply)" title="Damage type: your resistances and immunities apply">${dmgTypeOpts()}</select><input class="f" id="hpAmt" type="text" inputmode="text" autocomplete="off" enterkeyhint="done" placeholder="Amount" aria-label="HP amount: type -20 (or 20) and press Enter for damage, +20 to heal"></div>
           <button class="btn red hpi" data-act="dmg" title="Take damage" aria-label="Take damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-act="heal" title="Heal" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmpbtn" data-act="tmphp" title="Gain temporary HP (they don't stack — the higher stays). 0 clears them." aria-label="Gain temporary HP">${ICON.hpTemp}</button></div>
         <div class="rest-actions"><button class="btn rest short" data-act="short" title="1 hour: spend Hit Dice, refresh short-rest features and Pact slots"><span class="ri">${ICON.hourglass}</span><span class="rl">Short Rest</span></button><button class="btn rest long" data-act="long" title="8 hours: full HP, all slots, features and Hit Dice"><span class="ri">${ICON.moon}</span><span class="rl">Long Rest</span></button></div>
       </div>
@@ -2025,7 +2045,7 @@ function renderVitals() {
   <div class="tile" data-zi="hd"><span class="lbl"><span class="ciw top">Hit Dice${ciBtn('hd', 'hit dice')}</span></span><span class="big" data-calc="hd"></span><span class="sub" data-calc="hdpools"></span></div>
   <div class="tile deathtile" data-zi="death"><span class="lbl">Death Saves</span><div class="death" data-calc-html="death"></div></div>
   <div class="tile condtile" data-zi="conds"><div class="tilehead"><span class="lbl">Conditions</span><button class="addc" data-act="conditions"><span class="tt">+ Add</span></button><span class="advbtns" role="group" aria-label="All d20 rolls"><button class="advb adv${S.rollAdv === 'adv' ? ' on' : ''}" data-act="rolladv" data-v="adv" aria-pressed="${S.rollAdv === 'adv'}" title="Advantage on every attack, check and save"><span class="al">Advantage</span></button><button class="advb dis${S.rollAdv === 'dis' ? ' on' : ''}" data-act="rolladv" data-v="dis" aria-pressed="${S.rollAdv === 'dis'}" title="Disadvantage on every attack, check and save"><span class="al">Disadvantage</span></button></span></div><div class="condchips" data-calc-html="conds"></div></div>
-  <div class="tile fxtile" data-zi="effects"><div class="tilehead"><span class="lbl">Active spells &amp; effects</span><button class="addc" data-act="addeffects" title="Spells and effects someone else put on you"><span class="tt">+ Add</span></button><span class="hint" data-calc="concnote"></span></div><div class="fxchips" data-calc-html="fxchips"></div></div>
+  <div class="tile fxtile" data-zi="effects"><div class="tilehead"><span class="lbl">Active spells &amp; effects</span><button class="addc" data-act="addeffects" title="Spells and effects someone else put on you"><span class="tt">+ Add</span></button><span class="hint concnote" data-calc-html="concnote"></span></div><div class="fxchips" data-calc-html="fxchips"></div></div>
 `;
 }
 
@@ -2561,6 +2581,9 @@ function postSheetRoll(t) {
 const SPI = n => DND.spellIndex[String(n || '').toLowerCase()];
 const AUTO = n => DND.spellAuto[n] || {};
 const DMGTYPES = DND.damageTypes.map(t => t.toLowerCase());
+// A damage-type list for "take damage" boxes. Bludgeoning, piercing and slashing also come as "(magical)": magical
+// weapons get past resistance to nonmagical attacks (Stoneskin, many monsters).
+const dmgTypeOpts = (none = 'Any') => `<option value="">${none}</option>` + DND.damageTypes.map(t => { const v = t.toLowerCase(); return `<option value="${v}">${t}</option>` + (/^(bludgeoning|piercing|slashing)$/.test(v) ? `<option value="${v} (magical)">${t} (magical)</option>` : ''); }).join('');
 function casterFor(key) { return casters().find(c => c.key === key); }
 const isPrepCaster = key => { const c = casterFor(key); return !!(c && c.prepared); };
 function spReady(sp) { if (sp.always || N(sp.level) === 0) return true; if (!casterFor(sp.cls)) return true; return isPrepCaster(sp.cls) ? !!sp.prepared : true; }
@@ -2676,7 +2699,7 @@ function renderSpells() {
   const order = cust ? spCustomOrder() : S.spells.map((s, i) => i).sort((a, b) => N(S.spells[a].level) - N(S.spells[b].level) || String(S.spells[a].name).localeCompare(S.spells[b].name));
   const f = S.spellFilter || 'all';
   const shown = order.filter(i => { const s = S.spells[i]; if (f === 'ready' && !spReady(s)) return false; if (/^\d$/.test(f) && String(N(s.level)) !== f) return false; if (f.startsWith('c:') && s.cls !== f.slice(2)) return false; return true; });
-  const meta = s => [s.time, s.range, s.duration].filter(Boolean).map(esc).join(' · ');
+  const meta = s => [s.time, s.range, spDurTxt(s)].filter(Boolean).map(esc).join(' · ');
   const detail = (s, i) => `<div class="detail-grid">
       ${fld('Name', inp(`spells.${i}.name`))}${fld('Your name for it', inp(`spells.${i}.flavor`, { ph: 'e.g. Smog Beam' }))}${fld('Level', inp(`spells.${i}.level`, { num: 1 }))}${fld('Casting time', inp(`spells.${i}.time`))}${fld('Range', inp(`spells.${i}.range`))}
       ${fld('Duration', inp(`spells.${i}.duration`))}${fld('Components', inp(`spells.${i}.comps`))}${fld('School', inp(`spells.${i}.school`))}
@@ -2701,7 +2724,7 @@ function renderSpells() {
   const rowT = i => { const s = S.spells[i], open = UI.open['spell:' + i];
     return `<tr class="${spReady(s) ? '' : 'unprep'}" data-si="${i}"><td class="spc-p" style="text-align:center">${prepCell(s, i)}</td>
         <td class="spname">${cust ? spOrdCtl(i) : ''}<b class="spn">${spDisp(s)}</b><button class="notetip" data-tip="${i}" data-tipkind="sp" aria-label="What ${esc(s.name)} does">ⓘ</button> ${spellTags(s, true)}${spItem(s) ? ` <span class="tag cls" title="From an item">◆ ${esc(spItem(s).name)}</span>` : cs.length > 1 || !CL[s.cls] ? ` <span class="tag cls">${esc(clsName(s.cls))}</span>` : ''}<small class="spmeta">${esc([s.time, s.range, s.duration].filter(Boolean).join(' · '))}</small></td>
-        <td class="nowrap spc-t">${esc(s.time || '')}</td><td class="nowrap spc-r">${esc(s.range || '')}</td><td class="nowrap spc-d">${esc(s.duration || '')}</td>
+        <td class="nowrap spc-t">${esc(s.time || '')}</td><td class="nowrap spc-r">${esc(s.range || '')}</td><td class="nowrap spc-d">${esc(spDurTxt(s))}</td>
         <td class="sumcell">${esc(s.summary || '')}</td>
         <td class="nowrap spc-c">${castBtn(i)}</td><td class="spc-o"><button class="btn ghost sm" data-act="toggle" data-key="spell:${i}" aria-expanded="${!!open}" title="Details / edit">${open ? '▴' : '▾'}</button></td><td class="spc-x">${del('spells', i)}</td></tr>${open ? `<tr class="detail"><td></td><td colspan="8">${detail(s, i)}</td></tr>` : ''}`; };
   const mode = spMode(), gl = spGroupsFor(mode, shown, f === 'all'), movable = gl.filter(g => g.k !== 'c:none');
@@ -3388,7 +3411,7 @@ function renderCombat() {
     return `<div class="econ col-${key}" data-col="${key}" data-zi="${key}">
       <div class="econ-head"><span class="badge b-${key}"></span><h3>${title}</h3>
         ${key !== 'move' ? `<button class="pill" data-act="econ" data-col="${key}" title="Mark used / ready">Ready</button>` : ''}</div>
-      <div class="econ-body">${body}</div>
+      <div class="econ-body">${key === 'action' ? readyBarHTML() : ''}${body}</div>
 </div>`;
   };
   const cur = UI.econTab || 'action';
@@ -3503,6 +3526,7 @@ function calcText(key) {
 function calcHTML(key) {
   const [k, a] = key.split(':');
   switch (k) {
+    case 'concnote': return S.concentration ? `Concentrating on ${esc(S.concentration)}${(S.effects || []).some(e => e.conc) ? '' : ` <button class="ccbtn" data-act="concsave" title="Roll a concentration save (CON save)">Con save</button>`}` : '';
     case 'sneakdot': { if (!S.inCombat) return '<span class="hint">once per turn</span>'; const u = !!(S.turn && S.turn.sneak); return `<span class="pips"><button class="pip${u ? ' spent' : ''}" data-act="sneaktog" aria-pressed="${u}" aria-label="Sneak Attack this turn" title="${u ? 'Used this turn — tap to mark it ready again' : 'Ready — once per turn'}"></button></span><span class="hint">${u ? 'Used this turn' : 'Ready this turn'}</span>`; }
     case 'hpring': {
       const f = S.form;
@@ -3523,7 +3547,7 @@ function calcHTML(key) {
     case 'fxchips': {
       const fx = S.effects || [];
       if (!fx.length) return '<span class="hint">No spells or effects running.</span>';
-      return fx.map((e, j) => `<span class="fxc${e.conc ? ' conc' : ''}${e.rounds != null && e.rounds <= 1 ? ' ending' : ''}" title="${esc(fxTip(e))}">${e.conc ? '<i class="cdot"></i>' : ''}<b>${esc(e.name)}</b>${e.ally ? ' (ally)' : ''}${e.from ? '<small class="fxfrom" title="Cast on you by someone else">↘</small>' : ''}${e.buff && N(e.buff.ac) && !e.ally ? ` +${N(e.buff.ac)} AC` : ''}<span class="left">${(e.rage && e.rounds == null ? "until rage ends" : fmtRounds(e.rounds))}</span>${e.repeat ? `<button class="rep" data-act="repeatfx" data-j="${j}" title="Roll ${esc(e.repeat.dice)} ${esc(e.repeat.type || '')}">${esc(String(e.repeat.dice).replace(/^1d/, 'd'))}</button>` : ''}<button data-act="endeffect" data-n="${esc(e.name)}" aria-label="End ${esc(e.name)}">✕</button></span>`).join('');
+      return fx.map((e, j) => `<span class="fxc${e.conc ? ' conc' : ''}${e.rounds != null && e.rounds <= 1 ? ' ending' : ''}" title="${esc(fxTip(e))}">${e.conc ? '<i class="cdot"></i>' : ''}<b>${esc(e.name)}</b>${e.ally ? ' (ally)' : ''}${e.from ? '<small class="fxfrom" title="Cast on you by someone else">↘</small>' : ''}${e.buff && N(e.buff.ac) && !e.ally ? ` +${N(e.buff.ac)} AC` : ''}<span class="left">${(e.readied ? 'until your next turn' : e.rage && e.rounds == null ? "until rage ends" : fmtRounds(e.rounds))}</span>${e.repeat ? `<button class="rep" data-act="repeatfx" data-j="${j}" title="Roll ${esc(e.repeat.dice)} ${esc(e.repeat.type || '')}">${esc(String(e.repeat.dice).replace(/^1d/, 'd'))}</button>` : ''}${e.conc && S.concentration ? `<button class="rep ccs" data-act="concsave" title="Roll a concentration save (CON save)">CON save</button>` : ''}<button data-act="endeffect" data-n="${esc(e.name)}" aria-label="End ${esc(e.name)}">✕</button></span>`).join('');
     }
     case 'slotsall': {
       let h = '';
@@ -3560,8 +3584,20 @@ function fxTip(e) {
   if (e.maxHp) t.push(`+${e.maxHp} max HP`); if (b.note) t.push(b.note);
   return t.join(' · ');
 }
+// Phones: stat tiles side by side get the same label height, so their numbers line up even when one label wraps
+// ("Passive Perception").
+function statRowsAlign() {
+  const ts = $$('.tile:is([data-zi="ac"],[data-zi="init"],[data-zi="speed"],[data-zi="prof"],[data-zi="passive"],[data-zi="hd"])');
+  ts.forEach(t => { const l = t.querySelector(':scope > .lbl'); if (l) l.style.minHeight = ''; });
+  if (!document.documentElement.classList.contains('mobile')) return;
+  const rows = {}; ts.forEach(t => { if (!t.offsetParent) return; const k = Math.round(t.getBoundingClientRect().top); (rows[k] = rows[k] || []).push(t); });
+  Object.values(rows).forEach(g => { const ls = g.map(t => t.querySelector(':scope > .lbl')).filter(Boolean); const h = Math.max(...ls.map(l => l.offsetHeight)); ls.forEach(l => { if (l.offsetHeight < h) l.style.minHeight = h + 'px'; }); });
+}
+addEventListener('resize', () => setTimeout(statRowsAlign, 50));
 function refresh() {
   if (!S.created) return;
+  requestAnimationFrame(statRowsAlign);
+  if (typeof readySync === 'function' && readySync()) { setTimeout(() => { save(); render(); }, 0); }
   $$('[data-calc]').forEach(el => { const t = calcText(el.dataset.calc); if (el.textContent !== t) el.textContent = t; });
   if (typeof fitSubtitle === 'function') fitSubtitle();
   fitCoins();
@@ -3789,6 +3825,7 @@ document.addEventListener('click', e => { try { e._pc = !!(e.target.closest && e
 const TABSCROLL = {}; let tabFadeT = 0;
 function mainClick(e) {
   if (e.target.closest('#wizard')) return wizClick(e);
+  if (READY_MODE && readyTap(e)) return;
   const menu = e.target.closest('.menu');
   $$('.menu.open').forEach(m => { if (m !== menu) m.classList.remove('open'); });
   const am = e.target.closest('[data-asimode]'); if (am) return asiModeClick(am);
@@ -3879,6 +3916,7 @@ function mainClick(e) {
     case 'econ': S.turn.used[b.dataset.col] = !S.turn.used[b.dataset.col]; if (b.dataset.col === 'action' && !S.turn.used.action) S.turn.attacks = 0; update(); break;
     case 'econtab': UI.econTab = b.dataset.col; saveUI(); render('combat'); refresh(); pendingLabel = null; return;
     case 'qty': { const it = S.inventory[i]; it.qty = Math.max(0, N(it.qty) + N(b.dataset.d)); update(); break; }
+    case 'concsave': concCheck(10, true); break;
     case 'endeffect': endEffect(b.dataset.n); if ($('#condmodal.extfxm')) openExtFx(); break;
     case 'addeffects': UI.extPick = ''; openExtFx(); break;
     case 'extfx': addExtFx(b.dataset.k); break;
@@ -3952,8 +3990,8 @@ function mainClick(e) {
     case 'updatesheet': closeModal(true); $('#updateFile').value = ''; $('#updateFile').click(); pendingLabel = null; return;
     case 'useobjplain': closeModal(true); S.turn.used.action = true; pendingLabel = 'Use an Object'; update(); toast('<b>Use an Object</b> — action spent.', '', 4000); break;
     case 'markopt': if (b.dataset.col === 'action' && /^ready$/i.test(b.dataset.name)) openReady(); else markOpt(b); break;
-    case 'readypick': $$('#modal-body .castopt').forEach(x => x.classList.toggle('on', x === b)); READY_PICK = b.dataset.k; break;
-    case 'readygo': readyGo(); break;
+    case 'readycancel': readyEnd(); break;
+    case 'readyother': { const o = READY_MODE ? READY_MODE.other.trim() : ''; if (!o) { toast('Type what you want to ready, or tap something in your Action column.'); const x = $('#readyOther'); if (x) x.focus(); break; } const t = READY_MODE.trig; READY_MODE = null; document.documentElement.classList.remove('readying'); readyGo('other', t, o); break; }
     case 'oacast': closeModal(true); castSpell(i, 'reaction'); render('combat'); break;
     case 'oago': { closeModal(true); S.turn.used.reaction = true; const a = S.attacks[i]; attackRoll(i, true, { label: 'Opportunity Attack · ' + a.name, offTurn: true, notes: hasFeature('Sentinel') ? ['Sentinel: on a hit, its speed drops to 0 this turn'] : [] }); render('combat'); break; }
     case 'searchgo': { closeModal(true); S.turn.used[b.dataset.col || 'action'] = true; pendingLabel = 'Search'; update(); doRoll('skill:' + b.dataset.k); break; }
@@ -4106,10 +4144,10 @@ function mainClick(e) {
     case 'roberoll': robeRoll(); break;
     case 'robeview': if (ROBE) { ROBE.view = b.dataset.v; ROBE.edit = null; ROBE.msg = ''; renderRobe(); } break;
     case 'robecnt': if (ROBE && ROBE.edit) { const k = b.dataset.k; ROBE.edit[k] = Math.max(0, Math.min(40, N(ROBE.edit[k]) + N(b.dataset.d))); renderRobe(); } break;
-    case 'robesave': if (ROBE && ROBE.edit) { const it = S.inventory[ROBE.i]; if (it) { it.robe = Object.assign({ log: [] }, it.robe || {}, { p: Object.assign({}, ROBE.edit) }); pendingLabel = 'Robe of Useful Items: patches'; save(); render(); } ROBE.view = 'main'; ROBE.edit = null; ROBE.msg = ''; renderRobe(); } break;
+    case 'robesave': if (ROBE && ROBE.edit) { const it = robeItem(); if (it) { it.robe = Object.assign({ log: [] }, it.robe || {}, { p: Object.assign({}, ROBE.edit) }); pendingLabel = 'Robe of Useful Items: patches'; save(); render(); } ROBE.view = 'main'; ROBE.edit = null; ROBE.msg = ''; renderRobe(); } break;
     case 'robedet': robeDetach(b.dataset.k); break;
     case 'robescroll': robeDetach('scroll', b.dataset.v); break;
-    case 'robewear': if (ROBE) { const it = S.inventory[ROBE.i]; if (it && !it.equipped) { equipItem(ROBE.i); } renderRobe(); } break;
+    case 'robewear': if (ROBE) { const it = robeItem(); if (it && !it.equipped) { equipItem(S.inventory.indexOf(it)); } renderRobe(); } break;
     case 'unpack': unpackItem(i); break;
     case 'throwit': throwItem(i); break;
     case 'decktype': S.deck.variant = b.dataset.v; DECK.last = null; save(); renderDeck(); break;
@@ -4282,7 +4320,7 @@ function attackRoll(i, free, opt) {
   const mainT = a.type ? String(a.type).toLowerCase() : 'damage', byType = {}, addT = (t, v) => { if (!v) return; t = String(t || '').trim().toLowerCase() || mainT; byType[t] = (byType[t] || 0) + v; };
   addT(mainT, d.total + (sr ? sr.total : 0)); rh.always.forEach(x => addT(x.type, x.total)); xr.forEach(x => addT(String(x.label).replace(/^[\d+d\s-]+/, ''), x.r.total)); rr.forEach((x, k) => addT(String(riders[k].dice).replace(/^[\d+d\s-]+/, ''), x.r.total));
   const types = Object.entries(byType);
-  const n1 = nat1 ? nat1Roll() : null;
+  const n1 = nat1 ? nat1Roll({ t: a.kind === 'melee' ? 'melee' : 'ranged' }) : null;
   if (crit) critUntil = Date.now() + 60000;
   update();
   const head = crit ? 'CRITICAL HIT! Damage dice doubled' : nat1 ? 'Natural 1: automatic miss' : 'to hit';
@@ -4306,7 +4344,7 @@ function attackRoll(i, free, opt) {
   if (sr && !opt.offTurn) acts.push({ label: 'Missed — Sneak Attack not used', fn: () => { S.turn.sneak = false; pendingLabel = 'Sneak Attack not used'; update(); refresh(); toast('Sneak Attack is ready again this turn.'); } });
   // The card shows just the two numbers: to hit and damage. The full breakdown goes to the roll log.
   toast(`<b class="total">${h.total}</b><div class="rc-body"><div class="rc-name">${esc(nm)}</div><div class="rc-lbl">${crit ? 'CRITICAL HIT' : nat1 ? 'Natural 1 — miss' : 'to hit'}</div>
-    ${(opt.notes || []).map(x => `<div class="det">${x}</div>`).join('')}${n1 ? `<div class="rc-n1"><b>Nat 1 Roll:</b> ${n1.total}</div>` : ''}<div class="det dd">Hit: ${esc(h.detail)} · Dmg: ${esc(d.detail)}${sr ? ` · <b>Sneak Attack</b>: ${esc(sr.detail)}` : ''}${xr.map(x => ` · ${esc(x.label)}: ${x.r.total}`).join('')}${rr.map(x => ` · <b>${esc(x.label)}</b>: ${x.r.total}`).join('')}${rh.always.filter(x => x.r).map(x => ` · <b>${esc(x.src.name)}</b>: ${x.total}`).join('')}</div>${rh.always.map(x => x.lines.filter(l => !/ left$/.test(l)).map(l => `<div class="rc-rider"><b>${esc(x.src.name)}:</b> ${esc(l)}</div>`).join('')).join('')}
+    ${(opt.notes || []).map(x => `<div class="det">${x}</div>`).join('')}${fumHTML(n1)}<div class="det dd">Hit: ${esc(h.detail)} · Dmg: ${esc(d.detail)}${sr ? ` · <b>Sneak Attack</b>: ${esc(sr.detail)}` : ''}${xr.map(x => ` · ${esc(x.label)}: ${x.r.total}`).join('')}${rr.map(x => ` · <b>${esc(x.label)}</b>: ${x.r.total}`).join('')}${rh.always.filter(x => x.r).map(x => ` · <b>${esc(x.src.name)}</b>: ${x.total}`).join('')}</div>${rh.always.map(x => x.lines.filter(l => !/ left$/.test(l)).map(l => `<div class="rc-rider"><b>${esc(x.src.name)}:</b> ${esc(l)}</div>`).join('')).join('')}
     ${note ? `<div class="det">${esc(note)}</div>` : ''}<div class="det">${[ammoNote, free ? '' : `Attack ${N(S.turn.attacks)} of ${attacksPerAction()} this turn`].filter(Boolean).join(' · ')}${crit && hasFeature('Divine Smite') ? ' · a smite now also doubles' : ''}</div>${math}</div>
     <div class="rc-dmg${nat1 ? ' void' : ''}"><b>${total}</b><span>${types.length > 1 ? `<span class="rc-types">${types.map(([t, v]) => `<i><b>${v}</b> ${esc(t)}</i>`).join('')}</span>` : esc(mainT)}${sr ? `<small>incl. ${sr.total} sneak</small>` : ''}</span></div>`, crit ? 'crit' : nat1 ? 'fumble' : '', crit ? 12000 : 9000, acts);
 }
@@ -4414,7 +4452,8 @@ function creatureRoll(who, j, what) {
   const h = rollExpr((who === 'form' ? d20Expr(N(a[1]), 'attack').expr : '1d20' + sgn(N(a[1]))), { label: nm + ' attack' });
   const crit = h.d20 === 20, nat1 = h.d20 === 1;
   const d = rollExpr(crit ? doubleDice(a[2]) : String(a[2] || '0'), { label: nm + ' damage' + (a[3] ? ' (' + a[3] + ')' : '') });
-  toast(`<b class="total">${h.total}</b><div class="rc-body"><div class="rc-name">${esc(nm)}</div><div class="rc-lbl">${crit ? 'CRITICAL HIT' : nat1 ? 'Natural 1 — miss' : 'to hit'}</div><div class="det">Hit: ${esc(h.detail)} · Dmg: ${esc(d.detail)}</div></div><div class="rc-dmg${nat1 ? ' void' : ''}"><b>${d.total}</b><span>${esc(a[3] || 'damage')}</span></div>`, crit ? 'crit' : nat1 ? 'fumble' : '', 8000);
+  const n1 = nat1 ? nat1Roll({}) : null;
+  toast(`<b class="total">${h.total}</b><div class="rc-body"><div class="rc-name">${esc(nm)}</div><div class="rc-lbl">${crit ? 'CRITICAL HIT' : nat1 ? 'Natural 1 — miss' : 'to hit'}</div>${fumHTML(n1)}<div class="det">Hit: ${esc(h.detail)} · Dmg: ${esc(d.detail)}</div></div><div class="rc-dmg${nat1 ? ' void' : ''}"><b>${d.total}</b><span>${esc(a[3] || 'damage')}</span></div>`, crit ? 'crit' : nat1 ? 'fumble' : '', 8000);
 }
 function doPip(p) {
   const kind = p.dataset.pip, i = N(p.dataset.i), j = N(p.dataset.j);
@@ -4553,12 +4592,15 @@ function breakConc(reason) {
   pendingLabel = 'Concentration broken: ' + nm; cleanupLinked(); save(); render();
   toast(`💥 Concentration broken — <b>${esc(nm)}</b> ends${reason ? ` (${esc(reason)})` : ''}.`, 'fumble', 9000, { label: 'Undo', fn: () => undo(1) });
 }
-function concCheck(dc) {
-  const nm = S.concentration; if (!nm) return;
+// manual: from the "Con save" button — the DC can be changed on the card (10, or half the damage if that's more).
+let CC_DC = 10;
+document.addEventListener('input', e => { if (e.target.classList && e.target.classList.contains('cc-dcin')) CC_DC = Math.max(1, N(e.target.value) || 10); });
+function concCheck(dc0, manual) {
+  const nm = S.concentration; if (!nm) return; CC_DC = dc0; const dcNow = () => manual ? CC_DC : dc0;
   const bonus = saveVal('con') + (hasFeat('War Caster') ? 0 : 0);
-  toast(`<div class="cc-main"><div class="rc-lbl">Concentration save</div><div class="rc-name">${esc(nm)}</div><div class="cc-sub">CON save ${fmt(bonus)}${hasFeat('War Caster') ? ' · advantage (War Caster)' : ''}</div></div><div class="cc-dc"><small>DC</small><b>${dc}</b></div>`, 'card cc', 30000, [
-    { label: 'Roll save', cls: 'cc-roll', fn: () => { if (S.concentration !== nm) { toast('No longer concentrating on that spell.'); return; } const ex = (hasFeat('War Caster') ? '2d20kh1' : d20Expr(bonus, 'save', 'con').expr.replace(/[+-]\d+.*$/, '')) + sgn(bonus - exD20()) + (blessed() ? '+1d4' : ''); const r = rollExpr(ex, { need: true, label: 'Concentration save' }); const ok = r.total >= dc; toast(`<b class="total">${r.total}</b><div><div>Concentration ${ok ? 'holds' : 'fails'} (DC ${dc})</div><div class="det">${esc(r.detail)}</div></div>`, ok ? 'crit' : 'fumble', 6000); if (!ok) breakConc('failed DC ' + dc); } },
-    { label: 'I failed it', cls: 'cc-fail', fn: () => { if (S.concentration === nm) breakConc('failed DC ' + dc); } }]);
+  toast(`<div class="cc-main"><div class="rc-lbl">Concentration save</div><div class="rc-name">${esc(nm)}</div><div class="cc-sub">CON save ${fmt(bonus)}${hasFeat('War Caster') ? ' · advantage (War Caster)' : ''}</div></div><div class="cc-dc"><small>DC</small>${manual ? `<input class="cc-dcin" type="number" min="1" max="99" value="${dc0}" aria-label="Save DC" title="10, or half the damage you took if that's more">` : `<b>${dc0}</b>`}</div>`, 'card cc', 30000, [
+    { label: 'Roll save', cls: 'cc-roll', fn: () => { const dc = dcNow(); if (S.concentration !== nm) { toast('No longer concentrating on that spell.'); return; } const ex = (hasFeat('War Caster') ? '2d20kh1' : d20Expr(bonus, 'save', 'con').expr.replace(/[+-]\d+.*$/, '')) + sgn(bonus - exD20()) + (blessed() ? '+1d4' : ''); const r = rollExpr(ex, { need: true, label: 'Concentration save' }); const ok = r.total >= dc; toast(`<b class="total">${r.total}</b><div><div>Concentration ${ok ? 'holds' : 'fails'} (DC ${dc})</div><div class="det">${esc(r.detail)}</div></div>`, ok ? 'crit' : 'fumble', 6000); if (!ok) breakConc('failed DC ' + dc); } },
+    { label: 'I failed it', cls: 'cc-fail', fn: () => { const dc = dcNow(); if (S.concentration === nm) breakConc('failed DC ' + dc); } }]);
 }
 function endEffect(n) {
   (S.effects || []).filter(x => x.name === n).forEach(x => { if (typeof poolSettle === 'function') poolSettle(x); });
@@ -4624,7 +4666,6 @@ function nextTurn() {
 }
 // ---------- Ready action ----------
 // Ready: pick what you'll do and the trigger; it waits in the Reaction column until you fire it with your reaction.
-let READY_PICK = '';
 function readyChoices() {
   const out = [];
   S.attacks.forEach((a, i) => { if (atkShown(a)) out.push({ k: 'atk:' + i, name: 'Attack: ' + a.name, sub: atkHit(a) >= 0 ? '+' + atkHit(a) + ' to hit' : atkHit(a) + ' to hit' }); });
@@ -4632,26 +4673,53 @@ function readyChoices() {
   (S.combat.action || []).forEach(o => { if (!/^(ready|attack)$/i.test(o.name)) out.push({ k: 'std:' + o.name, name: o.name, sub: o.text || '' }); });
   return out;
 }
+// Ready: you pick what you'll do straight from your Action column (an attack, a spell, a standard action or anything
+// else there); a bar at the top of the column holds the trigger and a "something else" box.
+let READY_MODE = null;
 function openReady() {
   if (incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take actions or reactions.`, 'fumble'); return; }
   if ((S.turn.used || {}).action) { toast('Your action is already used this turn.', 'fumble'); return; }
-  READY_PICK = '';
-  const ch = readyChoices();
-  openModal(`<h3>Ready an action</h3>
-    <p class="hint" style="margin:0 0 8px">Uses your action now. When the trigger happens before your next turn, use your reaction to do it. Readying a spell means casting it now and holding it with concentration.</p>
-    ${fld('Trigger', '<input class="f" id="readyTrig" placeholder="e.g. when the goblin comes through the door" autofocus>')}
-    <div class="lbl" style="margin-top:8px">What you'll do</div>
-    <div class="castopts">${ch.map(c => `<button class="castopt" data-act="readypick" data-k="${esc(c.k)}"><b>${esc(c.name)}</b><span>${esc(c.sub)}</span></button>`).join('')}
-      <button class="castopt ghost" data-act="readypick" data-k="other"><b>Something else…</b><span>type it below</span></button></div>
-    ${fld('Something else', '<input class="f" id="readyOther" placeholder="e.g. pull the lever">')}
-    <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="readygo">Ready it</button></div>`);
+  READY_MODE = { trig: '', other: '' }; UI.econTab = 'action'; document.documentElement.classList.add('readying'); render('combat');
+  // (scrolled so it sits just under whatever stays pinned at the top: the header on a computer, the column tabs on a phone)
+  const bar = $('.readybar'); if (bar) { const r = bar.getBoundingClientRect(); let top = 0;
+    $$('header.banner, #page-combat .seg').forEach(x => { const cs = getComputedStyle(x); if (/sticky|fixed/.test(cs.position)) top = Math.max(top, N(parseFloat(cs.top)) + x.offsetHeight); });
+    if (r.top < top + 8 || r.bottom > innerHeight) scrollTo({ top: Math.max(0, scrollY + r.top - top - 16), behavior: 'smooth' }); }
 }
-function readyGo() {
-  const other = ($('#readyOther') && $('#readyOther').value.trim()) || '', trig = ($('#readyTrig') && $('#readyTrig').value.trim()) || '';
-  const k = READY_PICK || (other ? 'other' : '');
-  if (!k) { toast('Pick what you want to ready.'); return; }
-  if (k === 'other' && !other) { toast('Type what you want to ready.'); return; }
-  const c = readyChoices().find(x => x.k === k);
+function readyEnd() { READY_MODE = null; document.documentElement.classList.remove('readying'); render('combat'); }
+function readyBarHTML() {
+  if (!READY_MODE) return '';
+  return `<div class="readybar"><div class="rb-h"><b>Ready an action</b><button class="btn sm" data-act="readycancel">Cancel</button></div>
+    <p>Tap what you'll do below. It uses your action now; when the trigger happens before your next turn, you do it with your reaction. Spells are cast now and held with concentration.</p>
+    <input class="f" id="readyTrig" placeholder="Trigger (optional): when the goblin comes through the door" value="${esc(READY_MODE.trig)}" aria-label="Trigger">
+    <div class="rb-other"><input class="f" id="readyOther" placeholder="Or something else: pull the lever" value="${esc(READY_MODE.other)}" aria-label="Something else to ready"><button class="btn sm gold" data-act="readyother">Ready it</button></div></div>`;
+}
+document.addEventListener('input', e => { if (!READY_MODE || !e.target) return; if (e.target.id === 'readyTrig') READY_MODE.trig = e.target.value; else if (e.target.id === 'readyOther') READY_MODE.other = e.target.value; });
+document.addEventListener('keydown', e => { if (READY_MODE && e.key === 'Escape' && !$('#modal').classList.contains('open')) readyEnd(); });
+// While readying, a tap in the Action column picks that thing instead of doing it. (true = handled)
+function readyTap(e) {
+  if (!READY_MODE) return false;
+  const el = e.target.closest('[data-roll], [data-act]'); if (!el || el.closest('.readybar') || el.closest('#modal')) return false;
+  const col = el.closest('.econ'); if (!col || col.dataset.col !== 'action') return false;
+  const act = el.dataset.act || '', roll = el.dataset.roll || '';
+  if (/^(notetip|toggle|menu|twohand|econ)$/.test(act)) return false; // (info, open/close a group, grip: they still work)
+  let k = '', name = '';
+  const m = /^(atk|dmg):(\d+)$/.exec(roll); if (m) k = 'atk:' + m[2];
+  else if (act === 'attack') k = 'atk:' + N(el.dataset.i);
+  else if (act === 'cast') k = 'sp:' + N(el.dataset.i);
+  else if (act === 'markopt') { if (/^ready$/i.test(el.dataset.name || '')) { readyEnd(); return true; }
+    if (/^attack$/i.test(el.dataset.name || '')) { e.preventDefault(); toast('Tap the ⚔ (or a roll) next to the weapon you’ll attack with.'); return true; }
+    k = 'std:' + el.dataset.name; }
+  else { const o = el.closest('.opt'), n = o && o.querySelector('.opt-name'); if (n) { k = 'other'; name = n.textContent.trim(); } }
+  if (!k) return false;
+  e.preventDefault(); e.stopPropagation();
+  const trig = READY_MODE.trig.trim(); READY_MODE = null; document.documentElement.classList.remove('readying');
+  readyGo(k, trig, name); return true;
+}
+function readyGo(k, trig, other) {
+  trig = String(trig || '').trim(); other = String(other || '').trim();
+  if (!k || (k === 'other' && !other)) { toast('Pick what you want to ready.'); return; }
+  const c = k === 'other' ? null : readyChoices().find(x => x.k === k);
+  if (k !== 'other' && !c) { toast('That can’t be readied.'); render('combat'); return; }
   const r = { k, name: k === 'other' ? other : c.name.replace(/^Attack: /, 'Attack with '), trigger: trig };
   if (k.startsWith('sp:')) { const sp = S.spells[N(k.slice(3))]; r.spell = sp && sp.name; r.level = sp ? N(sp.level) : 0; r.i = N(k.slice(3)); }
   // A readied spell is cast now and held, so its slot is spent now, whether or not it ever goes off.
@@ -4687,16 +4755,21 @@ function readyPay(k, L) {
 function readyCommit(r) {
   closeModal(true);
   S.turn.used.action = true; S.turn.readied = r;
+  // Holding a readied spell takes concentration (PHB): it ends any other concentration, and if your concentration breaks the spell is lost.
+  let was = '';
+  if (r.spell) { const hn = r.spell + ' (readied)';
+    if (S.concentration && S.concentration !== hn) { was = S.concentration; S.effects = (S.effects || []).filter(e => !e.conc); }
+    S.effects = (S.effects || []).filter(e => !e.readied).concat([{ name: hn, conc: true, readied: true }]); S.concentration = hn; r.held = true; cleanupLinked(); }
   const paid = r.paid && r.paid.k !== 'none' ? (r.paid.k === 'slot' ? `${ORD[r.paid.L - 1]} slot` : r.paid.k === 'pact' ? 'pact slot' : r.paid.k === 'store' ? 'stored use' : 'free use') : '';
   pendingLabel = 'Ready: ' + r.name + (paid ? ` (${paid})` : ''); update(); render('combat');
-  toast(`<div><b>Readied:</b> ${esc(r.name)}${trig0(r)}${paid ? `<div class="det">${esc(paid.charAt(0).toUpperCase() + paid.slice(1))} spent now — concentrate to hold it.</div>` : ''}<div class="det">It's waiting in your Reaction column.</div></div>`, '', 7000);
+  toast(`<div><b>Readied:</b> ${esc(r.name)}${trig0(r)}${paid ? `<div class="det">${esc(paid.charAt(0).toUpperCase() + paid.slice(1))} spent now — concentrate to hold it.</div>` : ''}${was ? `<div class="det">Concentration on ${esc(was)} ends — you're concentrating on holding this now.</div>` : ''}<div class="det">It's waiting in your Reaction column.</div></div>`, '', 7000);
 }
 const trig0 = r => r.trigger ? `<div class="det">Trigger: ${esc(r.trigger)}</div>` : '';
 function readyFire() {
   const r = S.turn.readied; if (!r) return;
   if (incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take reactions.`, 'fumble'); return; }
   if ((S.turn.used || {}).reaction) { toast('Your reaction is already used — the readied action is lost.', 'fumble'); return; }
-  S.turn.readied = null;
+  S.turn.readied = null; readySync(true);
   if (r.k.startsWith('atk:')) { S.turn.used.reaction = true; pendingLabel = 'Readied attack'; attackRoll(N(r.k.slice(4)), true, { offTurn: true }); render('combat'); return; }
   if (r.k.startsWith('sp:')) { const i = N(r.k.slice(3)); if (S.spells[i] && S.spells[i].name === r.spell) { if (r.paid) READY_PAID = { i, L: r.paid.L }; render('combat'); castSpell(i, 'reaction'); return; } }
   S.turn.used.reaction = true;
@@ -4704,6 +4777,15 @@ function readyFire() {
   pendingLabel = 'Readied: ' + r.name; update(); render('combat');
   toast(`<div><b>${esc(r.name)}</b> — reaction spent.${r.trigger ? `<div class="det">Trigger: ${esc(r.trigger)}</div>` : ''}</div>`, '', 6000);
 }
+// Keeps the "<spell> (readied)" concentration in step with the readied action: released, dropped or run out → it ends;
+// concentration broken (failed save, knocked out, another concentration spell) → the readied spell is lost.
+function readySync(quiet) {
+  const r = S.turn && S.turn.readied, hold = (S.effects || []).find(e => e.readied); let ch = false;
+  // (a spell readied before readied spells counted as concentration: start holding it now, unless you're concentrating on something else)
+  if (r && r.spell && !r.held && !hold && !S.concentration) { const hn = r.spell + ' (readied)'; S.effects = (S.effects || []).concat([{ name: hn, conc: true, readied: true }]); S.concentration = hn; r.held = true; return true; }
+  if (r && r.spell && r.held && !hold) { S.turn.readied = null; ch = true; if (!quiet) setTimeout(() => readyLost(r, 'Your concentration broke'), 60); }
+  else if (hold && !(r && r.spell && hold.name === r.spell + ' (readied)')) { S.effects = S.effects.filter(e => e !== hold); if (S.concentration === hold.name) S.concentration = ''; ch = true; }
+  return ch; }
 // A readied spell that never goes off still used its slot.
 function readyLost(r, why) {
   if (r.spell && r.paid) { toast(`<div><b>${esc(r.spell)}</b> was never released.<div class="det">${esc(why)}. Its slot was spent when you readied it.</div></div>`, 'fumble', 8000); return; }
@@ -4960,7 +5042,7 @@ function castSpell(i, col, force) {
   if (base > 0 && usable.length === 1 && !extras && !opts.some(o => o.k === 'slot' && o.L > usable[0].L && o.left)) { const o = usable[0]; return executeCast(i, o.k, o.L, col, {}); }
   CASTING = { i, col };
   openModal(`<h3>Cast ${esc(spLabel(sp))}</h3>
-    <p class="hint" style="margin:0 0 8px">${esc(sp.summary || '')}${sp.duration ? ' · ' + esc(sp.duration) : ''}</p>
+    <p class="hint" style="margin:0 0 8px">${esc(sp.summary || '')}${sp.duration ? ' · ' + esc(spDurTxt(sp)) : ''}</p>
     ${extras}
     ${base > 0 ? `<div class="lbl" style="margin-top:8px">Cast using</div><div class="castopts">${opts.map(o => `<button class="castopt" data-act="castgo" data-k="${o.k}" data-l="${o.L}" ${o.left > 0 ? '' : 'disabled'}><b>${esc(o.label)}</b><span>${o.k === 'slot' ? o.left + ' left' : o.k === 'pact' ? o.left + ' left' : ''}${o.L > base && o.k !== 'free' ? ' · upcast' : ''}</span></button>`).join('')}
       <button class="castopt ghost" data-act="castgo" data-k="none" data-l="${base}"><b>No slot</b><span>scroll, item or DM ruling</span></button></div>`
@@ -5137,7 +5219,7 @@ function executeCast(i, how, L, col, x) {
     backAct = { label: `Take ${dmg} damage`, fn: () => { takeDamage(dmg); save(); render(); } };
   }
   if (typeof ptyAfterCast === 'function') { const pl = ptyAfterCast(sp, a, L, x, { self, heal: ptyHeal, healAll: sm.heal === 'all', temp: ptyTemp, maxHp: ptyMax, eff, rounds, card, beamRows, sm, ci, mainTotal, wat }); if (pl) { lines.push(...pl.lines); if (pl.noSelfHeal) healAct = null; } }
-  [].concat(beamRows.filter(r => r.nat1), card && card.nat1 ? [card] : []).forEach(() => { const r = nat1Roll(); if (r) out.unshift(`<span class="rc-n1"><b>Nat 1 Roll:</b> ${r.total}</span>`); });
+  [].concat(beamRows.filter(r => r.nat1), card && card.nat1 ? [card] : []).forEach(() => { const r = nat1Roll({ t: 'spell', lvl: L, melee: /melee spell attack/i.test(String(sp.desc || '') + ' ' + String(sp.summary || '')) || /^(touch|self)/i.test(String(sp.range || '')) }); if (r && !r.skipped) out.unshift(fumHTML(r).replace(/^<div/, '<span').replace(/div>$/, 'span>')); });
   if (MAXDMG && DICE_TOUCHED) S.effects = S.effects.filter(e => !(e.buff && e.buff.maxNext));
   MAXDMG = false; EMPOWER = 0;
   const surgeShow = wildAfterCast(sp);
@@ -5468,7 +5550,7 @@ function buildMacros() {
     if (sm.dice && adeptFor(sm.type)) lines.push(`*Elemental Adept (${adeptFor(sm.type)}): count each 1 on the damage dice as a 2; ignores ${adeptFor(sm.type)} resistance*`);
     if (sm.heal && sm.heal !== 'all') lines.push(`**Healing (${sm.heal}):** [[${sm.heal}]]`);
     if (!sm.dice && !sm.heal) lines.push(`**Effect:** ${sp.summary || '—'}`);
-    lines.push(`**Duration:** ${sp.duration || '—'}`);
+    lines.push(`**Duration:** ${spDurTxt(sp) || '—'}`);
     M('Spells', sp.name, `casts ${sp.name}`, lines, `${N(sp.level) ? ORD[N(sp.level) - 1] + ' level' : 'Cantrip'}${sm.dice ? ' · ' + sm.dice : sm.heal ? ' · heal ' + sm.heal : ''}`);
   });
   casters().forEach(c => { const ci = castInfo(c.key); M('Spells', `${c.name} Spell Attack`, 'makes a spell attack', [`**Attack Roll (to hit):** [[${d20x(ci.atk)}]]`, `**Save DC:** ${ci.dc}`], sgn(ci.atk) + ' · DC ' + ci.dc); });
@@ -6003,7 +6085,7 @@ function openSettings(tab) {
       ${row('Encumbrance', opt('encumbrance', [['off', 'Off'], ['standard', 'Standard (carrying capacity)'], ['variant', 'Variant (encumbered / heavily)']]), ST('encumbrance') === 'variant' ? '−10 ft over 5×STR lb, −20 ft over 10×STR' : ST('encumbrance') === 'standard' ? 'Carry up to 15 × STR lb' : 'Weights are ignored')}
       ${hasSub('artificer', 'artillerist') ? tog('protectorScales', 'Protector cannon scales with Explosive Cannon', 'House rule — 2d8 + INT temp HP from 9th level, like the other two') : ''}
       ${tog('electrum', 'Use electrum pieces (EP)', 'Shows electrum in the coin purse — most tables skip it')}
-      ${tog('nat1Roll', 'Nat 1 Roll: a natural 1 on an attack also rolls a d4', 'House rule — the d4 is always the last roll')}
+      ${tog('nat1Roll', 'Critical fumbles: a natural 1 on an attack rolls a d4 on the fumble table', 'House rule — the d4 is always the last roll; melee, ranged and spell attacks each have their own table')}
       ${tog('inspiration', 'Track Inspiration', 'A − / + counter under your portrait')}
       <label class="setrow subset${ST('inspiration') ? '' : ' dis'}" title="${ST('inspiration') ? '' : 'Turn on Track Inspiration first'}"><input type="checkbox" data-set="inspMany"${ST('inspMany') ? ' checked' : ''}${ST('inspiration') ? '' : ' disabled'}><span><b>More than one Inspiration</b><small>House rule — no limit on how many you can hold${ST('inspiration') ? '' : ' (turn on Track Inspiration to use it)'}</small></span></label>
       ${tog('concPrompt', 'Concentration save prompt when hurt')}
@@ -6586,7 +6668,7 @@ function spFeatTip(btn) {
     const sp = S.spells[i]; if (!sp) return null; const sm = spellMath(sp), ci = spellCI(sp), L = N(sp.level);
     const head = `${L ? ORD[L - 1] + '-level' : 'Cantrip'}${sp.school ? ' ' + esc(String(sp.school).toLowerCase()) : ''}${sp.ritual ? ' (ritual)' : ''}`;
     const math = [sm.attack ? `${fmt(ci.atk)} to hit` : '', sm.save ? `DC ${ci.dc} ${esc(sm.save)} save${sm.half ? ' (half on success)' : ''}` : '', sm.dice ? `${esc(sm.dice)} ${esc(sm.type)}` : '', sm.heal ? `heals ${esc(sm.heal)}` : '', sm.temp ? `${esc(sm.temp)} temp HP` : ''].filter(Boolean).join(' · ');
-    return { name: sp.name, html: `<div class="hint">${head}</div>` + line('Casting time', esc(sp.time || '')) + line('Range', esc(sp.range || '')) + line('Components', esc(sp.comps || '')) + line('Duration', esc((sp.conc ? 'Concentration, ' : '') + (sp.duration || ''))) + (fullOfSpell(sp) ? `<div class="tipdesc">${fullHTML(fullOfSpell(sp))}</div>` : '') + (math ? `<div class="tiphb">${math}</div>` : '') + (sm.note ? `<div class="hint">${esc(sm.note)}</div>` : '') + (sp.note ? `<div class="hint">${esc(sp.note)}</div>` : '') + `<div class="hint">${esc([CL[sp.cls] ? CL[sp.cls].name : '', sp.src || ''].filter(Boolean).join(' · '))}</div>` };
+    return { name: sp.name, html: `<div class="hint">${head}</div>` + line('Casting time', esc(sp.time || '')) + line('Range', esc(sp.range || '')) + line('Components', esc(sp.comps || '')) + line('Duration', esc((sp.conc && !/^\s*concentration/i.test(sp.duration || '') ? 'Concentration, ' : '') + spDurTxt(sp))) + (fullOfSpell(sp) ? `<div class="tipdesc">${fullHTML(fullOfSpell(sp))}</div>` : '') + (math ? `<div class="tiphb">${math}</div>` : '') + (sm.note ? `<div class="hint">${esc(sm.note)}</div>` : '') + (sp.note ? `<div class="hint">${esc(sp.note)}</div>` : '') + `<div class="hint">${esc([CL[sp.cls] ? CL[sp.cls].name : '', sp.src || ''].filter(Boolean).join(' · '))}</div>` };
   }
   const f = S.features[i]; if (!f) return null; const max = featMax(f), info = typeof fxInfoLine === 'function' ? fxInfoLine(f) : '';
   return { name: f.name, html: (f.source ? `<div class="hint">${esc(f.source)}</div>` : '') + (fullOfFeat(f) ? `<div class="tipdesc">${fullHTML(fullOfFeat(f))}</div>` : '') + (info ? `<div class="tiphb">${esc(info)}</div>` : '') + (max != null ? `<div class="hint">${Math.max(0, max - N(f.used))} of ${max} uses left${f.reset ? ' · resets on a ' + esc(f.reset) + ' rest' : ''}</div>` : '') };
@@ -6975,10 +7057,13 @@ const robeLeft = it => { const p = (it && it.robe && it.robe.p) || {}; return Ob
 const robeD100 = () => 1 + Math.floor(Math.random() * 100);
 const robeKindOf = r => ROBE_RAND.find(k => r >= ROBE_P[k].r[0] && r <= ROBE_P[k].r[1]);
 let ROBE = null;
-function openRobe(i, view) { const it = S.inventory[i]; if (!isRobeItem(it)) return; ROBE = { i, view: view || (it.robe ? 'main' : 'setup'), msg: '', q: '' }; renderRobe(); }
+function openRobe(i, view) { const it = S.inventory[i]; if (!isRobeItem(it)) return; ROBE = { i, id: it.id, view: view || (it.robe ? 'main' : 'setup'), msg: '', q: '' }; renderRobe(); }
+// The robe the window is about: found by its id (the sheet can change underneath — a save from your other device, an
+// item added or removed — and its place in the inventory with it).
+function robeItem() { if (!ROBE) return null; if (ROBE.id) { const k = S.inventory.findIndex(x => x && x.id === ROBE.id); if (k >= 0) { ROBE.i = k; return S.inventory[k]; } } return S.inventory[ROBE.i] || null; }
 function robeBase() { const p = {}; ROBE_FIXED.forEach(k => p[k] = 2); return p; }
 function robeRoll() {
-  const it = S.inventory[ROBE.i]; if (!it) return;
+  const it = robeItem(); if (!it) return;
   const r = rollExpr('4d4', { need: true, label: 'Robe of Useful Items: extra patches' }), n = N(r.total) || 10, p = robeBase(), rolls = [];
   for (let k = 0; k < n; k++) { const d = robeD100(), kind = robeKindOf(d); p[kind] = N(p[kind]) + 1; rolls.push([d, kind]); }
   it.robe = { p, rolled: rolls, log: [] }; ROBE.view = 'main'; ROBE.msg = `<b>${n} extra patches</b> (4d4): ${rolls.map(([d, k]) => `${esc(ROBE_P[k].n)} <small>(${d})</small>`).join(', ')}.`;
@@ -6989,7 +7074,7 @@ function robeTile(k, n, i, act) {
   return `<div class="robe-p${n ? '' : ' gone'}"><div class="robe-pt"><b>${esc(P.n)}</b>${n > 1 ? `<span class="robe-n">×${n}</span>` : ''}</div><p>${esc(P.d)}</p>${act ? act : `<button class="btn sm gold" data-act="robedet" data-k="${k}" ${n ? '' : 'disabled'}>Detach</button>`}</div>`;
 }
 function renderRobe() {
-  const it = S.inventory[ROBE.i]; if (!it) return closeModal(); let h = `<div id="robem"><h3>${esc(it.name)}</h3>`;
+  const it = robeItem(); if (!it) return closeModal(); let h = `<div id="robem"><h3>${esc(it.name)}</h3>`;
   if (ROBE.view === 'setup') {
     h += `<p class="hint">Every robe has two each of a dagger, bullseye lantern, steel mirror, 10-foot pole, hempen rope and sack, plus <b>4d4 more patches</b> your DM rolls or picks.</p>
       <div class="bagpresets"><button class="bagpreset" data-act="roberoll"><b>Roll the extra patches</b><small>4d4 patches, each rolled on the d100 table</small></button><button class="bagpreset" data-act="robeview" data-v="edit"><b>My DM told me what they are</b><small>Count each kind of patch yourself</small></button></div>`;
@@ -7036,7 +7121,7 @@ function robeScrollItem(name) {
   return it;
 }
 function robeDetach(k, spell) {
-  const it = S.inventory[ROBE.i]; if (!it || !it.robe) return; const p = it.robe.p, P = ROBE_P[k]; if (!N(p[k])) return;
+  const it = robeItem(); if (!it || !it.robe) return; const p = it.robe.p, P = ROBE_P[k]; if (!N(p[k])) return;
   if (!it.equipped) { toast('Wear the robe first — patches only come off while you have it on.', 'fumble'); return; }
   if (incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take actions.`, 'fumble'); return; }
   if (k === 'scroll' && !spell) { ROBE.view = 'scroll'; ROBE.q = ''; renderRobe(); return; }
@@ -7440,7 +7525,7 @@ function compCard(c, i, mini, inCol) {
   const hp = c.count > 1 ? `<div class="grpHp">${(c.hps || []).map((h, k) => `<label class="ghp"><span>#${k + 1}</span>${inp(`companions.${i}.hps.${k}`, { num: 1, cls: 'sm', label: c.name + ' ' + (k + 1) + ' HP' })}</label>`).join('')}<span class="hint">of ${N(c.maxhp)} each</span></div>`
     : c.maxhp ? `<div class="chp chp2"><div class="chp-ring"><div class="ring-svg">${hpRingSVG(c.hp, c.maxhp, c.temp)}</div>
         <div class="chp-center"><div class="curline">${inp(`companions.${i}.hp`, { num: 1, cls: 'cur', label: c.name + ' current HP' })}${N(c.temp) ? `<span class="tmpbadge">+${N(c.temp)}</span>` : ''}</div><div class="hp-max">of ${N(c.maxhp)}</div></div></div>
-        <div class="chp-side"><select class="f ptyqt sel-dmg" id="chpt${i}" aria-label="Damage type for ${esc(c.name)}" title="Damage type"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="chp${i}" type="text" autocomplete="off" placeholder="Amount" aria-label="${esc(c.name)} HP: -20 (or 20) for damage, +20 to heal, then Enter">
+        <div class="chp-side"><select class="f ptyqt sel-dmg" id="chpt${i}" aria-label="Damage type for ${esc(c.name)}" title="Damage type">${dmgTypeOpts()}</select><input class="f" id="chp${i}" type="text" autocomplete="off" placeholder="Amount" aria-label="${esc(c.name)} HP: -20 (or 20) for damage, +20 to heal, then Enter">
           <div class="chp-btns"><button class="btn hpi dmg" data-act="comphp" data-i="${i}" data-d="-1" title="Damage ${esc(c.name)}" aria-label="Damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-act="comphp" data-i="${i}" data-d="1" title="Heal ${esc(c.name)}" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmp" data-act="comphp" data-i="${i}" data-d="0" title="Give ${esc(c.name)} temporary HP (they don't stack — the higher stays)" aria-label="Temporary HP">${ICON.hpTemp}</button></div></div></div>` : '';
   return `<div class="${mini ? 'cm-card' : inCol ? 'comp2 incol' : 'panel comp2'}"><div class="comp-h2">${picThumb(c.tmpl ? `compMods.${c.tmpl}.img` : `companions.${i}.img`, c.name)}<div class="grow"><b class="cname">${esc(c.name)}</b><div class="ctags">${(inCol ? [] : tags).map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div></div>
       ${inCol ? compCmdBtn(c, i) : ''}<button class="icon-btn" data-act="compedit" data-i="${i}" title="Edit ${esc(c.name)}" aria-label="Edit">✎</button>${c.tmpl && COMP_RULES[c.tmpl] && COMP_RULES[c.tmpl].always ? '' : `<button class="btn sm ghost" data-act="dismiss" data-i="${i}">Dismiss</button>`}</div>
@@ -10035,7 +10120,7 @@ function ptyCardHTML(m) {
   const more = [['coins', 'Give coins'], ['help', 'Help (advantage on their next roll)'], down && !m.dead && !m.stable ? ['stab', 'Stabilize (Medicine, DC 10)'] : null, ['note', 'Send a message']].filter(Boolean);
   const hp = max ? `<div class="chp chp2"><div class="chp-ring"><div class="ring-svg">${hpRingSVG(cur, max, m.temp, f ? ' form' : '')}</div>
       <div class="chp-center"><div class="curline"><b class="ptym-cur">${cur}</b>${N(m.temp) ? `<span class="tmpbadge">+${N(m.temp)}</span>` : ''}</div><div class="hp-max">of ${max}</div></div></div>
-      ${act ? `<div class="chp-side"><select class="f ptyqt sel-dmg" id="ptyqt-${esc(id)}" aria-label="Damage type for ${esc(m.name)}" title="Damage type: their resistances and immunities apply"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="ptyq-${esc(id)}" autocomplete="off" placeholder="Amount" aria-label="Amount for ${esc(m.name)}: -20 (or 20) for damage, +20 to heal, then Enter">
+      ${act ? `<div class="chp-side"><select class="f ptyqt sel-dmg" id="ptyqt-${esc(id)}" aria-label="Damage type for ${esc(m.name)}" title="Damage type: their resistances and immunities apply">${dmgTypeOpts()}</select><input class="f" id="ptyq-${esc(id)}" autocomplete="off" placeholder="Amount" aria-label="Amount for ${esc(m.name)}: -20 (or 20) for damage, +20 to heal, then Enter">
         <div class="chp-btns"><button class="btn hpi dmg" data-pa="qdmg" data-id="${esc(id)}" title="Damage ${esc(m.name)}" aria-label="Damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-pa="qheal" data-id="${esc(id)}" title="Heal ${esc(m.name)}" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmp" data-pa="qtemp" data-id="${esc(id)}" title="Give ${esc(m.name)} temporary HP" aria-label="Temporary HP">${ICON.hpTemp}</button></div></div>` : ''}</div>` : '';
   return `<div class="panel comp2 ptym${down ? ' ' + down : ''}" data-mid="${esc(id)}"><div class="comp-h2">${m.thumb ? `<span class="picth"${/^#[0-9a-f]{6}$/i.test(m.acc || '') ? ` style="border-color:${m.acc}"` : ''}><img src="${esc(m.thumb)}" alt=""></span>` : `<span class="picadd">${esc(String(m.name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join(''))}</span>`}
       <div class="grow"><b class="cname${String(m.name || '').length > 26 ? ' n3' : String(m.name || '').length > 17 ? ' n2' : ''}" title="${esc(m.name || '')}">${esc(m.name || 'A character')}</b>${m.player ? `<div class="ptym-pl">${esc(m.player)}</div>` : ''}</div>
@@ -10237,7 +10322,7 @@ function ptyAmount(kind, ids) {
   PTY_AMT = { kind, ids };
   const T = { heal: 'Heal', temp: 'Temporary HP for', dmg: 'Damage' }[kind];
   openModal(`<h3>${T} ${esc(ptyNames(ids))}</h3>
-    <div class="row">${fld('Amount, or a roll like 2d4+2', `<input class="f" id="ptyAmt" autofocus placeholder="${kind === 'dmg' ? 'e.g. 7' : 'e.g. 1d8+3'}">`)}${kind === 'dmg' ? fld('Type', `<select class="f sel-dmg" id="ptyType"><option value="">—</option>${(DND.damageTypes || []).map(t => `<option>${esc(String(t).toLowerCase())}</option>`).join('')}</select>`) : ''}</div>
+    <div class="row">${fld('Amount, or a roll like 2d4+2', `<input class="f" id="ptyAmt" autofocus placeholder="${kind === 'dmg' ? 'e.g. 7' : 'e.g. 1d8+3'}">`)}${kind === 'dmg' ? fld('Type', `<select class="f sel-dmg" id="ptyType">${dmgTypeOpts('—')}</select>`) : ''}</div>
     ${fld('From what (they see this)', `<input class="f" id="ptyWhy" placeholder="${kind === 'heal' ? 'e.g. a potion, first aid' : kind === 'dmg' ? 'e.g. my fireball' : 'e.g. inspiring words'}">`)}
     <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-pa="amt" data-k="${kind}">${kind === 'heal' ? 'Heal' : kind === 'temp' ? 'Give temp HP' : 'Deal damage'}</button></div>`);
 }
@@ -10627,8 +10712,8 @@ function ptyCatchUp() {
 }
 setTimeout(ptyCatchUp, 2500); setInterval(ptyCatchUp, 20000);
 // Damage after resistances and immunities this sheet knows about.
-function ptyResist(n, type) { type = String(type || '').toLowerCase(); if (!type) return [n, '']; const D = defensesDetail(), has = arr => arr.some(x => /^all damage/.test(x.k) ? !new RegExp('except[^.]*\\b' + type + '\\b').test(x.k) : x.k.includes(type)); // ("all damage except psychic": every type but that one)
-  const vul = (D.vuln || []).some(x => x.k.includes(type));
+function ptyResist(n, type) { type = String(type || '').toLowerCase(); if (!type) return [n, '']; const magical = /\(magical\)/.test(type); type = type.replace(/\s*\(magical\)/, '').trim(); const D = defensesDetail(), hits = x => !(magical && /non-?magical|aren['’]t (?:silvered|adamantine|magical)/.test(x.k)), has = arr => arr.filter(hits).some(x => /^all damage/.test(x.k) ? !new RegExp('except[^.]*\\b' + type + '\\b').test(x.k) : x.k.includes(type)); // ("all damage except psychic": every type but that one)
+  const vul = (D.vuln || []).filter(hits).some(x => x.k.includes(type));
   if (has(D.immune)) return [0, 'immune']; if (has(D.resist)) return vul ? [n, 'resistant and vulnerable'] : [Math.floor(n / 2), 'resistant']; if (vul) return [n * 2, 'vulnerable']; return [n, '']; }
 function ptyApply(m) {
   const d = cleanData(m.data || {}), who = m.fromName || 'Someone', why = d.why || who;
@@ -11804,6 +11889,7 @@ function lvChoiceDefs(t) {
   if (c.asi.includes(nl)) defs.push({ id: 'asi', def: { type: 'asiOrFeat' } });
   (c.choices || []).concat((s && s.choices) || []).forEach((ch, k) => { if (ch.level === nl) defs.push({ id: 'ch' + k + '.' + ch.type, def: ch }); });
   if (t.isNew && c.mc && c.mc.skills) defs.push({ id: 'mcskill', def: { type: 'skill', n: c.mc.skills, from: c.skills.from } });
+  { const tc = t.isNew && c.mc && clsToolChoice(c.mc.profs); if (tc) defs.push({ id: 'mctool', def: { type: 'tool', n: tc.n, from: tc.from, label: `${c.name} multiclass ${tc.n > 1 ? 'tools' : 'tool'}` } }); }
   return defs;
 }
 function asiOrFeatUI(CH, id) {
@@ -11899,7 +11985,7 @@ function finishLevelUp() {
   if (sub && sub.profs && t.nl === t.c.sub.level) { if (sub.profs.armorCats) S.profs.armor = [...new Set((S.profs.armor || []).concat(sub.profs.armorCats))]; if (sub.profs.weaponCats) S.profs.weapons = [...new Set((S.profs.weapons || []).concat(sub.profs.weaponCats))]; S.profArmor = profArmorText(); S.profWeapons = profWeaponText(); }
   const notes = [];
   lvChoiceDefs({ ...t, row: clsRows().find(r => r.key === t.key), isNew: t.isNew }).forEach(d => {
-    const cid = d.id === 'asi' ? `asi.${t.key}.${t.nl}` : d.id === 'mcskill' ? `mc.${t.key}.skills` : `ch.${t.key}.${d.id.slice(2).split('.')[0]}.${t.nl}.${d.def.type}`;
+    const cid = d.id === 'asi' ? `asi.${t.key}.${t.nl}` : d.id === 'mcskill' ? `mc.${t.key}.skills` : d.id === 'mctool' ? `mc.${t.key}.tools` : `ch.${t.key}.${d.id.slice(2).split('.')[0]}.${t.nl}.${d.def.type}`;
     S.answered = S.answered || {};
     if (d.def.type === 'asiOrFeat') { if (asiDone(LV.ans, d.id)) S.answered[cid] = (LV.ans[d.id] || []).slice(); const r = applyAsiOrFeat(LV.ans, d.id); if (r) notes.push(r); return; }
     const v = ansList(LV.ans, d.id); if (!v.length) return;
@@ -12104,6 +12190,18 @@ function wzRacialSpells() {
   return out;
 }
 function wzClassRows() { return W.classes.filter(r => CL[r.key]); }
+// Tools a class lets you choose ("one artisan's tool", "three musical instruments", "one artisan's tool or musical
+// instrument"), from its proficiencies (or its multiclassing ones). null when there's nothing to choose.
+function clsToolChoice(txt) {
+  const t = String(txt || '').toLowerCase(), W1 = { one: 1, a: 1, an: 1, two: 2, three: 3, four: 4 };
+  const num = m => W1[m] || N(m) || 1;
+  let m = /\b(one|two|three|four|\d+|an?)\s+(?:type of\s+)?artisan'?s?'?\s+tools?\s+or\s+(?:one\s+)?musical\s+instruments?/.exec(t);
+  if (m) return { n: num(m[1]), from: ['artisan', 'instrument'] };
+  m = /\b(one|two|three|four|\d+|an?)\s+(?:type of\s+)?musical\s+instruments?/.exec(t); if (m) return { n: num(m[1]), from: 'instrument' };
+  m = /\b(one|two|three|four|\d+|an?)\s+(?:type of\s+)?artisan'?s?'?\s+tools?/.exec(t); if (m) return { n: num(m[1]), from: 'artisan' };
+  m = /\b(one|two|three|four|\d+|an?)\s+(?:type of\s+)?gaming\s+sets?/.exec(t); if (m) return { n: num(m[1]), from: 'gaming' };
+  return null;
+}
 function wzTotalLevel() { return wzClassRows().reduce((t, r) => t + N(r.level), 0); }
 function wzClassChoiceDefs() {
   const out = []; const rows = wzClassRows();
@@ -12111,6 +12209,7 @@ function wzClassChoiceDefs() {
     const c = CL[r.key], s = r.sub ? c.subclasses[r.sub] : null, L = N(r.level);
     if (ri === 0) out.push({ id: `cls.skills`, def: { type: 'skill', n: c.skills.n, from: c.skills.from, label: `${c.name} skills` }, cls: r.key });
     else if (c.mc && c.mc.skills) out.push({ id: `mc.${r.key}.skills`, def: { type: 'skill', n: c.mc.skills, from: c.skills.from, label: `${c.name} multiclass skill` }, cls: r.key });
+    { const tc = clsToolChoice(ri === 0 ? c.tools : c.mc && c.mc.profs); if (tc) out.push({ id: ri === 0 ? 'cls.tools' : `mc.${r.key}.tools`, def: { type: 'tool', n: tc.n, from: tc.from, label: `${c.name} ${tc.n > 1 ? 'tools' : 'tool'}${ri ? ' (multiclass)' : ''}` }, cls: r.key }); }
     c.asi.filter(l => l <= L).forEach(l => out.push({ id: `asi.${r.key}.${l}`, def: { type: 'asiOrFeat' }, cls: r.key, lvl: l }));
     (c.choices || []).concat((s && s.choices) || []).forEach((ch, k) => { if (ch.level <= L) out.push({ id: `ch.${r.key}.${k}.${ch.level}.${ch.type}`, def: { ...ch, label: `${choiceLabel(ch)} (${c.name} ${ch.level})` }, cls: r.key }); });
   });
@@ -12864,6 +12963,10 @@ function owedChoices() {
     // Class options are counted: enough picks of that kind means they're done.
     const need = {}; all.forEach(ch => { if (ch.level <= L && DND.options[ch.type]) need[ch.type] = (need[ch.type] || 0) + (ch.n || 1); });
     c.asi.filter(l => l <= L).forEach(l => out.push({ id: `asi.${r.key}.${l}`, def: { type: 'asiOrFeat' }, cls: r.key, lvl: l, label: `${c.name} ${l}: Ability Score Improvement or feat` }));
+    // The tools the class lets you choose (an artificer's artisan's tool, a bard's instruments…): owed when the sheet
+    // doesn't already have that many of that kind (character creation used to skip this choice).
+    { const tc = clsToolChoice(ri === 0 ? c.tools : c.mc && c.mc.profs); if (tc) { const pool = toolsFrom(tc.from).map(x => x.toLowerCase()), have = (S.tools || []).filter(t => pool.includes(String(t.name || '').toLowerCase())).length;
+      if (have < tc.n) out.push({ id: ri === 0 ? 'cls.tools' : `mc.${r.key}.tools`, def: { type: 'tool', n: tc.n - have, from: tc.from }, cls: r.key, lvl: 1, label: `${c.name}: ${tc.n > 1 ? `${tc.n} tool proficiencies` : 'tool proficiency'}${ri ? ' (multiclass)' : ''}` }); } }
     all.forEach((ch, k) => { if (ch.level > L) return; const id = `ch.${r.key}.${k}.${ch.level}.${ch.type}`;
       if (DND.options[ch.type] && (S.picks[ch.type] || []).length >= need[ch.type]) return;
       out.push({ id, def: ch, cls: r.key, lvl: ch.level, label: `${c.name} ${ch.level}: ${ch.label || choiceLabel(ch)}${(ch.n || 1) > 1 ? ' × ' + ch.n : ''}` }); });
@@ -12988,6 +13091,40 @@ function keepLocal(next, cur) {
   return next;
 }
 let GUESTCLAIM = false, GUESTDONE = false;
+// ----- The same character open in two places (a phone and a computer, a player and a co-editor) -----
+// Each copy remembers the sheet as the cloud last had it (CLOUD_BASE). When another copy's save arrives while this one
+// has changes of its own that aren't saved yet, the two are merged instead of one wiping out the other: whatever only
+// one side changed comes through, items are matched by their id, and counts both sides changed (gold, patches, uses)
+// add up both changes. Only a real clash on the same field keeps this copy's value.
+let CLOUD_BASE = null, CLOUD_BASE_AT = 0, EDIT_N = 0, SYNC_N = 0;
+const cloudDirty = () => EDIT_N > SYNC_N;
+function sheetMerge(b, l, r) {
+  const js = v => JSON.stringify(v);
+  const sl = js(l), sr = js(r); if (sl === sr) return l;
+  const sb = js(b); if (sl === sb) return r; if (sr === sb) return l;
+  if (typeof l === 'number' && typeof r === 'number' && typeof b === 'number') return Math.abs(l) > 1e11 || Math.abs(r) > 1e11 ? Math.max(l, r) : b + (l - b) + (r - b); // (times: the later one)
+  const obj = v => v && typeof v === 'object' && !Array.isArray(v);
+  if (Array.isArray(l) && Array.isArray(r)) {
+    const idd = a => Array.isArray(a) && a.length > 0 && a.every(x => obj(x) && x.id != null && x.id !== '');
+    if ((idd(l) || !l.length) && (idd(r) || !r.length) && (idd(b) || !(b && b.length))) {
+      const B = new Map((b || []).map(x => [x.id, x])), R = new Map(r.map(x => [x.id, x])), L = new Set(l.map(x => x.id)), out = [];
+      l.forEach(x => { const rx = R.get(x.id), bx = B.get(x.id);
+        if (!rx) { if (bx && js(bx) === js(x)) return; out.push(x); return; } // (gone there and untouched here: gone)
+        out.push(bx ? sheetMerge(bx, x, rx) : x); });
+      r.forEach(x => { if (!L.has(x.id) && !B.has(x.id)) out.push(x); }); // new there
+      return out;
+    }
+    // logs (entries stamped with a time, no id): both sides' entries, in time order
+    if ([l, r].every(a => a.every(x => obj(x) && typeof x.t === 'number'))) { const seen = new Set(), out = []; l.concat(r).forEach(x => { const k = js(x); if (!seen.has(k)) { seen.add(k); out.push(x); } }); return out.sort((x, y) => x.t - y.t); }
+    return l;
+  }
+  if (obj(l) && obj(r)) {
+    const bb = obj(b) ? b : {}, o = {};
+    new Set(Object.keys(l).concat(Object.keys(r))).forEach(k => { const v = sheetMerge(bb[k], l[k], r[k]); if (v !== undefined) o[k] = v; });
+    return o;
+  }
+  return l;
+}
 let CLOUD = null, DBX = null, cloudBusy = false, cloudAgain = false, cloudTimer = null, cloudPending = null, cloudFails = 0, cloudParts = 1, cloudUnsub = null, cloudRO = false;
 const clock = () => new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 // The toolbar slot is small: show a short label, keep the full sentence as the hover text.
@@ -12998,18 +13135,33 @@ function setSyncState(t) { UI.saveState = t; UI.saveFull = t; const el = $('#sav
 // On the website, edits are gathered into one save after 1.5s of quiet (never held longer than 6s), and anything
 // waiting is saved at once when the tab is hidden or closed — far fewer database writes, still near-live for others.
 let cloudFirst = 0;
-function cloudPush() { if (!CLOUD || !S.created || cloudRO) return; clearTimeout(cloudTimer);
+function cloudPush() { EDIT_N++; if (!CLOUD || !S.created || cloudRO) return; clearTimeout(cloudTimer);
   if (!window.SHEET_PAGES) { cloudTimer = setTimeout(cloudWrite, 350); return; }
   const now = Date.now(); if (!cloudFirst) cloudFirst = now;
   cloudTimer = setTimeout(() => { cloudFirst = 0; cloudWrite(); }, Math.max(0, Math.min(1500, cloudFirst + 6000 - now))); }
-function cloudFlush() { if (cloudTimer && cloudFirst) { clearTimeout(cloudTimer); cloudTimer = null; cloudFirst = 0; cloudWrite(); } }
+function cloudFlush() { if (cloudTimer && cloudFirst) { clearTimeout(cloudTimer); cloudTimer = null; cloudFirst = 0; cloudWrite(true); } }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') cloudFlush(); });
 addEventListener('pagehide', cloudFlush);
 const partRef = k => DBX.doc('sheets/part' + k);
-async function cloudWrite() {
+async function cloudWrite(force) {
   if (!CLOUD || !S.created || cloudRO) return;
   if (cloudBusy) { cloudAgain = true; return; }
+  // another copy saved while this one was busy (a popup open, typing): take that in first, so neither copy's changes are lost
+  if (cloudPending && CLOUD_BASE && N(cloudPending.savedAt) > CLOUD_BASE_AT) {
+    if (busyEditing() && !force) { clearTimeout(cloudTimer); cloudTimer = setTimeout(cloudWrite, 800); return; }
+    adoptRemote(cloudPending, true); if (typeof ROBE !== 'undefined' && ROBE && $('#robem')) try { renderRobe(); } catch (e) {}
+  }
   cloudBusy = true;
+  // offline: don't queue a whole-sheet write blind (it would land later on top of whatever was played meanwhile);
+  // it goes when the connection is back, after checking what's there
+  if (CLOUD_BASE && typeof navigator !== 'undefined' && navigator.onLine === false) { cloudBusy = false; setSyncState('Sync retrying…'); return; }
+  if (CLOUD_BASE) { let sn = null; try { sn = window.SHEET_PAGES ? await CLOUD.get({ source: 'server' }) : await CLOUD.get(); } catch (e) { cloudBusy = false; cloudFails++; setSyncState('Sync retrying…'); setTimeout(cloudWrite, Math.min(60000, 1500 * Math.pow(2, Math.min(cloudFails, 5)))); return; }
+    try { const d = sn && sn.exists ? sn.data() : null;
+    if (d && d.tab !== TAB && N(d.savedAt) > CLOUD_BASE_AT) { const txt = await cloudText(d);
+      if (txt && busyEditing() && !force) { cloudPending = { savedAt: d.savedAt, sheet: txt }; cloudBusy = false; clearTimeout(cloudTimer); cloudTimer = setTimeout(cloudWrite, 800); return; }
+      if (txt) { adoptRemote({ savedAt: d.savedAt, sheet: txt }, true); if (typeof ROBE !== 'undefined' && ROBE && $('#robem')) try { renderRobe(); } catch (e) {} } } } catch (e) {} }
+  if (CLOUD_BASE && !cloudDirty() && !GUESTCLAIM) { cloudBusy = false; setSyncState('Live · synced ' + clock()); return; }
+  const n0 = EDIT_N;
   try {
     const str = JSON.stringify(S), at = N(S.savedAt) || Date.now(), parts = [];
     for (let i = 0; i < str.length; i += PART) parts.push(str.slice(i, i + PART));
@@ -13017,7 +13169,7 @@ async function cloudWrite() {
     for (let k = 1; k < parts.length; k++) await partRef(k).set({ savedAt: at, k, data: parts[k] });
     await CLOUD.set({ v: 2, savedAt: at, tab: TAB, n: parts.length, data: parts[0], guestDone: GUESTDONE || GUESTCLAIM });
     for (let k = parts.length; k < cloudParts; k++) { try { await partRef(k).delete(); } catch (e) {} }
-    cloudParts = parts.length; cloudFails = 0;
+    cloudParts = parts.length; cloudFails = 0; CLOUD_BASE = str; CLOUD_BASE_AT = at; SYNC_N = Math.max(SYNC_N, n0);
     setSyncState('Live · synced ' + clock());
   } catch (e) {
     const c = e && e.code;
@@ -13039,20 +13191,24 @@ async function cloudText(d, partOf) {
 }
 // Typing in a field or working in a popup: wait, then catch up (a re-render would steal focus or the popup's place).
 function busyEditing() { const a = document.activeElement; return $('#modal').classList.contains('open') || $('#wizard').classList.contains('open') || !!(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && !a.closest('#page-nothing')); }
-function adoptRemote(d) {
+function adoptRemote(d, force) {
   let next; try { next = JSON.parse(d.sheet); } catch (e) { return; }
   if (!next || !next.created || !S.created) return;
-  if (busyEditing()) { cloudPending = d; return; }
+  if (busyEditing() && !force) { cloudPending = d; return; }
   cloudPending = null;
   const sx = scrollX, sy = scrollY;
+  let mine = false;
+  if (CLOUD_BASE && cloudDirty()) { try { const at = Math.max(N(next.savedAt), N(S.savedAt)); next = sheetMerge(JSON.parse(CLOUD_BASE), JSON.parse(JSON.stringify(S)), next); next.savedAt = at; mine = true; } catch (e) {} }
+  CLOUD_BASE = d.sheet; CLOUD_BASE_AT = N(d.savedAt);
   S = keepLocal(migrate(next), S); if (applyFixes(S)) rebuildAuto();
+  if (mine) { S.savedAt = Date.now(); writeLocal(); }
   try { localStorage.setItem(keyFor(S.id), JSON.stringify(S)); } catch (e) {}
   HIST = []; REDO = []; LAST = snapAll(); histButtons();
   applySources(S.sources); applyTheme(); render();
   scrollTo(sx, sy);
   setSyncState('Live · synced ' + clock());
 }
-setInterval(() => { if (cloudPending && !busyEditing() && N(cloudPending.savedAt) > N(S.savedAt)) adoptRemote(cloudPending); else if (cloudPending && N(cloudPending.savedAt) <= N(S.savedAt)) cloudPending = null; }, 400);
+setInterval(() => { if (!cloudPending || busyEditing()) return; if (CLOUD_BASE ? N(cloudPending.savedAt) > CLOUD_BASE_AT : N(cloudPending.savedAt) > N(S.savedAt)) adoptRemote(cloudPending); else cloudPending = null; }, 400);
 function cloudListen(ref, onFirst) {
   let checked = false;
   if (cloudUnsub) { try { cloudUnsub(); } catch (e) {} }
@@ -13060,9 +13216,10 @@ function cloudListen(ref, onFirst) {
     const d = snap.exists ? snap.data() : null;
     if (d) { cloudParts = Math.max(cloudParts, N(d.n) || 1); if (d.guestDone) GUESTDONE = true; }
     if (!checked) { if (snap.metadata.fromCache) return; checked = true; CLOUD = ref; if (await onFirst(d)) return; }
-    if (d && (d.sheet || d.v === 2) && d.tab !== TAB && N(d.savedAt) > N(S.savedAt)) {
+    const newer = () => CLOUD_BASE ? N(d.savedAt) > CLOUD_BASE_AT : N(d.savedAt) > N(S.savedAt);
+    if (d && (d.sheet || d.v === 2) && d.tab !== TAB && newer()) {
       const txt = await cloudText(d);
-      if (txt && N(d.savedAt) > N(S.savedAt)) adoptRemote({ savedAt: d.savedAt, sheet: txt });
+      if (txt && newer()) adoptRemote({ savedAt: d.savedAt, sheet: txt });
     }
   }, e => {
     const c = e && e.code;
@@ -13091,13 +13248,13 @@ function cloudListen(ref, onFirst) {
         // A newer copy of the sheet file is replacing the synced one: never lose the player's own settings, theme or layout.
         if (d && !cloudRO && !FROM_LOCAL) { try { const txt = await cloudText(d); const old = txt && JSON.parse(txt); if (old && old.id === S.id) { keepPrefs(S, old); hdrReset(S); try { applyTheme(); render(); } catch (e) {} } } catch (e) {} }
         if (!cloudRO) cloudWrite(); }
-      else if (d) setSyncState(cloudRO ? 'Live · view only (you can\'t edit this sheet)' : 'Live · synced ' + clock());
+      else if (d) { if (N(d.savedAt) === N(S.savedAt)) { CLOUD_BASE = JSON.stringify(S); CLOUD_BASE_AT = N(d.savedAt); SYNC_N = EDIT_N; } setSyncState(cloudRO ? 'Live · view only (you can\'t edit this sheet)' : 'Live · synced ' + clock()); }
     });
   } catch (e) {}
 })();
 // Catch up whenever the page comes back (phone unlocked, tab refocused) or the network returns.
-addEventListener('online', () => { if (CLOUD) cloudWrite(); });
-document.addEventListener('visibilitychange', () => { if (!document.hidden && CLOUD && /retrying|full/i.test(UI.saveState || '')) cloudWrite(); });
+addEventListener('online', () => { if (CLOUD && (cloudDirty() || !CLOUD_BASE)) cloudWrite(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && CLOUD && (cloudDirty() || !CLOUD_BASE) && /retrying|full/i.test(UI.saveState || '')) cloudWrite(); });
 
 // ---------- Boot ----------
 // For the GitHub Pages loader (new characters get their link once created).

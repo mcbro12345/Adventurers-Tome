@@ -587,7 +587,7 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
 .dk-ed .callout { margin: .8em 0; padding: .5em 1em; border-radius: 12px; background: var(--blue-soft); border: 1px solid transparent; border-left: 4px solid var(--blue); }
 .dk-ed .callout[data-kind="warning"], .dk-ed .callout[data-kind="danger"] { background: var(--red-soft); border-left-color: var(--red); } .dk-ed .callout[data-kind="tip"], .dk-ed .callout[data-kind="success"] { background: var(--green-soft); border-left-color: var(--green); }
 .dk-ed .secret { position: relative; margin: 1em 0; padding: 1.4em 1em .6em; border-radius: 12px; background: repeating-linear-gradient(135deg, var(--purple-soft), var(--purple-soft) 10px, transparent 10px, transparent 20px), var(--card2); border: 1px dashed var(--purple); }
-.dk-ed .secret::before { content: '🔒 SECRET — DM ONLY'; position: absolute; top: 4px; left: 12px; font: 800 .62rem var(--sans); letter-spacing: .14em; color: var(--purple); }
+.dk-ed .secret::before { content: 'SECRET — DM ONLY'; position: absolute; top: 4px; left: 12px; font: 800 .62rem var(--sans); letter-spacing: .14em; color: var(--purple); }
 .dk-ed table { border-collapse: collapse; width: 100%; margin: .8em 0; font-size: .92rem; display: block; overflow-x: auto; }
 .dk-ed th, .dk-ed td { border: 1px solid var(--line); padding: 6px 9px; text-align: left; min-width: 80px; vertical-align: top; } .dk-ed th { background: var(--card2); font-weight: 800; }
 .dk-ed img { display: block; max-width: 100%; height: auto; border-radius: 12px; margin: .8em auto; box-shadow: var(--shadow); min-height: 40px; background: var(--card2); }
@@ -1662,7 +1662,7 @@ html[data-pgtheme="light"] .dk-acct.lit::before, html[data-pgtheme="light"] .dk-
 .dk-tkstage, .dk-tkctl { display: grid; gap: 14px; min-width: 0; }
 .dk-tkstage h2 { margin: 0; }
 .dk-tkbox { position: relative; width: min(100%, 420px); aspect-ratio: 1; margin: 0 auto; border-radius: 50%;
-  background: repeating-conic-gradient(rgba(255,255,255,.05) 0 25%, transparent 0 50%) 0 0 / 22px 22px; transition: border-radius .2s ease; }
+  background: repeating-conic-gradient(rgba(255,255,255,.05) 0 25%, transparent 0 50%) 0 0 / 22px 22px; }
 .dk-tkbox.sq { border-radius: 9%; }
 .dk-tkbox canvas { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; border-radius: inherit; outline: none; }
 .dk-tkbox canvas.drag { cursor: grabbing; }
@@ -1885,9 +1885,29 @@ html[data-pgtheme="light"] .dk-acct.lit::before, html[data-pgtheme="light"] .dk-
 
 /* dragging a loot row: it stays in the one column */
 .dk-lgrip { cursor: grab; touch-action: none; user-select: none; padding: 4px 4px; }
-.dk-lghost { background: var(--card2); color: var(--ink); border: 1px solid var(--gold); border-radius: 10px; box-shadow: 0 10px 28px rgba(0,0,0,.45); opacity: .96; cursor: grabbing; }
+.dk-lghost { background: var(--card2); color: var(--ink); border: 1px solid var(--gold); border-radius: 10px; box-shadow: 0 10px 28px rgba(0,0,0,.45); opacity: 1; cursor: grabbing; }
 body.dk-ldragging, body.dk-ldragging * { cursor: grabbing !important; user-select: none; }
 .dk-lr.dragging { opacity: .25; }
+
+/* token maker sliders: a slim track that fills in gold, and a round gold handle */
+.dk-tok-tool input[type=range] { -webkit-appearance: none; appearance: none; height: 22px; background: transparent; cursor: pointer; --p: 50%; outline: none; }
+.dk-tok-tool input[type=range]::-webkit-slider-runnable-track { height: 6px; border-radius: 999px; background: linear-gradient(to right, var(--gold) 0 var(--p), var(--line) var(--p) 100%); }
+.dk-tok-tool input[type=range]::-moz-range-track { height: 6px; border-radius: 999px; background: var(--line); }
+.dk-tok-tool input[type=range]::-moz-range-progress { height: 6px; border-radius: 999px; background: var(--gold); }
+.dk-tok-tool input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; margin-top: -6px; border-radius: 50%; background: var(--gold2); border: 2px solid var(--gold); box-shadow: 0 1px 4px rgba(0,0,0,.45); transition: transform .12s; }
+.dk-tok-tool input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--gold2); border: 2px solid var(--gold); box-shadow: 0 1px 4px rgba(0,0,0,.45); }
+.dk-tok-tool input[type=range]:hover::-webkit-slider-thumb, .dk-tok-tool input[type=range]:active::-webkit-slider-thumb { transform: scale(1.12); }
+.dk-tok-tool input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px rgba(201,150,43,.4); }
+.dk-tok-tool input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px rgba(201,150,43,.4); }
+
+/* the token maker's drop spot uses the same upload icon as the profile picture window */
+.dk-tkdz-i { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; background: rgba(201,150,43,.18); color: var(--gold); margin-bottom: 4px; }
+.dk .dk-tkdrop .dk-tkdz-i svg { width: 24px !important; height: 24px !important; margin: 0; }
+
+
+/* damage-type boxes: wide enough for "Bludgeoning (magical)", and always one line */
+select.sel-dmg { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 12.5em; }
+@media (max-width: 380px) { select.sel-dmg { font-size: .78rem !important; padding-left: 6px !important; } }
 
 /* DM's Desk: the homebrew item builder — the same look as the character sheet's (extra.css .hbb-*), scoped to #hbd */
 #hbd .hbb-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
@@ -1967,3 +1987,5 @@ body.dk-ldragging, body.dk-ldragging * { cursor: grabbing !important; user-selec
 #hbd .hint { color: var(--soft); }
 #hbd .hbb-f .dk-f { padding: 6px 9px; }
 #hbd .hbb-grow { flex: 1; }
+
+#hbd .hbb-head .hbb-paste { font-size: .82rem; padding: 6px 12px; min-height: 32px; }
