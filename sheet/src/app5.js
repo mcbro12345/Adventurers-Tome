@@ -334,6 +334,7 @@ function lvChoiceDefs(t) {
   if (c.asi.includes(nl)) defs.push({ id: 'asi', def: { type: 'asiOrFeat' } });
   (c.choices || []).concat((s && s.choices) || []).forEach((ch, k) => { if (ch.level === nl) defs.push({ id: 'ch' + k + '.' + ch.type, def: ch }); });
   if (t.isNew && c.mc && c.mc.skills) defs.push({ id: 'mcskill', def: { type: 'skill', n: c.mc.skills, from: c.skills.from } });
+  { const tc = t.isNew && c.mc && clsToolChoice(c.mc.profs); if (tc) defs.push({ id: 'mctool', def: { type: 'tool', n: tc.n, from: tc.from, label: `${c.name} multiclass ${tc.n > 1 ? 'tools' : 'tool'}` } }); }
   return defs;
 }
 function asiOrFeatUI(CH, id) {
@@ -429,7 +430,7 @@ function finishLevelUp() {
   if (sub && sub.profs && t.nl === t.c.sub.level) { if (sub.profs.armorCats) S.profs.armor = [...new Set((S.profs.armor || []).concat(sub.profs.armorCats))]; if (sub.profs.weaponCats) S.profs.weapons = [...new Set((S.profs.weapons || []).concat(sub.profs.weaponCats))]; S.profArmor = profArmorText(); S.profWeapons = profWeaponText(); }
   const notes = [];
   lvChoiceDefs({ ...t, row: clsRows().find(r => r.key === t.key), isNew: t.isNew }).forEach(d => {
-    const cid = d.id === 'asi' ? `asi.${t.key}.${t.nl}` : d.id === 'mcskill' ? `mc.${t.key}.skills` : `ch.${t.key}.${d.id.slice(2).split('.')[0]}.${t.nl}.${d.def.type}`;
+    const cid = d.id === 'asi' ? `asi.${t.key}.${t.nl}` : d.id === 'mcskill' ? `mc.${t.key}.skills` : d.id === 'mctool' ? `mc.${t.key}.tools` : `ch.${t.key}.${d.id.slice(2).split('.')[0]}.${t.nl}.${d.def.type}`;
     S.answered = S.answered || {};
     if (d.def.type === 'asiOrFeat') { if (asiDone(LV.ans, d.id)) S.answered[cid] = (LV.ans[d.id] || []).slice(); const r = applyAsiOrFeat(LV.ans, d.id); if (r) notes.push(r); return; }
     const v = ansList(LV.ans, d.id); if (!v.length) return;
@@ -634,6 +635,18 @@ function wzRacialSpells() {
   return out;
 }
 function wzClassRows() { return W.classes.filter(r => CL[r.key]); }
+// Tools a class lets you choose ("one artisan's tool", "three musical instruments", "one artisan's tool or musical
+// instrument"), from its proficiencies (or its multiclassing ones). null when there's nothing to choose.
+function clsToolChoice(txt) {
+  const t = String(txt || '').toLowerCase(), W1 = { one: 1, a: 1, an: 1, two: 2, three: 3, four: 4 };
+  const num = m => W1[m] || N(m) || 1;
+  let m = /\b(one|two|three|four|\d+|an?)\s+(?:type of\s+)?artisan'?s?'?\s+tools?\s+or\s+(?:one\s+)?musical\s+instruments?/.exec(t);
+  if (m) return { n: num(m[1]), from: ['artisan', 'instrument'] };
+  m = /\b(one|two|three|four|\d+|an?)\s+(?:type of\s+)?musical\s+instruments?/.exec(t); if (m) return { n: num(m[1]), from: 'instrument' };
+  m = /\b(one|two|three|four|\d+|an?)\s+(?:type of\s+)?artisan'?s?'?\s+tools?/.exec(t); if (m) return { n: num(m[1]), from: 'artisan' };
+  m = /\b(one|two|three|four|\d+|an?)\s+(?:type of\s+)?gaming\s+sets?/.exec(t); if (m) return { n: num(m[1]), from: 'gaming' };
+  return null;
+}
 function wzTotalLevel() { return wzClassRows().reduce((t, r) => t + N(r.level), 0); }
 function wzClassChoiceDefs() {
   const out = []; const rows = wzClassRows();
@@ -641,6 +654,7 @@ function wzClassChoiceDefs() {
     const c = CL[r.key], s = r.sub ? c.subclasses[r.sub] : null, L = N(r.level);
     if (ri === 0) out.push({ id: `cls.skills`, def: { type: 'skill', n: c.skills.n, from: c.skills.from, label: `${c.name} skills` }, cls: r.key });
     else if (c.mc && c.mc.skills) out.push({ id: `mc.${r.key}.skills`, def: { type: 'skill', n: c.mc.skills, from: c.skills.from, label: `${c.name} multiclass skill` }, cls: r.key });
+    { const tc = clsToolChoice(ri === 0 ? c.tools : c.mc && c.mc.profs); if (tc) out.push({ id: ri === 0 ? 'cls.tools' : `mc.${r.key}.tools`, def: { type: 'tool', n: tc.n, from: tc.from, label: `${c.name} ${tc.n > 1 ? 'tools' : 'tool'}${ri ? ' (multiclass)' : ''}` }, cls: r.key }); }
     c.asi.filter(l => l <= L).forEach(l => out.push({ id: `asi.${r.key}.${l}`, def: { type: 'asiOrFeat' }, cls: r.key, lvl: l }));
     (c.choices || []).concat((s && s.choices) || []).forEach((ch, k) => { if (ch.level <= L) out.push({ id: `ch.${r.key}.${k}.${ch.level}.${ch.type}`, def: { ...ch, label: `${choiceLabel(ch)} (${c.name} ${ch.level})` }, cls: r.key }); });
   });
@@ -1394,6 +1408,10 @@ function owedChoices() {
     // Class options are counted: enough picks of that kind means they're done.
     const need = {}; all.forEach(ch => { if (ch.level <= L && DND.options[ch.type]) need[ch.type] = (need[ch.type] || 0) + (ch.n || 1); });
     c.asi.filter(l => l <= L).forEach(l => out.push({ id: `asi.${r.key}.${l}`, def: { type: 'asiOrFeat' }, cls: r.key, lvl: l, label: `${c.name} ${l}: Ability Score Improvement or feat` }));
+    // The tools the class lets you choose (an artificer's artisan's tool, a bard's instruments…): owed when the sheet
+    // doesn't already have that many of that kind (character creation used to skip this choice).
+    { const tc = clsToolChoice(ri === 0 ? c.tools : c.mc && c.mc.profs); if (tc) { const pool = toolsFrom(tc.from).map(x => x.toLowerCase()), have = (S.tools || []).filter(t => pool.includes(String(t.name || '').toLowerCase())).length;
+      if (have < tc.n) out.push({ id: ri === 0 ? 'cls.tools' : `mc.${r.key}.tools`, def: { type: 'tool', n: tc.n - have, from: tc.from }, cls: r.key, lvl: 1, label: `${c.name}: ${tc.n > 1 ? `${tc.n} tool proficiencies` : 'tool proficiency'}${ri ? ' (multiclass)' : ''}` }); } }
     all.forEach((ch, k) => { if (ch.level > L) return; const id = `ch.${r.key}.${k}.${ch.level}.${ch.type}`;
       if (DND.options[ch.type] && (S.picks[ch.type] || []).length >= need[ch.type]) return;
       out.push({ id, def: ch, cls: r.key, lvl: ch.level, label: `${c.name} ${ch.level}: ${ch.label || choiceLabel(ch)}${(ch.n || 1) > 1 ? ' × ' + ch.n : ''}` }); });

@@ -3,6 +3,9 @@
 const SPI = n => DND.spellIndex[String(n || '').toLowerCase()];
 const AUTO = n => DND.spellAuto[n] || {};
 const DMGTYPES = DND.damageTypes.map(t => t.toLowerCase());
+// A damage-type list for "take damage" boxes. Bludgeoning, piercing and slashing also come as "(magical)": magical
+// weapons get past resistance to nonmagical attacks (Stoneskin, many monsters).
+const dmgTypeOpts = (none = 'Any') => `<option value="">${none}</option>` + DND.damageTypes.map(t => { const v = t.toLowerCase(); return `<option value="${v}">${t}</option>` + (/^(bludgeoning|piercing|slashing)$/.test(v) ? `<option value="${v} (magical)">${t} (magical)</option>` : ''); }).join('');
 function casterFor(key) { return casters().find(c => c.key === key); }
 const isPrepCaster = key => { const c = casterFor(key); return !!(c && c.prepared); };
 function spReady(sp) { if (sp.always || N(sp.level) === 0) return true; if (!casterFor(sp.cls)) return true; return isPrepCaster(sp.cls) ? !!sp.prepared : true; }

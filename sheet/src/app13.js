@@ -71,7 +71,7 @@ function ptyCardHTML(m) {
   const more = [['coins', 'Give coins'], ['help', 'Help (advantage on their next roll)'], down && !m.dead && !m.stable ? ['stab', 'Stabilize (Medicine, DC 10)'] : null, ['note', 'Send a message']].filter(Boolean);
   const hp = max ? `<div class="chp chp2"><div class="chp-ring"><div class="ring-svg">${hpRingSVG(cur, max, m.temp, f ? ' form' : '')}</div>
       <div class="chp-center"><div class="curline"><b class="ptym-cur">${cur}</b>${N(m.temp) ? `<span class="tmpbadge">+${N(m.temp)}</span>` : ''}</div><div class="hp-max">of ${max}</div></div></div>
-      ${act ? `<div class="chp-side"><select class="f ptyqt sel-dmg" id="ptyqt-${esc(id)}" aria-label="Damage type for ${esc(m.name)}" title="Damage type: their resistances and immunities apply"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="ptyq-${esc(id)}" autocomplete="off" placeholder="Amount" aria-label="Amount for ${esc(m.name)}: -20 (or 20) for damage, +20 to heal, then Enter">
+      ${act ? `<div class="chp-side"><select class="f ptyqt sel-dmg" id="ptyqt-${esc(id)}" aria-label="Damage type for ${esc(m.name)}" title="Damage type: their resistances and immunities apply">${dmgTypeOpts()}</select><input class="f" id="ptyq-${esc(id)}" autocomplete="off" placeholder="Amount" aria-label="Amount for ${esc(m.name)}: -20 (or 20) for damage, +20 to heal, then Enter">
         <div class="chp-btns"><button class="btn hpi dmg" data-pa="qdmg" data-id="${esc(id)}" title="Damage ${esc(m.name)}" aria-label="Damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-pa="qheal" data-id="${esc(id)}" title="Heal ${esc(m.name)}" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmp" data-pa="qtemp" data-id="${esc(id)}" title="Give ${esc(m.name)} temporary HP" aria-label="Temporary HP">${ICON.hpTemp}</button></div></div>` : ''}</div>` : '';
   return `<div class="panel comp2 ptym${down ? ' ' + down : ''}" data-mid="${esc(id)}"><div class="comp-h2">${m.thumb ? `<span class="picth"${/^#[0-9a-f]{6}$/i.test(m.acc || '') ? ` style="border-color:${m.acc}"` : ''}><img src="${esc(m.thumb)}" alt=""></span>` : `<span class="picadd">${esc(String(m.name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join(''))}</span>`}
       <div class="grow"><b class="cname${String(m.name || '').length > 26 ? ' n3' : String(m.name || '').length > 17 ? ' n2' : ''}" title="${esc(m.name || '')}">${esc(m.name || 'A character')}</b>${m.player ? `<div class="ptym-pl">${esc(m.player)}</div>` : ''}</div>
@@ -273,7 +273,7 @@ function ptyAmount(kind, ids) {
   PTY_AMT = { kind, ids };
   const T = { heal: 'Heal', temp: 'Temporary HP for', dmg: 'Damage' }[kind];
   openModal(`<h3>${T} ${esc(ptyNames(ids))}</h3>
-    <div class="row">${fld('Amount, or a roll like 2d4+2', `<input class="f" id="ptyAmt" autofocus placeholder="${kind === 'dmg' ? 'e.g. 7' : 'e.g. 1d8+3'}">`)}${kind === 'dmg' ? fld('Type', `<select class="f sel-dmg" id="ptyType"><option value="">—</option>${(DND.damageTypes || []).map(t => `<option>${esc(String(t).toLowerCase())}</option>`).join('')}</select>`) : ''}</div>
+    <div class="row">${fld('Amount, or a roll like 2d4+2', `<input class="f" id="ptyAmt" autofocus placeholder="${kind === 'dmg' ? 'e.g. 7' : 'e.g. 1d8+3'}">`)}${kind === 'dmg' ? fld('Type', `<select class="f sel-dmg" id="ptyType">${dmgTypeOpts('—')}</select>`) : ''}</div>
     ${fld('From what (they see this)', `<input class="f" id="ptyWhy" placeholder="${kind === 'heal' ? 'e.g. a potion, first aid' : kind === 'dmg' ? 'e.g. my fireball' : 'e.g. inspiring words'}">`)}
     <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-pa="amt" data-k="${kind}">${kind === 'heal' ? 'Heal' : kind === 'temp' ? 'Give temp HP' : 'Deal damage'}</button></div>`);
 }
@@ -663,8 +663,8 @@ function ptyCatchUp() {
 }
 setTimeout(ptyCatchUp, 2500); setInterval(ptyCatchUp, 20000);
 // Damage after resistances and immunities this sheet knows about.
-function ptyResist(n, type) { type = String(type || '').toLowerCase(); if (!type) return [n, '']; const D = defensesDetail(), has = arr => arr.some(x => /^all damage/.test(x.k) ? !new RegExp('except[^.]*\\b' + type + '\\b').test(x.k) : x.k.includes(type)); // ("all damage except psychic": every type but that one)
-  const vul = (D.vuln || []).some(x => x.k.includes(type));
+function ptyResist(n, type) { type = String(type || '').toLowerCase(); if (!type) return [n, '']; const magical = /\(magical\)/.test(type); type = type.replace(/\s*\(magical\)/, '').trim(); const D = defensesDetail(), hits = x => !(magical && /non-?magical|aren['’]t (?:silvered|adamantine|magical)/.test(x.k)), has = arr => arr.filter(hits).some(x => /^all damage/.test(x.k) ? !new RegExp('except[^.]*\\b' + type + '\\b').test(x.k) : x.k.includes(type)); // ("all damage except psychic": every type but that one)
+  const vul = (D.vuln || []).filter(hits).some(x => x.k.includes(type));
   if (has(D.immune)) return [0, 'immune']; if (has(D.resist)) return vul ? [n, 'resistant and vulnerable'] : [Math.floor(n / 2), 'resistant']; if (vul) return [n * 2, 'vulnerable']; return [n, '']; }
 function ptyApply(m) {
   const d = cleanData(m.data || {}), who = m.fromName || 'Someone', why = d.why || who;

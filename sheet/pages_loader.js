@@ -3702,7 +3702,8 @@ function hub(fs, auth, G, ctx) {
 // any co-DMs) can open every sheet in the party and send damage, healing, loot and conditions to anyone in it.
 const PTY_CONDS = ['Blinded', 'Charmed', 'Deafened', 'Frightened', 'Grappled', 'Incapacitated', 'Invisible', 'Paralyzed', 'Petrified', 'Poisoned', 'Prone', 'Restrained', 'Stunned', 'Unconscious'];
 const PTY_CI = { Blinded: '◌', Charmed: '♥', Deafened: '◎', Frightened: '!', Grappled: '✊', Incapacitated: '✕', Invisible: '◇', Paralyzed: '❚❚', Petrified: '▣', Poisoned: '☠', Prone: '↧', Restrained: '⛓', Stunned: '✶', Unconscious: 'z' };
-const PTY_DMG = ['acid', 'bludgeoning', 'cold', 'fire', 'force', 'lightning', 'necrotic', 'piercing', 'poison', 'psychic', 'radiant', 'slashing', 'thunder'];
+// (bludgeoning, piercing and slashing also come "(magical)": a magical weapon gets past resistance to nonmagical attacks)
+const PTY_DMG = ['acid', 'bludgeoning', 'bludgeoning (magical)', 'cold', 'fire', 'force', 'lightning', 'necrotic', 'piercing', 'piercing (magical)', 'poison', 'psychic', 'radiant', 'slashing', 'slashing (magical)', 'thunder'];
 const ptyCode = () => { const a = new Uint8Array(12); crypto.getRandomValues(a); return btoa(String.fromCharCode(...a)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
 // Every document of a character (big ones are split in parts) says which party it's in, so the DM can open all of it.
 // Co-DMs share their DM's Desk. The party's own desk (sessions, notes) is open to its co-DMs by the party itself; the DM's
@@ -3891,7 +3892,7 @@ async function ptyRecall(fs, EMAIL, pid, to, ref, from, fromName) {
   await ptySend(fs, EMAIL, pid, to, 'undo', { ref }, from, fromName); return 'undone';
 }
 
-const PTY_DT = ['Acid', 'Bludgeoning', 'Cold', 'Fire', 'Force', 'Lightning', 'Necrotic', 'Piercing', 'Poison', 'Psychic', 'Radiant', 'Slashing', 'Thunder'];
+const PTY_DT = ['Acid', 'Bludgeoning', 'Bludgeoning (magical)', 'Cold', 'Fire', 'Force', 'Lightning', 'Necrotic', 'Piercing', 'Piercing (magical)', 'Poison', 'Psychic', 'Radiant', 'Slashing', 'Slashing (magical)', 'Thunder'];
 function partyModule(H) {
   const { fs, EMAIL, IS_ADMIN, modal, toast, esc, close, root, G } = H;
   const FV = firebase.firestore.FieldValue, PC = fs.collection('parties'), IC = fs.collection('invites');
