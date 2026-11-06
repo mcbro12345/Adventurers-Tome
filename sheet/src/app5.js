@@ -1518,6 +1518,40 @@ function keepLocal(next, cur) {
   return next;
 }
 let GUESTCLAIM = false, GUESTDONE = false;
+// ----- The same character open in two places (a phone and a computer, a player and a co-editor) -----
+// Each copy remembers the sheet as the cloud last had it (CLOUD_BASE). When another copy's save arrives while this one
+// has changes of its own that aren't saved yet, the two are merged instead of one wiping out the other: whatever only
+// one side changed comes through, items are matched by their id, and counts both sides changed (gold, patches, uses)
+// add up both changes. Only a real clash on the same field keeps this copy's value.
+let CLOUD_BASE = null, CLOUD_BASE_AT = 0, EDIT_N = 0, SYNC_N = 0;
+const cloudDirty = () => EDIT_N > SYNC_N;
+function sheetMerge(b, l, r) {
+  const js = v => JSON.stringify(v);
+  const sl = js(l), sr = js(r); if (sl === sr) return l;
+  const sb = js(b); if (sl === sb) return r; if (sr === sb) return l;
+  if (typeof l === 'number' && typeof r === 'number' && typeof b === 'number') return Math.abs(l) > 1e11 || Math.abs(r) > 1e11 ? Math.max(l, r) : b + (l - b) + (r - b); // (times: the later one)
+  const obj = v => v && typeof v === 'object' && !Array.isArray(v);
+  if (Array.isArray(l) && Array.isArray(r)) {
+    const idd = a => Array.isArray(a) && a.length > 0 && a.every(x => obj(x) && x.id != null && x.id !== '');
+    if ((idd(l) || !l.length) && (idd(r) || !r.length) && (idd(b) || !(b && b.length))) {
+      const B = new Map((b || []).map(x => [x.id, x])), R = new Map(r.map(x => [x.id, x])), L = new Set(l.map(x => x.id)), out = [];
+      l.forEach(x => { const rx = R.get(x.id), bx = B.get(x.id);
+        if (!rx) { if (bx && js(bx) === js(x)) return; out.push(x); return; } // (gone there and untouched here: gone)
+        out.push(bx ? sheetMerge(bx, x, rx) : x); });
+      r.forEach(x => { if (!L.has(x.id) && !B.has(x.id)) out.push(x); }); // new there
+      return out;
+    }
+    // logs (entries stamped with a time, no id): both sides' entries, in time order
+    if ([l, r].every(a => a.every(x => obj(x) && typeof x.t === 'number'))) { const seen = new Set(), out = []; l.concat(r).forEach(x => { const k = js(x); if (!seen.has(k)) { seen.add(k); out.push(x); } }); return out.sort((x, y) => x.t - y.t); }
+    return l;
+  }
+  if (obj(l) && obj(r)) {
+    const bb = obj(b) ? b : {}, o = {};
+    new Set(Object.keys(l).concat(Object.keys(r))).forEach(k => { const v = sheetMerge(bb[k], l[k], r[k]); if (v !== undefined) o[k] = v; });
+    return o;
+  }
+  return l;
+}
 let CLOUD = null, DBX = null, cloudBusy = false, cloudAgain = false, cloudTimer = null, cloudPending = null, cloudFails = 0, cloudParts = 1, cloudUnsub = null, cloudRO = false;
 const clock = () => new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 // The toolbar slot is small: show a short label, keep the full sentence as the hover text.
@@ -1528,18 +1562,24 @@ function setSyncState(t) { UI.saveState = t; UI.saveFull = t; const el = $('#sav
 // On the website, edits are gathered into one save after 1.5s of quiet (never held longer than 6s), and anything
 // waiting is saved at once when the tab is hidden or closed — far fewer database writes, still near-live for others.
 let cloudFirst = 0;
-function cloudPush() { if (!CLOUD || !S.created || cloudRO) return; clearTimeout(cloudTimer);
+function cloudPush() { EDIT_N++; if (!CLOUD || !S.created || cloudRO) return; clearTimeout(cloudTimer);
   if (!window.SHEET_PAGES) { cloudTimer = setTimeout(cloudWrite, 350); return; }
   const now = Date.now(); if (!cloudFirst) cloudFirst = now;
   cloudTimer = setTimeout(() => { cloudFirst = 0; cloudWrite(); }, Math.max(0, Math.min(1500, cloudFirst + 6000 - now))); }
-function cloudFlush() { if (cloudTimer && cloudFirst) { clearTimeout(cloudTimer); cloudTimer = null; cloudFirst = 0; cloudWrite(); } }
+function cloudFlush() { if (cloudTimer && cloudFirst) { clearTimeout(cloudTimer); cloudTimer = null; cloudFirst = 0; cloudWrite(true); } }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') cloudFlush(); });
 addEventListener('pagehide', cloudFlush);
 const partRef = k => DBX.doc('sheets/part' + k);
-async function cloudWrite() {
+async function cloudWrite(force) {
   if (!CLOUD || !S.created || cloudRO) return;
   if (cloudBusy) { cloudAgain = true; return; }
+  // another copy saved while this one was busy (a popup open, typing): take that in first, so neither copy's changes are lost
+  if (cloudPending && CLOUD_BASE && N(cloudPending.savedAt) > CLOUD_BASE_AT) {
+    if (busyEditing() && !force) { clearTimeout(cloudTimer); cloudTimer = setTimeout(cloudWrite, 800); return; }
+    adoptRemote(cloudPending, true); if (typeof ROBE !== 'undefined' && ROBE && $('#robem')) try { renderRobe(); } catch (e) {}
+  }
   cloudBusy = true;
+  const n0 = EDIT_N;
   try {
     const str = JSON.stringify(S), at = N(S.savedAt) || Date.now(), parts = [];
     for (let i = 0; i < str.length; i += PART) parts.push(str.slice(i, i + PART));
@@ -1547,7 +1587,7 @@ async function cloudWrite() {
     for (let k = 1; k < parts.length; k++) await partRef(k).set({ savedAt: at, k, data: parts[k] });
     await CLOUD.set({ v: 2, savedAt: at, tab: TAB, n: parts.length, data: parts[0], guestDone: GUESTDONE || GUESTCLAIM });
     for (let k = parts.length; k < cloudParts; k++) { try { await partRef(k).delete(); } catch (e) {} }
-    cloudParts = parts.length; cloudFails = 0;
+    cloudParts = parts.length; cloudFails = 0; CLOUD_BASE = str; CLOUD_BASE_AT = at; SYNC_N = Math.max(SYNC_N, n0);
     setSyncState('Live · synced ' + clock());
   } catch (e) {
     const c = e && e.code;
@@ -1569,20 +1609,24 @@ async function cloudText(d, partOf) {
 }
 // Typing in a field or working in a popup: wait, then catch up (a re-render would steal focus or the popup's place).
 function busyEditing() { const a = document.activeElement; return $('#modal').classList.contains('open') || $('#wizard').classList.contains('open') || !!(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && !a.closest('#page-nothing')); }
-function adoptRemote(d) {
+function adoptRemote(d, force) {
   let next; try { next = JSON.parse(d.sheet); } catch (e) { return; }
   if (!next || !next.created || !S.created) return;
-  if (busyEditing()) { cloudPending = d; return; }
+  if (busyEditing() && !force) { cloudPending = d; return; }
   cloudPending = null;
   const sx = scrollX, sy = scrollY;
+  let mine = false;
+  if (CLOUD_BASE && cloudDirty()) { try { const at = Math.max(N(next.savedAt), N(S.savedAt)); next = sheetMerge(JSON.parse(CLOUD_BASE), JSON.parse(JSON.stringify(S)), next); next.savedAt = at; mine = true; } catch (e) {} }
+  CLOUD_BASE = d.sheet; CLOUD_BASE_AT = N(d.savedAt);
   S = keepLocal(migrate(next), S); if (applyFixes(S)) rebuildAuto();
+  if (mine) { S.savedAt = Date.now(); writeLocal(); }
   try { localStorage.setItem(keyFor(S.id), JSON.stringify(S)); } catch (e) {}
   HIST = []; REDO = []; LAST = snapAll(); histButtons();
   applySources(S.sources); applyTheme(); render();
   scrollTo(sx, sy);
   setSyncState('Live · synced ' + clock());
 }
-setInterval(() => { if (cloudPending && !busyEditing() && N(cloudPending.savedAt) > N(S.savedAt)) adoptRemote(cloudPending); else if (cloudPending && N(cloudPending.savedAt) <= N(S.savedAt)) cloudPending = null; }, 400);
+setInterval(() => { if (!cloudPending || busyEditing()) return; if (CLOUD_BASE ? N(cloudPending.savedAt) > CLOUD_BASE_AT : N(cloudPending.savedAt) > N(S.savedAt)) adoptRemote(cloudPending); else cloudPending = null; }, 400);
 function cloudListen(ref, onFirst) {
   let checked = false;
   if (cloudUnsub) { try { cloudUnsub(); } catch (e) {} }
@@ -1590,9 +1634,10 @@ function cloudListen(ref, onFirst) {
     const d = snap.exists ? snap.data() : null;
     if (d) { cloudParts = Math.max(cloudParts, N(d.n) || 1); if (d.guestDone) GUESTDONE = true; }
     if (!checked) { if (snap.metadata.fromCache) return; checked = true; CLOUD = ref; if (await onFirst(d)) return; }
-    if (d && (d.sheet || d.v === 2) && d.tab !== TAB && N(d.savedAt) > N(S.savedAt)) {
+    const newer = () => CLOUD_BASE ? N(d.savedAt) > CLOUD_BASE_AT : N(d.savedAt) > N(S.savedAt);
+    if (d && (d.sheet || d.v === 2) && d.tab !== TAB && newer()) {
       const txt = await cloudText(d);
-      if (txt && N(d.savedAt) > N(S.savedAt)) adoptRemote({ savedAt: d.savedAt, sheet: txt });
+      if (txt && newer()) adoptRemote({ savedAt: d.savedAt, sheet: txt });
     }
   }, e => {
     const c = e && e.code;
@@ -1621,7 +1666,7 @@ function cloudListen(ref, onFirst) {
         // A newer copy of the sheet file is replacing the synced one: never lose the player's own settings, theme or layout.
         if (d && !cloudRO && !FROM_LOCAL) { try { const txt = await cloudText(d); const old = txt && JSON.parse(txt); if (old && old.id === S.id) { keepPrefs(S, old); hdrReset(S); try { applyTheme(); render(); } catch (e) {} } } catch (e) {} }
         if (!cloudRO) cloudWrite(); }
-      else if (d) setSyncState(cloudRO ? 'Live · view only (you can\'t edit this sheet)' : 'Live · synced ' + clock());
+      else if (d) { if (N(d.savedAt) === N(S.savedAt)) { CLOUD_BASE = JSON.stringify(S); CLOUD_BASE_AT = N(d.savedAt); SYNC_N = EDIT_N; } setSyncState(cloudRO ? 'Live · view only (you can\'t edit this sheet)' : 'Live · synced ' + clock()); }
     });
   } catch (e) {}
 })();
