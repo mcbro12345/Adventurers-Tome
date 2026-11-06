@@ -830,7 +830,7 @@ function renderCombat() {
     return `<div class="econ col-${key}" data-col="${key}" data-zi="${key}">
       <div class="econ-head"><span class="badge b-${key}"></span><h3>${title}</h3>
         ${key !== 'move' ? `<button class="pill" data-act="econ" data-col="${key}" title="Mark used / ready">Ready</button>` : ''}</div>
-      <div class="econ-body">${body}</div>
+      <div class="econ-body">${key === 'action' ? readyBarHTML() : ''}${body}</div>
 </div>`;
   };
   const cur = UI.econTab || 'action';

@@ -4433,3 +4433,15 @@ html.mobile .tile:is([data-zi="ac"], [data-zi="init"], [data-zi="speed"], [data-
 
 html.mobile .tile:is([data-zi="ac"],[data-zi="init"],[data-zi="speed"],[data-zi="prof"],[data-zi="passive"],[data-zi="hd"]) > .lbl { display: flex; flex-direction: column; justify-content: flex-end; }
 html.mobile .tile[data-zi="init"] > .roll.big { margin-top: -6px; margin-bottom: -6px; }
+/* Ready an action: picked straight from the Action column */
+.readybar { margin: 0 0 12px; padding: 12px 14px; border: 1px solid var(--gold); border-radius: 12px; background: color-mix(in srgb, var(--gold) 9%, var(--panel, transparent)); }
+.readybar .rb-h { display: flex; align-items: center; gap: 10px; }
+.readybar .rb-h b { flex: 1; font-size: 1rem; color: var(--gold-ink); }
+.readybar p { margin: 6px 0 10px; font-size: .82rem; line-height: 1.4; color: var(--soft); }
+.readybar .f { width: 100%; box-sizing: border-box; }
+.readybar .rb-other { display: flex; gap: 8px; margin-top: 8px; }
+.readybar .rb-other .f { flex: 1; min-width: 0; }
+html.readying .econ:not(.col-action) { opacity: .4; transition: opacity .2s; }
+html.readying .econ.col-action :is(.atkbtn, button.roll, [data-act="cast"], .chip[data-act="markopt"], .opt .btn:not(.notetip)) { box-shadow: 0 0 0 2px var(--gold); }
+html.readying .econ.col-action .chip[data-act="markopt"][data-name="Ready" i] { box-shadow: none; opacity: .5; }
+@media (prefers-reduced-motion: no-preference) { html.readying .readybar { animation: rbIn .2s ease-out; } @keyframes rbIn { from { opacity: 0; transform: translateY(-4px); } } }
