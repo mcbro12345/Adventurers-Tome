@@ -3753,3 +3753,6 @@ html.mobile .pg-pubrow { padding-left: 22px; padding-right: 22px; }
 /* damage-type boxes: wide enough for "Magical bludgeoning", and always one line */
 select.sel-dmg { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 12.5em; }
 @media (max-width: 380px) { select.sel-dmg { font-size: .78rem !important; padding-left: 6px !important; } }
+
+/* dropdown options stay on one line */
+.sel-pop .sp-o > span { white-space: nowrap; }

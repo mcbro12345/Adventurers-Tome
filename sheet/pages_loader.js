@@ -4845,7 +4845,9 @@ function pgRevealPanels() { try { if (matchMedia('(prefers-reduced-motion: reduc
     const opt = o => { const i = OPTS.indexOf(o); return o.hidden ? '' : `<button type="button" role="option" class="sp-o${o.selected ? ' on' : ''}" data-i="${i}" aria-selected="${o.selected}"${o.disabled ? ' disabled' : ''}><span>${ESC(o.textContent)}</span>${o.selected ? TICK : ''}</button>`; };
     pop.innerHTML = [...sel.children].map(c => c.tagName === 'OPTGROUP' ? (c.hidden ? '' : `<div class="sp-g" role="presentation">${ESC(c.label || '')}</div>` + [...c.children].map(opt).join('')) : c.tagName === 'OPTION' ? opt(c) : '').join('');
     Object.assign(pop.style, { width: 'max-content', minWidth: Math.max(r.width, 180) + 'px', maxWidth: Math.min(380, innerWidth - 16) + 'px' }); document.body.appendChild(pop); const w = pop.offsetWidth + 1, h = pop.offsetHeight, below = innerHeight - r.bottom - 10, up = below < Math.min(h, 240) && r.top > below;
-    Object.assign(pop.style, { left: Math.max(8, Math.min(innerWidth - w - 8, r.left)) + 'px', width: w + 'px', maxHeight: Math.max(160, Math.min(340, (up ? r.top : below) - 10)) + 'px' });
+    // (a list long enough to scroll gets room for its scrollbar, so no option wraps onto two lines)
+    const mh = Math.max(160, Math.min(340, (up ? r.top : below) - 10)), ww = Math.min(innerWidth - 16, w + (h > mh ? 14 : 0));
+    Object.assign(pop.style, { left: Math.max(8, Math.min(innerWidth - ww - 8, r.left)) + 'px', width: ww + 'px', maxHeight: mh + 'px' });
     pop.style.top = (up ? Math.max(8, r.top - 6 - Math.min(h, parseFloat(pop.style.maxHeight))) : r.bottom + 6) + 'px'; if (up) pop.classList.add('up');
     sel.classList.add('sp-open'); open = { pop, sel };
     pop.addEventListener('mousedown', e => e.preventDefault());
