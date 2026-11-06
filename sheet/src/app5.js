@@ -1579,6 +1579,15 @@ async function cloudWrite(force) {
     adoptRemote(cloudPending, true); if (typeof ROBE !== 'undefined' && ROBE && $('#robem')) try { renderRobe(); } catch (e) {}
   }
   cloudBusy = true;
+  // offline: don't queue a whole-sheet write blind (it would land later on top of whatever was played meanwhile);
+  // it goes when the connection is back, after checking what's there
+  if (CLOUD_BASE && typeof navigator !== 'undefined' && navigator.onLine === false) { cloudBusy = false; setSyncState('Sync retrying…'); return; }
+  if (CLOUD_BASE) { let sn = null; try { sn = window.SHEET_PAGES ? await CLOUD.get({ source: 'server' }) : await CLOUD.get(); } catch (e) { cloudBusy = false; cloudFails++; setSyncState('Sync retrying…'); setTimeout(cloudWrite, Math.min(60000, 1500 * Math.pow(2, Math.min(cloudFails, 5)))); return; }
+    try { const d = sn && sn.exists ? sn.data() : null;
+    if (d && d.tab !== TAB && N(d.savedAt) > CLOUD_BASE_AT) { const txt = await cloudText(d);
+      if (txt && busyEditing() && !force) { cloudPending = { savedAt: d.savedAt, sheet: txt }; cloudBusy = false; clearTimeout(cloudTimer); cloudTimer = setTimeout(cloudWrite, 800); return; }
+      if (txt) { adoptRemote({ savedAt: d.savedAt, sheet: txt }, true); if (typeof ROBE !== 'undefined' && ROBE && $('#robem')) try { renderRobe(); } catch (e) {} } } } catch (e) {} }
+  if (CLOUD_BASE && !cloudDirty() && !GUESTCLAIM) { cloudBusy = false; setSyncState('Live · synced ' + clock()); return; }
   const n0 = EDIT_N;
   try {
     const str = JSON.stringify(S), at = N(S.savedAt) || Date.now(), parts = [];
@@ -1671,8 +1680,8 @@ function cloudListen(ref, onFirst) {
   } catch (e) {}
 })();
 // Catch up whenever the page comes back (phone unlocked, tab refocused) or the network returns.
-addEventListener('online', () => { if (CLOUD) cloudWrite(); });
-document.addEventListener('visibilitychange', () => { if (!document.hidden && CLOUD && /retrying|full/i.test(UI.saveState || '')) cloudWrite(); });
+addEventListener('online', () => { if (CLOUD && (cloudDirty() || !CLOUD_BASE)) cloudWrite(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && CLOUD && (cloudDirty() || !CLOUD_BASE) && /retrying|full/i.test(UI.saveState || '')) cloudWrite(); });
 
 // ---------- Boot ----------
 // For the GitHub Pages loader (new characters get their link once created).

@@ -16390,10 +16390,10 @@ function mainClick(e) {
     case 'roberoll': robeRoll(); break;
     case 'robeview': if (ROBE) { ROBE.view = b.dataset.v; ROBE.edit = null; ROBE.msg = ''; renderRobe(); } break;
     case 'robecnt': if (ROBE && ROBE.edit) { const k = b.dataset.k; ROBE.edit[k] = Math.max(0, Math.min(40, N(ROBE.edit[k]) + N(b.dataset.d))); renderRobe(); } break;
-    case 'robesave': if (ROBE && ROBE.edit) { const it = S.inventory[ROBE.i]; if (it) { it.robe = Object.assign({ log: [] }, it.robe || {}, { p: Object.assign({}, ROBE.edit) }); pendingLabel = 'Robe of Useful Items: patches'; save(); render(); } ROBE.view = 'main'; ROBE.edit = null; ROBE.msg = ''; renderRobe(); } break;
+    case 'robesave': if (ROBE && ROBE.edit) { const it = robeItem(); if (it) { it.robe = Object.assign({ log: [] }, it.robe || {}, { p: Object.assign({}, ROBE.edit) }); pendingLabel = 'Robe of Useful Items: patches'; save(); render(); } ROBE.view = 'main'; ROBE.edit = null; ROBE.msg = ''; renderRobe(); } break;
     case 'robedet': robeDetach(b.dataset.k); break;
     case 'robescroll': robeDetach('scroll', b.dataset.v); break;
-    case 'robewear': if (ROBE) { const it = S.inventory[ROBE.i]; if (it && !it.equipped) { equipItem(ROBE.i); } renderRobe(); } break;
+    case 'robewear': if (ROBE) { const it = robeItem(); if (it && !it.equipped) { equipItem(S.inventory.indexOf(it)); } renderRobe(); } break;
     case 'unpack': unpackItem(i); break;
     case 'throwit': throwItem(i); break;
     case 'decktype': S.deck.variant = b.dataset.v; DECK.last = null; save(); renderDeck(); break;
@@ -19277,10 +19277,13 @@ const robeLeft = it => { const p = (it && it.robe && it.robe.p) || {}; return Ob
 const robeD100 = () => 1 + Math.floor(Math.random() * 100);
 const robeKindOf = r => ROBE_RAND.find(k => r >= ROBE_P[k].r[0] && r <= ROBE_P[k].r[1]);
 let ROBE = null;
-function openRobe(i, view) { const it = S.inventory[i]; if (!isRobeItem(it)) return; ROBE = { i, view: view || (it.robe ? 'main' : 'setup'), msg: '', q: '' }; renderRobe(); }
+function openRobe(i, view) { const it = S.inventory[i]; if (!isRobeItem(it)) return; ROBE = { i, id: it.id, view: view || (it.robe ? 'main' : 'setup'), msg: '', q: '' }; renderRobe(); }
+// The robe the window is about: found by its id (the sheet can change underneath — a save from your other device, an
+// item added or removed — and its place in the inventory with it).
+function robeItem() { if (!ROBE) return null; if (ROBE.id) { const k = S.inventory.findIndex(x => x && x.id === ROBE.id); if (k >= 0) { ROBE.i = k; return S.inventory[k]; } } return S.inventory[ROBE.i] || null; }
 function robeBase() { const p = {}; ROBE_FIXED.forEach(k => p[k] = 2); return p; }
 function robeRoll() {
-  const it = S.inventory[ROBE.i]; if (!it) return;
+  const it = robeItem(); if (!it) return;
   const r = rollExpr('4d4', { need: true, label: 'Robe of Useful Items: extra patches' }), n = N(r.total) || 10, p = robeBase(), rolls = [];
   for (let k = 0; k < n; k++) { const d = robeD100(), kind = robeKindOf(d); p[kind] = N(p[kind]) + 1; rolls.push([d, kind]); }
   it.robe = { p, rolled: rolls, log: [] }; ROBE.view = 'main'; ROBE.msg = `<b>${n} extra patches</b> (4d4): ${rolls.map(([d, k]) => `${esc(ROBE_P[k].n)} <small>(${d})</small>`).join(', ')}.`;
@@ -19291,7 +19294,7 @@ function robeTile(k, n, i, act) {
   return `<div class="robe-p${n ? '' : ' gone'}"><div class="robe-pt"><b>${esc(P.n)}</b>${n > 1 ? `<span class="robe-n">×${n}</span>` : ''}</div><p>${esc(P.d)}</p>${act ? act : `<button class="btn sm gold" data-act="robedet" data-k="${k}" ${n ? '' : 'disabled'}>Detach</button>`}</div>`;
 }
 function renderRobe() {
-  const it = S.inventory[ROBE.i]; if (!it) return closeModal(); let h = `<div id="robem"><h3>${esc(it.name)}</h3>`;
+  const it = robeItem(); if (!it) return closeModal(); let h = `<div id="robem"><h3>${esc(it.name)}</h3>`;
   if (ROBE.view === 'setup') {
     h += `<p class="hint">Every robe has two each of a dagger, bullseye lantern, steel mirror, 10-foot pole, hempen rope and sack, plus <b>4d4 more patches</b> your DM rolls or picks.</p>
       <div class="bagpresets"><button class="bagpreset" data-act="roberoll"><b>Roll the extra patches</b><small>4d4 patches, each rolled on the d100 table</small></button><button class="bagpreset" data-act="robeview" data-v="edit"><b>My DM told me what they are</b><small>Count each kind of patch yourself</small></button></div>`;
@@ -19338,7 +19341,7 @@ function robeScrollItem(name) {
   return it;
 }
 function robeDetach(k, spell) {
-  const it = S.inventory[ROBE.i]; if (!it || !it.robe) return; const p = it.robe.p, P = ROBE_P[k]; if (!N(p[k])) return;
+  const it = robeItem(); if (!it || !it.robe) return; const p = it.robe.p, P = ROBE_P[k]; if (!N(p[k])) return;
   if (!it.equipped) { toast('Wear the robe first — patches only come off while you have it on.', 'fumble'); return; }
   if (incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take actions.`, 'fumble'); return; }
   if (k === 'scroll' && !spell) { ROBE.view = 'scroll'; ROBE.q = ''; renderRobe(); return; }
@@ -25351,6 +25354,15 @@ async function cloudWrite(force) {
     adoptRemote(cloudPending, true); if (typeof ROBE !== 'undefined' && ROBE && $('#robem')) try { renderRobe(); } catch (e) {}
   }
   cloudBusy = true;
+  // offline: don't queue a whole-sheet write blind (it would land later on top of whatever was played meanwhile);
+  // it goes when the connection is back, after checking what's there
+  if (CLOUD_BASE && typeof navigator !== 'undefined' && navigator.onLine === false) { cloudBusy = false; setSyncState('Sync retrying…'); return; }
+  if (CLOUD_BASE) { let sn = null; try { sn = window.SHEET_PAGES ? await CLOUD.get({ source: 'server' }) : await CLOUD.get(); } catch (e) { cloudBusy = false; cloudFails++; setSyncState('Sync retrying…'); setTimeout(cloudWrite, Math.min(60000, 1500 * Math.pow(2, Math.min(cloudFails, 5)))); return; }
+    try { const d = sn && sn.exists ? sn.data() : null;
+    if (d && d.tab !== TAB && N(d.savedAt) > CLOUD_BASE_AT) { const txt = await cloudText(d);
+      if (txt && busyEditing() && !force) { cloudPending = { savedAt: d.savedAt, sheet: txt }; cloudBusy = false; clearTimeout(cloudTimer); cloudTimer = setTimeout(cloudWrite, 800); return; }
+      if (txt) { adoptRemote({ savedAt: d.savedAt, sheet: txt }, true); if (typeof ROBE !== 'undefined' && ROBE && $('#robem')) try { renderRobe(); } catch (e) {} } } } catch (e) {} }
+  if (CLOUD_BASE && !cloudDirty() && !GUESTCLAIM) { cloudBusy = false; setSyncState('Live · synced ' + clock()); return; }
   const n0 = EDIT_N;
   try {
     const str = JSON.stringify(S), at = N(S.savedAt) || Date.now(), parts = [];
@@ -25443,8 +25455,8 @@ function cloudListen(ref, onFirst) {
   } catch (e) {}
 })();
 // Catch up whenever the page comes back (phone unlocked, tab refocused) or the network returns.
-addEventListener('online', () => { if (CLOUD) cloudWrite(); });
-document.addEventListener('visibilitychange', () => { if (!document.hidden && CLOUD && /retrying|full/i.test(UI.saveState || '')) cloudWrite(); });
+addEventListener('online', () => { if (CLOUD && (cloudDirty() || !CLOUD_BASE)) cloudWrite(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && CLOUD && (cloudDirty() || !CLOUD_BASE) && /retrying|full/i.test(UI.saveState || '')) cloudWrite(); });
 
 // ---------- Boot ----------
 // For the GitHub Pages loader (new characters get their link once created).
