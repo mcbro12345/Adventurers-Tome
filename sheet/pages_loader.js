@@ -2575,6 +2575,8 @@ function hub(fs, auth, G, ctx) {
     if (t && (t._to || t.textContent) !== to) { const quiet = calm() || !t.textContent || !t.animate; t._to = to;
       if (quiet) { if (t._mo) { t._mo.cancel(); t._mo = null; } t.textContent = to; t.style.opacity = ''; }
       else { const w0 = nb.getBoundingClientRect().width; if (t._mo) { t._mo.onfinish = null; t._mo.cancel(); } const out = t.animate([{ opacity: 1, filter: 'blur(0)', transform: 'none' }, { opacity: 0, filter: 'blur(4px)', transform: 'translateY(-3px)' }], { duration: 120, easing: 'ease-in', fill: 'forwards' }); t._mo = out;
+        // (the + takes part too: it blurs and turns a quarter while the words change, and settles as they arrive)
+        { const pl = nb.querySelector('.hn-plus svg'); if (pl && pl.animate) pl.animate([{ opacity: 1, filter: 'blur(0)', transform: 'rotate(0) scale(1)' }, { opacity: .35, filter: 'blur(2px)', transform: 'rotate(45deg) scale(.8)', offset: .4 }, { opacity: 1, filter: 'blur(0)', transform: 'rotate(90deg) scale(1)' }], { duration: 340, easing: 'cubic-bezier(.3,.7,.3,1)' }); }
         out.onfinish = () => { t.textContent = to; const w1 = nb.getBoundingClientRect().width;
           if (Math.abs(w1 - w0) > 1 && nb.animate) nb.animate([{ width: w0 + 'px' }, { width: w1 + 'px' }], { duration: 220, easing: 'cubic-bezier(.2,.8,.3,1)' });
           t._mo = t.animate([{ opacity: 0, filter: 'blur(4px)', transform: 'translateY(3px)' }, { opacity: 1, filter: 'blur(0)', transform: 'none' }], { duration: 200, easing: 'ease-out', fill: 'forwards' }); }; } }
