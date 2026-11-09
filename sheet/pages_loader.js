@@ -2577,8 +2577,10 @@ function hub(fs, auth, G, ctx) {
       else { const w0 = nb.getBoundingClientRect().width; if (t._mo) { t._mo.onfinish = null; t._mo.cancel(); } const out = t.animate([{ opacity: 1, filter: 'blur(0)', transform: 'none' }, { opacity: 0, filter: 'blur(4px)', transform: 'translateY(-3px)' }], { duration: 120, easing: 'ease-in', fill: 'forwards' }); t._mo = out;
         // (the + takes part too: it blurs and turns a quarter while the words change, and settles as they arrive)
         { const pl = nb.querySelector('.hn-plus svg'); if (pl && pl.animate) pl.animate([{ opacity: 1, filter: 'blur(0)', transform: 'rotate(0) scale(1)' }, { opacity: .35, filter: 'blur(2px)', transform: 'rotate(45deg) scale(.8)', offset: .4 }, { opacity: 1, filter: 'blur(0)', transform: 'rotate(90deg) scale(1)' }], { duration: 340, easing: 'cubic-bezier(.3,.7,.3,1)' }); }
-        out.onfinish = () => { t.textContent = to; const w1 = nb.getBoundingClientRect().width;
+        out.onfinish = () => { const pb = nb.querySelector('.hn-plus'), x0 = pb ? pb.getBoundingClientRect().left : 0; t.textContent = to; const w1 = nb.getBoundingClientRect().width;
           if (Math.abs(w1 - w0) > 1 && nb.animate) nb.animate([{ width: w0 + 'px' }, { width: w1 + 'px' }], { duration: 220, easing: 'cubic-bezier(.2,.8,.3,1)' });
+          // (when the button stays the same width — full width on a phone — the centred words still change length: the + glides over instead of jumping)
+          if (pb && pb.animate) { const dx = x0 - pb.getBoundingClientRect().left; if (Math.abs(dx) > 1) pb.animate([{ transform: `translateX(${dx}px)` }, { transform: 'none' }], { duration: 220, easing: 'cubic-bezier(.2,.8,.3,1)' }); }
           t._mo = t.animate([{ opacity: 0, filter: 'blur(4px)', transform: 'translateY(3px)' }, { opacity: 1, filter: 'blur(0)', transform: 'none' }], { duration: 200, easing: 'ease-out', fill: 'forwards' }); }; } }
     nb.onclick = () => pty ? PMx().newParty() : createChar(); }
   function switchView(v) { if (v === view) return; settle(); setTimeout(newBtn, 0); const out0 = root.querySelector('.hub-pane.on'); VSCROLL[view] = scrollY; view = v; history.replaceState(null, '', view === 'mine' ? URLS.hub(G) : URLS[view](G));
