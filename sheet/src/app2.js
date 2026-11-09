@@ -650,7 +650,11 @@ function mtabSync() {
   if (!de.classList.contains('mtabs')) de.classList.add('mtabs');
   if (!el) { el = document.createElement('div'); el.id = 'mtab'; el.className = 'mtab'; document.body.appendChild(el); mtabWire(el); }
   const ts = mtabTabs(), cur = ts.find(t => t.on) || ts[0]; if (!cur) return; const i = ts.indexOf(cur), other = ts.some(t => t.unread && !t.on);
-  { const h = `<button class="mtab-b${other ? ' unread' : ''}" aria-haspopup="menu" aria-expanded="${!!document.getElementById('mtabmenu')}" aria-label="${esc(cur.label)} — ${i + 1} of ${ts.length}. Choose a tab"><span class="mtab-ic" aria-hidden="true">${cur.ic}</span><span class="mtab-l">${esc(cur.label)}</span><span class="mtab-dots" aria-hidden="true">${ts.map(t => `<i${t.on ? ' class="on"' : ''}></i>`).join('')}</span><span class="mtab-chev">${MTAB_CHEV}</span></button>`; if (el._h !== h) { el._h = h; el.innerHTML = h; } } // (only redrawn when it changes)
+  { const h = `<button class="mtab-b${other ? ' unread' : ''}" aria-haspopup="menu" aria-expanded="${!!document.getElementById('mtabmenu')}" aria-label="${esc(cur.label)} — ${i + 1} of ${ts.length}. Choose a tab"><span class="mtab-ic" aria-hidden="true">${cur.ic}</span><span class="mtab-l">${esc(cur.label)}</span><span class="mtab-dots" aria-hidden="true">${ts.map(t => `<i${t.on ? ' class="on"' : ''}></i>`).join('')}</span><span class="mtab-chev">${MTAB_CHEV}</span></button>`; if (el._h !== h) { const k0 = el._k, b0 = el.querySelector('.mtab-b'), w0 = b0 ? b0.getBoundingClientRect().width : 0; el._h = h; el.innerHTML = h; el._k = cur.k;
+    // (changing tab morphs the pill: the new icon and name blur in as the pill eases to its new width)
+    if (k0 && k0 !== cur.k && !matchMedia('(prefers-reduced-motion: reduce)').matches) { const b = el.querySelector('.mtab-b'), w1 = b.getBoundingClientRect().width, ez = 'cubic-bezier(.3,.7,.3,1)';
+      if (b.animate && w0 && Math.abs(w1 - w0) > 1) b.animate([{ width: w0 + 'px' }, { width: w1 + 'px' }], { duration: 280, easing: ez });
+      ['.mtab-ic', '.mtab-l'].forEach((q, n) => { const x = b.querySelector(q); if (x && x.animate) x.animate([{ opacity: 0, filter: 'blur(5px)', transform: 'translateY(5px) scale(.92)' }, { opacity: 1, filter: 'blur(0)', transform: 'none' }], { duration: 280, delay: n * 40, easing: ez, fill: 'backwards' }); }); } } } // (only redrawn when it changes)
   const m = document.getElementById('mtabmenu'); if (m) mtabFill(m);
 }
 function mtabFill(m) { const ts = mtabTabs();
