@@ -14375,7 +14375,18 @@ function mtabSync() {
   if (!de.classList.contains('mtabs')) de.classList.add('mtabs');
   if (!el) { el = document.createElement('div'); el.id = 'mtab'; el.className = 'mtab'; document.body.appendChild(el); mtabWire(el); }
   const ts = mtabTabs(), cur = ts.find(t => t.on) || ts[0]; if (!cur) return; const i = ts.indexOf(cur), other = ts.some(t => t.unread && !t.on);
-  { const h = `<button class="mtab-b${other ? ' unread' : ''}" aria-haspopup="menu" aria-expanded="${!!document.getElementById('mtabmenu')}" aria-label="${esc(cur.label)} — ${i + 1} of ${ts.length}. Choose a tab"><span class="mtab-ic" aria-hidden="true">${cur.ic}</span><span class="mtab-l">${esc(cur.label)}</span><span class="mtab-dots" aria-hidden="true">${ts.map(t => `<i${t.on ? ' class="on"' : ''}></i>`).join('')}</span><span class="mtab-chev">${MTAB_CHEV}</span></button>`; if (el._h !== h) { el._h = h; el.innerHTML = h; } } // (only redrawn when it changes)
+  { const h = `<button class="mtab-b${other ? ' unread' : ''}" aria-haspopup="menu" aria-expanded="${!!document.getElementById('mtabmenu')}" aria-label="${esc(cur.label)} — ${i + 1} of ${ts.length}. Choose a tab"><span class="mtab-ic" aria-hidden="true">${cur.ic}</span><span class="mtab-l">${esc(cur.label)}</span><span class="mtab-dots" aria-hidden="true">${ts.map(t => `<i${t.on ? ' class="on"' : ''}></i>`).join('')}</span><span class="mtab-chev">${MTAB_CHEV}</span></button>`; if (el._h !== h) { const k0 = el._k; el._h = h; el._k = cur.k;
+    // Changing tab morphs the pill: the old icon and name blur away, the pill eases to the new width with nothing in it
+    // to cut off, then the new icon and name blur in. (Anything else — an unread dot — just redraws.)
+    const b0 = el.querySelector('.mtab-b'), calmM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (el._mt) { el._mt.forEach(a => { try { a.cancel(); } catch (e) {} }); el._mt = null; }
+    if (!k0 || k0 === cur.k || calmM || !b0 || !b0.animate) el.innerHTML = h;
+    else { const ez = 'cubic-bezier(.3,.7,.3,1)', parts = b0.querySelectorAll('.mtab-ic, .mtab-l'), w0 = b0.getBoundingClientRect().width;
+      const outs = [...parts].map(x => x.animate([{ opacity: 1, filter: 'blur(0)' }, { opacity: 0, filter: 'blur(4px)' }], { duration: 110, easing: 'ease-in', fill: 'forwards' })); el._mt = outs;
+      (outs[0] || { finished: Promise.resolve() }).finished.then(() => { if (el._h !== h) return; el.innerHTML = h; const b = el.querySelector('.mtab-b'), w1 = b.getBoundingClientRect().width, nw = b.querySelectorAll('.mtab-ic, .mtab-l');
+        const ins = () => { el._mt = [...nw].map((x, n) => x.animate([{ opacity: 0, filter: 'blur(5px)', transform: 'translateY(4px)' }, { opacity: 1, filter: 'blur(0)', transform: 'none' }], { duration: 200, delay: n * 30, easing: ez, fill: 'backwards' })); };
+        if (Math.abs(w1 - w0) > 1) { nw.forEach(x => { x.style.opacity = '0'; }); const g = b.animate([{ width: w0 + 'px' }, { width: w1 + 'px' }], { duration: 190, easing: ez }); el._mt = [g]; g.finished.then(() => { nw.forEach(x => { x.style.opacity = ''; }); ins(); }).catch(() => { nw.forEach(x => { x.style.opacity = ''; }); }); }
+        else ins(); }).catch(() => {}); } } } // (only redrawn when it changes)
   const m = document.getElementById('mtabmenu'); if (m) mtabFill(m);
 }
 function mtabFill(m) { const ts = mtabTabs();
