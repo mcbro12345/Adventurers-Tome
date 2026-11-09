@@ -945,6 +945,7 @@ function calcText(key) {
   }
   return '';
 }
+function fxChipsHTML(fx) { return fx.map((e, j) => `<span class="fxc${e.conc ? ' conc' : ''}${e.rounds != null && e.rounds <= 1 ? ' ending' : ''}" title="${esc(fxTip(e))}">${e.conc ? '<i class="cdot"></i>' : ''}<b>${esc(e.name)}</b>${e.ally ? ' (ally)' : ''}${e.from ? '<small class="fxfrom" title="Cast on you by someone else">↘</small>' : ''}${e.buff && N(e.buff.ac) && !e.ally ? ` +${N(e.buff.ac)} AC` : ''}<span class="left">${(e.readied ? 'until your next turn' : e.rage && e.rounds == null ? "until rage ends" : fmtRounds(e.rounds))}</span>${e.repeat ? `<button class="rep" data-act="repeatfx" data-j="${j}" title="Roll ${esc(e.repeat.dice)} ${esc(e.repeat.type || '')}">${esc(String(e.repeat.dice).replace(/^1d/, 'd'))}</button>` : ''}${e.conc && S.concentration ? `<button class="rep ccs" data-act="concsave" title="Roll a concentration save (CON save)">CON save</button>` : ''}<button data-act="endeffect" data-n="${esc(e.name)}" aria-label="End ${esc(e.name)}">✕</button></span>`).join(''); }
 function calcHTML(key) {
   const [k, a] = key.split(':');
   switch (k) {
@@ -968,8 +969,11 @@ function calcHTML(key) {
     case 'atkpips': { const n = attacksPerAction(), left = canAttack() ? n - N(S.turn.attacks) : 0; let h = ''; for (let j = 0; j < n; j++) h += `<i class="ap${j < left ? ' on' : ''}"></i>`; return h; }
     case 'fxchips': {
       const fx = S.effects || [];
-      if (!fx.length) return '<span class="hint">No spells or effects running.</span>';
-      return fx.map((e, j) => `<span class="fxc${e.conc ? ' conc' : ''}${e.rounds != null && e.rounds <= 1 ? ' ending' : ''}" title="${esc(fxTip(e))}">${e.conc ? '<i class="cdot"></i>' : ''}<b>${esc(e.name)}</b>${e.ally ? ' (ally)' : ''}${e.from ? '<small class="fxfrom" title="Cast on you by someone else">↘</small>' : ''}${e.buff && N(e.buff.ac) && !e.ally ? ` +${N(e.buff.ac)} AC` : ''}<span class="left">${(e.readied ? 'until your next turn' : e.rage && e.rounds == null ? "until rage ends" : fmtRounds(e.rounds))}</span>${e.repeat ? `<button class="rep" data-act="repeatfx" data-j="${j}" title="Roll ${esc(e.repeat.dice)} ${esc(e.repeat.type || '')}">${esc(String(e.repeat.dice).replace(/^1d/, 'd'))}</button>` : ''}${e.conc && S.concentration ? `<button class="rep ccs" data-act="concsave" title="Roll a concentration save (CON save)">CON save</button>` : ''}<button data-act="endeffect" data-n="${esc(e.name)}" aria-label="End ${esc(e.name)}">✕</button></span>`).join('');
+      // concentrating on something with no pill of its own: it gets one, with the CON save and an ✕ to end it
+      const cc = S.concentration && !fx.some(e => e.conc) ? `<span class="fxc conc" title="You're concentrating on this"><i class="cdot"></i><b>${esc(S.concentration)}</b><button class="rep ccs" data-act="concsave" title="Roll a concentration save (CON save)">CON save</button><button data-act="concend" aria-label="End concentration on ${esc(S.concentration)}">✕</button></span>` : '';
+      if (!fx.length) return cc || '<span class="hint">No spells or effects running.</span>';
+      if (cc) return cc + fxChipsHTML(fx);
+      return fxChipsHTML(fx);
     }
     case 'slotsall': {
       let h = '';
