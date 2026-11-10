@@ -180,9 +180,21 @@ function openInfPick(name, rep, all) {
     ${full ? `<p class="inf-warn" style="margin:0 0 8px">You already have ${aMax} infused items — this ends the oldest: <b>${esc(full.name)}</b> (${esc(infLabel(full.infusion))}).</p>` : ''}
     ${d.choose ? fld('Resistance to', `<select class="f" id="infChoice">${d.choose.map(c => `<option>${c}</option>`).join('')}</select>`) : ''}
     <div class="lbl">Choose an item you carry</div>
-    <div class="crlist">${cands.map(([it, i]) => `<button class="crrow sel" data-act="infgo" data-i="${i}"><div><b>${esc(it.name)}</b> <span class="hint">${it.weapon ? 'Weapon' : it.armor ? (it.armor.type === 'shield' ? 'Shield' : 'Armor') : 'Item'}${it.equipped ? ' · equipped' : ''}</span></div></button>`).join('') || '<p class="hint">No matching nonmagical items — create one below, or show every item.</p>'}</div>
-    <div class="row" style="margin-top:8px"><input class="f" id="infNewName" placeholder="${esc(rep || (d.item || 'Item').replace(/^(A|An) /i, '').replace(/^pair of /i, ''))}"><button class="btn sm" data-act="infgo" data-i="-1">Create it</button>${!all && !rep && d.ok ? `<button class="btn sm ghost" data-act="infpickall">Show every item</button>` : ''}</div>
+    ${cands.length ? `<div class="castopts infopts">${cands.map(([it, i]) => `<button class="castopt" data-act="infgo" data-i="${i}"><b>${esc(it.name)}</b><span class="co-sub">${it.weapon ? 'Weapon' : it.armor ? (it.armor.type === 'shield' ? 'Shield' : 'Armor') : 'Item'}${it.equipped ? ' · equipped' : ''}${it.attuned ? ' · attuned' : ''}</span></button>`).join('')}</div>` : '<p class="hint">No matching nonmagical items — create one below, or show every item.</p>'}
+    <div class="lbl" style="margin-top:12px">Or make a new one</div>
+    <div class="row inf-new"><input class="f" id="infNewName" placeholder="${esc(rep || (d.item || 'Item').replace(/^(A|An) /i, '').replace(/^pair of /i, ''))}"><button class="btn sm" data-act="infgo" data-i="-1">Create it</button>${!all && !rep && d.ok ? `<button class="btn sm ghost" data-act="infpickall">Show every item</button>` : ''}</div>
     <div class="actions"><button class="btn" data-act="close">Cancel</button></div>`);
+}
+// Replicate Magic Item into an object you already have: it gets the magic item's bonuses (AC, saves, speed…) and
+// charges, as if it were that item; ending the infusion puts back what it had. (Older infusions get this on load.)
+function infRepApply(it) {
+  const inf = it.infusion; if (!inf || !inf.rep || inf.repMods) return false;
+  const m = DND.magic.find(x => x[0] === inf.rep); if (!m) return false;
+  const md = Object.assign({}, m[6] || {}); inf.prev = inf.prev || {}; inf.prev.mods = it.mods ? JSON.parse(JSON.stringify(it.mods)) : null;
+  it.mods = Object.assign({}, it.mods || {}, md); delete it.mods.base; delete it.mods.charges; delete it.mods.heal;
+  if (md.charges && !it.charges) { it.charges = { max: md.charges, used: 0 }; inf.repCharges = true; }
+  if (md.heal && !it.heal) { it.heal = md.heal; inf.repHeal = true; }
+  inf.repMods = true; return true;
 }
 function infGo(i) {
   const P = INFPICK; if (!P) return; const d = INF[P.name] || {};
@@ -197,6 +209,7 @@ function infGo(i) {
   it.infusion = { name: P.name, rep: P.rep || '', at: Date.now(), prev, created: i < 0, choice: d.choose ? (($('#infChoice') || {}).value || '') : '' };
   const needAtt = P.rep ? repAttune(P.rep) : !!d.attune; if (needAtt) { it.attune = true; it.attuned = !!prev.attuned && !!prev.attune; }
   if (d.charges) { it.charges = { max: d.charges[0], used: 0, reset: 'long' }; it.infusion.charges = true; }
+  if (P.rep && i >= 0) infRepApply(it);
   if (!it.magic) it.magic = { rarity: P.rep ? ((DND.magic.find(x => x[0] === P.rep) || [])[3] || 'uncommon') : 'uncommon', type: 'infusion', src: 'TCE', name: P.rep || '' };
   if (!it.summary) it.summary = P.rep ? ((DND.magic.find(x => x[0] === P.rep) || [])[5] || '') : ((DND.options.infusion.list.find(x => x[0] === P.name) || [])[1] || '');
   pendingLabel = 'Infuse ' + it.name; closeModal(true); save(); render();
@@ -207,6 +220,7 @@ function infEndItem(it) {
   if (inf.created && inf.name === 'Replicate Magic Item') { const k = S.inventory.indexOf(it); if (k >= 0) { S.inventory.splice(k, 1); S.attacks = S.attacks.filter(a => a.item !== it.id); } return; }
   const p = inf.prev;
   if (p) { it.attune = p.attune; it.attuned = p.attuned; if (inf.charges) { if (p.charges) it.charges = p.charges; else delete it.charges; } if (!p.magic && it.magic && it.magic.type === 'infusion') delete it.magic; if (p.summary !== undefined) it.summary = p.summary; }
+  if (inf.repMods) { if (p && p.mods) it.mods = p.mods; else delete it.mods; if (inf.repCharges) delete it.charges; if (inf.repHeal) delete it.heal; }
   delete it.infusion;
 }
 function infEnd(i) {

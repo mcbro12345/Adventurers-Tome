@@ -112,6 +112,7 @@ function applyFixes(s) {
   // Built in (every sheet): encumbrance on for everyone who had it off; Istalyn's sling bullets become bullets for her pistol.
   if (!done.has('enc1')) { if (s.settings && s.settings.encumbrance === 'off') s.settings.encumbrance = 'standard'; done.add('enc1'); changed = true; }
   if (!done.has('bullets1')) { if (/^istalyn\b/i.test(String(s.name || ''))) (s.inventory || []).forEach(it => { if (it && /^sling bullets$/i.test(String(it.name || '').trim())) { it.name = 'Bullets'; it.weight = 0.2; } }); done.add('bullets1'); changed = true; }
+  (s.inventory || []).forEach(it => { if (it && it.infusion && it.infusion.rep && !it.infusion.repMods && !it.infusion.created && typeof infRepApply === 'function' && infRepApply(it)) changed = true; });
   (EMBED.fixes || []).forEach(f => {
     if (done.has(f.id) || (f.who && s.id !== f.who)) return;
     if (f.type === 'spellstore' && !(s.spells || []).some(x => x.stored)) { const it = (s.inventory || []).find(x => x.name === f.item), d = DND.spellIndex[String(f.spell).toLowerCase()];
@@ -442,7 +443,7 @@ const blessed = () => selfBuffs().some(b => b.bless) || (S.conditions || []).inc
 const hasted = () => selfBuffs().some(b => b.speedMult) || (S.conditions || []).includes('Hasted');
 // A spell's duration as shown: one that isn't concentration on this sheet (unticked, e.g. cast from an item that
 // doesn't need it) drops the "Concentration, up to" part — "Concentration, up to 1 hour" reads "1 hour".
-function spDurTxt(s) { const d = String((s && s.duration) || ''); if (!s || s.conc) return d; const t = d.replace(/^\s*concentration\s*,?\s*/i, '').replace(/^up to\s+/i, ''); return t !== d ? t.charAt(0).toUpperCase() + t.slice(1) : d; }
+function spDurTxt(s) { const d = String((s && s.duration) || ''); if (!s || s.conc) return d; if (!/^\s*concentration/i.test(d)) return d; const t = d.replace(/^\s*concentration\s*,?\s*/i, '').replace(/^up to\s+/i, ''); return t !== d ? t.charAt(0).toUpperCase() + t.slice(1) : d; }
 function parseDur(d) {
   d = String(d || '').toLowerCase();
   if (/instant/.test(d)) return 0;
@@ -2030,7 +2031,7 @@ function renderVitals() {
         <div class="hp-center">${f ? inp('form.hp', { num: 1, cls: 'cur', label: 'Form HP' }) + `<div class="hp-max">of ${N(f.maxhp)}</div>` : `<div class="curline">` + inp('hp.cur', { num: 1, cls: 'cur', label: 'Current HP' }) + `<span class="tmpbadge" data-calc="tmpb" title="Temporary hit points"></span></div><div class="hp-max">of <span class="maxv" data-calc="hpmaxv"></span></div>`}</div></div>
       <div class="hp-side">
         ${f ? `<div class="formnote">Your HP: <b data-calc="truehp"></b> <button class="btn sm" data-act="endform">Revert</button></div>` : ''}
-        <div class="hp-actions"><div class="hp-amtrow"><select class="f hptype sel-dmg" id="hpType" aria-label="Damage type (resistances and immunities apply)" title="Damage type: your resistances and immunities apply"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="hpAmt" type="text" inputmode="text" autocomplete="off" enterkeyhint="done" placeholder="Amount" aria-label="HP amount: type -20 (or 20) and press Enter for damage, +20 to heal"></div>
+        <div class="hp-actions"><div class="hp-amtrow"><select class="f hptype sel-dmg" id="hpType" aria-label="Damage type (resistances and immunities apply)" title="Damage type: your resistances and immunities apply">${dmgTypeOpts()}</select><input class="f" id="hpAmt" type="text" inputmode="text" autocomplete="off" enterkeyhint="done" placeholder="Amount" aria-label="HP amount: type -20 (or 20) and press Enter for damage, +20 to heal"></div>
           <button class="btn red hpi" data-act="dmg" title="Take damage" aria-label="Take damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-act="heal" title="Heal" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmpbtn" data-act="tmphp" title="Gain temporary HP (they don't stack — the higher stays). 0 clears them." aria-label="Gain temporary HP">${ICON.hpTemp}</button></div>
         <div class="rest-actions"><button class="btn rest short" data-act="short" title="1 hour: spend Hit Dice, refresh short-rest features and Pact slots"><span class="ri">${ICON.hourglass}</span><span class="rl">Short Rest</span></button><button class="btn rest long" data-act="long" title="8 hours: full HP, all slots, features and Hit Dice"><span class="ri">${ICON.moon}</span><span class="rl">Long Rest</span></button></div>
       </div>
@@ -2045,7 +2046,7 @@ function renderVitals() {
   <div class="tile" data-zi="hd"><span class="lbl"><span class="ciw top">Hit Dice${ciBtn('hd', 'hit dice')}</span></span><span class="big" data-calc="hd"></span><span class="sub" data-calc="hdpools"></span></div>
   <div class="tile deathtile" data-zi="death"><span class="lbl">Death Saves</span><div class="death" data-calc-html="death"></div></div>
   <div class="tile condtile" data-zi="conds"><div class="tilehead"><span class="lbl">Conditions</span><button class="addc" data-act="conditions"><span class="tt">+ Add</span></button><span class="advbtns" role="group" aria-label="All d20 rolls"><button class="advb adv${S.rollAdv === 'adv' ? ' on' : ''}" data-act="rolladv" data-v="adv" aria-pressed="${S.rollAdv === 'adv'}" title="Advantage on every attack, check and save"><span class="al">Advantage</span></button><button class="advb dis${S.rollAdv === 'dis' ? ' on' : ''}" data-act="rolladv" data-v="dis" aria-pressed="${S.rollAdv === 'dis'}" title="Disadvantage on every attack, check and save"><span class="al">Disadvantage</span></button></span></div><div class="condchips" data-calc-html="conds"></div></div>
-  <div class="tile fxtile" data-zi="effects"><div class="tilehead"><span class="lbl">Active spells &amp; effects</span><button class="addc" data-act="addeffects" title="Spells and effects someone else put on you"><span class="tt">+ Add</span></button><span class="hint concnote" data-calc-html="concnote"></span></div><div class="fxchips" data-calc-html="fxchips"></div></div>
+  <div class="tile fxtile" data-zi="effects"><div class="tilehead"><span class="lbl">Active spells &amp; effects</span><button class="addc" data-act="addeffects" title="Spells and effects someone else put on you"><span class="tt">+ Add</span></button></div><div class="fxchips" data-calc-html="fxchips"></div></div>
 `;
 }
 
@@ -2109,7 +2110,18 @@ function mtabSync() {
   if (!de.classList.contains('mtabs')) de.classList.add('mtabs');
   if (!el) { el = document.createElement('div'); el.id = 'mtab'; el.className = 'mtab'; document.body.appendChild(el); mtabWire(el); }
   const ts = mtabTabs(), cur = ts.find(t => t.on) || ts[0]; if (!cur) return; const i = ts.indexOf(cur), other = ts.some(t => t.unread && !t.on);
-  { const h = `<button class="mtab-b${other ? ' unread' : ''}" aria-haspopup="menu" aria-expanded="${!!document.getElementById('mtabmenu')}" aria-label="${esc(cur.label)} — ${i + 1} of ${ts.length}. Choose a tab"><span class="mtab-ic" aria-hidden="true">${cur.ic}</span><span class="mtab-l">${esc(cur.label)}</span><span class="mtab-dots" aria-hidden="true">${ts.map(t => `<i${t.on ? ' class="on"' : ''}></i>`).join('')}</span><span class="mtab-chev">${MTAB_CHEV}</span></button>`; if (el._h !== h) { el._h = h; el.innerHTML = h; } } // (only redrawn when it changes)
+  { const h = `<button class="mtab-b${other ? ' unread' : ''}" aria-haspopup="menu" aria-expanded="${!!document.getElementById('mtabmenu')}" aria-label="${esc(cur.label)} — ${i + 1} of ${ts.length}. Choose a tab"><span class="mtab-ic" aria-hidden="true">${cur.ic}</span><span class="mtab-l">${esc(cur.label)}</span><span class="mtab-dots" aria-hidden="true">${ts.map(t => `<i${t.on ? ' class="on"' : ''}></i>`).join('')}</span><span class="mtab-chev">${MTAB_CHEV}</span></button>`; if (el._h !== h) { const k0 = el._k; el._h = h; el._k = cur.k;
+    // Changing tab morphs the pill: the old icon and name blur away, the pill eases to the new width with nothing in it
+    // to cut off, then the new icon and name blur in. (Anything else — an unread dot — just redraws.)
+    const b0 = el.querySelector('.mtab-b'), calmM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (el._mt) { el._mt.forEach(a => { try { a.cancel(); } catch (e) {} }); el._mt = null; }
+    if (!k0 || k0 === cur.k || calmM || !b0 || !b0.animate) el.innerHTML = h;
+    else { const ez = 'cubic-bezier(.3,.7,.3,1)', parts = b0.querySelectorAll('.mtab-ic, .mtab-l'), w0 = b0.getBoundingClientRect().width;
+      const outs = [...parts].map(x => x.animate([{ opacity: 1, filter: 'blur(0)' }, { opacity: 0, filter: 'blur(4px)' }], { duration: 110, easing: 'ease-in', fill: 'forwards' })); el._mt = outs;
+      (outs[0] || { finished: Promise.resolve() }).finished.then(() => { if (el._h !== h) return; el.innerHTML = h; const b = el.querySelector('.mtab-b'), w1 = b.getBoundingClientRect().width, nw = b.querySelectorAll('.mtab-ic, .mtab-l');
+        const ins = () => { el._mt = [...nw].map((x, n) => x.animate([{ opacity: 0, filter: 'blur(5px)', transform: 'translateY(4px)' }, { opacity: 1, filter: 'blur(0)', transform: 'none' }], { duration: 200, delay: n * 30, easing: ez, fill: 'backwards' })); };
+        if (Math.abs(w1 - w0) > 1) { nw.forEach(x => { x.style.opacity = '0'; }); const g = b.animate([{ width: w0 + 'px' }, { width: w1 + 'px' }], { duration: 190, easing: ez }); el._mt = [g]; g.finished.then(() => { nw.forEach(x => { x.style.opacity = ''; }); ins(); }).catch(() => { nw.forEach(x => { x.style.opacity = ''; }); }); }
+        else ins(); }).catch(() => {}); } } } // (only redrawn when it changes)
   const m = document.getElementById('mtabmenu'); if (m) mtabFill(m);
 }
 function mtabFill(m) { const ts = mtabTabs();
@@ -2581,6 +2593,9 @@ function postSheetRoll(t) {
 const SPI = n => DND.spellIndex[String(n || '').toLowerCase()];
 const AUTO = n => DND.spellAuto[n] || {};
 const DMGTYPES = DND.damageTypes.map(t => t.toLowerCase());
+// A damage-type list for "take damage" boxes. Bludgeoning, piercing and slashing also come as "(magical)": magical
+// weapons get past resistance to nonmagical attacks (Stoneskin, many monsters).
+const dmgTypeOpts = (none = 'Any') => `<option value="">${none}</option>` + DND.damageTypes.map(t => { const v = t.toLowerCase(); return `<option value="${v}">${t}</option>` + (/^(bludgeoning|piercing|slashing)$/.test(v) ? `<option value="${v} (magical)">${t} (magical)</option>` : ''); }).join('');
 function casterFor(key) { return casters().find(c => c.key === key); }
 const isPrepCaster = key => { const c = casterFor(key); return !!(c && c.prepared); };
 function spReady(sp) { if (sp.always || N(sp.level) === 0) return true; if (!casterFor(sp.cls)) return true; return isPrepCaster(sp.cls) ? !!sp.prepared : true; }
@@ -3408,7 +3423,7 @@ function renderCombat() {
     return `<div class="econ col-${key}" data-col="${key}" data-zi="${key}">
       <div class="econ-head"><span class="badge b-${key}"></span><h3>${title}</h3>
         ${key !== 'move' ? `<button class="pill" data-act="econ" data-col="${key}" title="Mark used / ready">Ready</button>` : ''}</div>
-      <div class="econ-body">${body}</div>
+      <div class="econ-body">${key === 'action' ? readyBarHTML() : ''}${body}</div>
 </div>`;
   };
   const cur = UI.econTab || 'action';
@@ -3520,6 +3535,7 @@ function calcText(key) {
   }
   return '';
 }
+function fxChipsHTML(fx) { return fx.map((e, j) => `<span class="fxc${e.conc ? ' conc' : ''}${e.rounds != null && e.rounds <= 1 ? ' ending' : ''}" title="${esc(fxTip(e))}">${e.conc ? '<i class="cdot"></i>' : ''}<b>${esc(e.name)}</b>${e.ally ? ' (ally)' : ''}${e.from ? '<small class="fxfrom" title="Cast on you by someone else">↘</small>' : ''}${e.buff && N(e.buff.ac) && !e.ally ? ` +${N(e.buff.ac)} AC` : ''}<span class="left">${(e.readied ? 'until your next turn' : e.rage && e.rounds == null ? "until rage ends" : fmtRounds(e.rounds))}</span>${e.repeat ? `<button class="rep" data-act="repeatfx" data-j="${j}" title="Roll ${esc(e.repeat.dice)} ${esc(e.repeat.type || '')}">${esc(String(e.repeat.dice).replace(/^1d/, 'd'))}</button>` : ''}${e.conc && S.concentration ? `<button class="rep ccs" data-act="concsave" title="Roll a concentration save (CON save)">CON save</button>` : ''}<button data-act="endeffect" data-n="${esc(e.name)}" aria-label="End ${esc(e.name)}">✕</button></span>`).join(''); }
 function calcHTML(key) {
   const [k, a] = key.split(':');
   switch (k) {
@@ -3543,8 +3559,11 @@ function calcHTML(key) {
     case 'atkpips': { const n = attacksPerAction(), left = canAttack() ? n - N(S.turn.attacks) : 0; let h = ''; for (let j = 0; j < n; j++) h += `<i class="ap${j < left ? ' on' : ''}"></i>`; return h; }
     case 'fxchips': {
       const fx = S.effects || [];
-      if (!fx.length) return '<span class="hint">No spells or effects running.</span>';
-      return fx.map((e, j) => `<span class="fxc${e.conc ? ' conc' : ''}${e.rounds != null && e.rounds <= 1 ? ' ending' : ''}" title="${esc(fxTip(e))}">${e.conc ? '<i class="cdot"></i>' : ''}<b>${esc(e.name)}</b>${e.ally ? ' (ally)' : ''}${e.from ? '<small class="fxfrom" title="Cast on you by someone else">↘</small>' : ''}${e.buff && N(e.buff.ac) && !e.ally ? ` +${N(e.buff.ac)} AC` : ''}<span class="left">${(e.readied ? 'until your next turn' : e.rage && e.rounds == null ? "until rage ends" : fmtRounds(e.rounds))}</span>${e.repeat ? `<button class="rep" data-act="repeatfx" data-j="${j}" title="Roll ${esc(e.repeat.dice)} ${esc(e.repeat.type || '')}">${esc(String(e.repeat.dice).replace(/^1d/, 'd'))}</button>` : ''}${e.conc && S.concentration ? `<button class="rep ccs" data-act="concsave" title="Roll a concentration save (CON save)">CON save</button>` : ''}<button data-act="endeffect" data-n="${esc(e.name)}" aria-label="End ${esc(e.name)}">✕</button></span>`).join('');
+      // concentrating on something with no pill of its own: it gets one, with the CON save and an ✕ to end it
+      const cc = S.concentration && !fx.some(e => e.conc) ? `<span class="fxc conc" title="You're concentrating on this"><i class="cdot"></i><b>${esc(S.concentration)}</b><button class="rep ccs" data-act="concsave" title="Roll a concentration save (CON save)">CON save</button><button data-act="concend" aria-label="End concentration on ${esc(S.concentration)}">✕</button></span>` : '';
+      if (!fx.length) return cc || '<span class="hint">No spells or effects running.</span>';
+      if (cc) return cc + fxChipsHTML(fx);
+      return fxChipsHTML(fx);
     }
     case 'slotsall': {
       let h = '';
@@ -3822,6 +3841,7 @@ document.addEventListener('click', e => { try { e._pc = !!(e.target.closest && e
 const TABSCROLL = {}; let tabFadeT = 0;
 function mainClick(e) {
   if (e.target.closest('#wizard')) return wizClick(e);
+  if (READY_MODE && readyTap(e)) return;
   const menu = e.target.closest('.menu');
   $$('.menu.open').forEach(m => { if (m !== menu) m.classList.remove('open'); });
   const am = e.target.closest('[data-asimode]'); if (am) return asiModeClick(am);
@@ -3913,6 +3933,7 @@ function mainClick(e) {
     case 'econtab': UI.econTab = b.dataset.col; saveUI(); render('combat'); refresh(); pendingLabel = null; return;
     case 'qty': { const it = S.inventory[i]; it.qty = Math.max(0, N(it.qty) + N(b.dataset.d)); update(); break; }
     case 'concsave': concCheck(10, true); break;
+    case 'concend': if (S.concentration) { breakConc('ended'); } break;
     case 'endeffect': endEffect(b.dataset.n); if ($('#condmodal.extfxm')) openExtFx(); break;
     case 'addeffects': UI.extPick = ''; openExtFx(); break;
     case 'extfx': addExtFx(b.dataset.k); break;
@@ -3986,8 +4007,8 @@ function mainClick(e) {
     case 'updatesheet': closeModal(true); $('#updateFile').value = ''; $('#updateFile').click(); pendingLabel = null; return;
     case 'useobjplain': closeModal(true); S.turn.used.action = true; pendingLabel = 'Use an Object'; update(); toast('<b>Use an Object</b> — action spent.', '', 4000); break;
     case 'markopt': if (b.dataset.col === 'action' && /^ready$/i.test(b.dataset.name)) openReady(); else markOpt(b); break;
-    case 'readypick': $$('#modal-body .castopt').forEach(x => x.classList.toggle('on', x === b)); READY_PICK = b.dataset.k; break;
-    case 'readygo': readyGo(); break;
+    case 'readycancel': readyEnd(); break;
+    case 'readyother': { const o = READY_MODE ? READY_MODE.other.trim() : ''; if (!o) { toast('Type what you want to ready, or tap something in your Action column.'); const x = $('#readyOther'); if (x) x.focus(); break; } const t = READY_MODE.trig; READY_MODE = null; document.documentElement.classList.remove('readying'); readyGo('other', t, o); break; }
     case 'oacast': closeModal(true); castSpell(i, 'reaction'); render('combat'); break;
     case 'oago': { closeModal(true); S.turn.used.reaction = true; const a = S.attacks[i]; attackRoll(i, true, { label: 'Opportunity Attack · ' + a.name, offTurn: true, notes: hasFeature('Sentinel') ? ['Sentinel: on a hit, its speed drops to 0 this turn'] : [] }); render('combat'); break; }
     case 'searchgo': { closeModal(true); S.turn.used[b.dataset.col || 'action'] = true; pendingLabel = 'Search'; update(); doRoll('skill:' + b.dataset.k); break; }
@@ -4140,10 +4161,10 @@ function mainClick(e) {
     case 'roberoll': robeRoll(); break;
     case 'robeview': if (ROBE) { ROBE.view = b.dataset.v; ROBE.edit = null; ROBE.msg = ''; renderRobe(); } break;
     case 'robecnt': if (ROBE && ROBE.edit) { const k = b.dataset.k; ROBE.edit[k] = Math.max(0, Math.min(40, N(ROBE.edit[k]) + N(b.dataset.d))); renderRobe(); } break;
-    case 'robesave': if (ROBE && ROBE.edit) { const it = S.inventory[ROBE.i]; if (it) { it.robe = Object.assign({ log: [] }, it.robe || {}, { p: Object.assign({}, ROBE.edit) }); pendingLabel = 'Robe of Useful Items: patches'; save(); render(); } ROBE.view = 'main'; ROBE.edit = null; ROBE.msg = ''; renderRobe(); } break;
+    case 'robesave': if (ROBE && ROBE.edit) { const it = robeItem(); if (it) { it.robe = Object.assign({ log: [] }, it.robe || {}, { p: Object.assign({}, ROBE.edit) }); pendingLabel = 'Robe of Useful Items: patches'; save(); render(); } ROBE.view = 'main'; ROBE.edit = null; ROBE.msg = ''; renderRobe(); } break;
     case 'robedet': robeDetach(b.dataset.k); break;
     case 'robescroll': robeDetach('scroll', b.dataset.v); break;
-    case 'robewear': if (ROBE) { const it = S.inventory[ROBE.i]; if (it && !it.equipped) { equipItem(ROBE.i); } renderRobe(); } break;
+    case 'robewear': if (ROBE) { const it = robeItem(); if (it && !it.equipped) { equipItem(S.inventory.indexOf(it)); } renderRobe(); } break;
     case 'unpack': unpackItem(i); break;
     case 'throwit': throwItem(i); break;
     case 'decktype': S.deck.variant = b.dataset.v; DECK.last = null; save(); renderDeck(); break;
@@ -4662,7 +4683,6 @@ function nextTurn() {
 }
 // ---------- Ready action ----------
 // Ready: pick what you'll do and the trigger; it waits in the Reaction column until you fire it with your reaction.
-let READY_PICK = '';
 function readyChoices() {
   const out = [];
   S.attacks.forEach((a, i) => { if (atkShown(a)) out.push({ k: 'atk:' + i, name: 'Attack: ' + a.name, sub: atkHit(a) >= 0 ? '+' + atkHit(a) + ' to hit' : atkHit(a) + ' to hit' }); });
@@ -4670,26 +4690,53 @@ function readyChoices() {
   (S.combat.action || []).forEach(o => { if (!/^(ready|attack)$/i.test(o.name)) out.push({ k: 'std:' + o.name, name: o.name, sub: o.text || '' }); });
   return out;
 }
+// Ready: you pick what you'll do straight from your Action column (an attack, a spell, a standard action or anything
+// else there); a bar at the top of the column holds the trigger and a "something else" box.
+let READY_MODE = null;
 function openReady() {
   if (incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take actions or reactions.`, 'fumble'); return; }
   if ((S.turn.used || {}).action) { toast('Your action is already used this turn.', 'fumble'); return; }
-  READY_PICK = '';
-  const ch = readyChoices();
-  openModal(`<h3>Ready an action</h3>
-    <p class="hint" style="margin:0 0 8px">Uses your action now. When the trigger happens before your next turn, use your reaction to do it. Readying a spell means casting it now and holding it with concentration.</p>
-    ${fld('Trigger', '<input class="f" id="readyTrig" placeholder="e.g. when the goblin comes through the door" autofocus>')}
-    <div class="lbl" style="margin-top:8px">What you'll do</div>
-    <div class="castopts">${ch.map(c => `<button class="castopt" data-act="readypick" data-k="${esc(c.k)}"><b>${esc(c.name)}</b><span>${esc(c.sub)}</span></button>`).join('')}
-      <button class="castopt ghost" data-act="readypick" data-k="other"><b>Something else…</b><span>type it below</span></button></div>
-    ${fld('Something else', '<input class="f" id="readyOther" placeholder="e.g. pull the lever">')}
-    <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="readygo">Ready it</button></div>`);
+  READY_MODE = { trig: '', other: '' }; UI.econTab = 'action'; document.documentElement.classList.add('readying'); render('combat');
+  // (scrolled so it sits just under whatever stays pinned at the top: the header on a computer, the column tabs on a phone)
+  const bar = $('.readybar'); if (bar) { const r = bar.getBoundingClientRect(); let top = 0;
+    $$('header.banner, #page-combat .seg').forEach(x => { const cs = getComputedStyle(x); if (/sticky|fixed/.test(cs.position)) top = Math.max(top, N(parseFloat(cs.top)) + x.offsetHeight); });
+    if (r.top < top + 8 || r.bottom > innerHeight) scrollTo({ top: Math.max(0, scrollY + r.top - top - 16), behavior: 'smooth' }); }
 }
-function readyGo() {
-  const other = ($('#readyOther') && $('#readyOther').value.trim()) || '', trig = ($('#readyTrig') && $('#readyTrig').value.trim()) || '';
-  const k = READY_PICK || (other ? 'other' : '');
-  if (!k) { toast('Pick what you want to ready.'); return; }
-  if (k === 'other' && !other) { toast('Type what you want to ready.'); return; }
-  const c = readyChoices().find(x => x.k === k);
+function readyEnd() { READY_MODE = null; document.documentElement.classList.remove('readying'); render('combat'); }
+function readyBarHTML() {
+  if (!READY_MODE) return '';
+  return `<div class="readybar"><div class="rb-h"><b>Ready an action</b><button class="btn sm" data-act="readycancel">Cancel</button></div>
+    <p>Tap what you'll do below. It uses your action now; when the trigger happens before your next turn, you do it with your reaction. Spells are cast now and held with concentration.</p>
+    <input class="f" id="readyTrig" placeholder="Trigger (optional): when the goblin comes through the door" value="${esc(READY_MODE.trig)}" aria-label="Trigger">
+    <div class="rb-other"><input class="f" id="readyOther" placeholder="Or something else: pull the lever" value="${esc(READY_MODE.other)}" aria-label="Something else to ready"><button class="btn sm gold" data-act="readyother">Ready it</button></div></div>`;
+}
+document.addEventListener('input', e => { if (!READY_MODE || !e.target) return; if (e.target.id === 'readyTrig') READY_MODE.trig = e.target.value; else if (e.target.id === 'readyOther') READY_MODE.other = e.target.value; });
+document.addEventListener('keydown', e => { if (READY_MODE && e.key === 'Escape' && !$('#modal').classList.contains('open')) readyEnd(); });
+// While readying, a tap in the Action column picks that thing instead of doing it. (true = handled)
+function readyTap(e) {
+  if (!READY_MODE) return false;
+  const el = e.target.closest('[data-roll], [data-act]'); if (!el || el.closest('.readybar') || el.closest('#modal')) return false;
+  const col = el.closest('.econ'); if (!col || col.dataset.col !== 'action') return false;
+  const act = el.dataset.act || '', roll = el.dataset.roll || '';
+  if (/^(notetip|toggle|menu|twohand|econ)$/.test(act)) return false; // (info, open/close a group, grip: they still work)
+  let k = '', name = '';
+  const m = /^(atk|dmg):(\d+)$/.exec(roll); if (m) k = 'atk:' + m[2];
+  else if (act === 'attack') k = 'atk:' + N(el.dataset.i);
+  else if (act === 'cast') k = 'sp:' + N(el.dataset.i);
+  else if (act === 'markopt') { if (/^ready$/i.test(el.dataset.name || '')) { readyEnd(); return true; }
+    if (/^attack$/i.test(el.dataset.name || '')) { e.preventDefault(); toast('Tap the ⚔ (or a roll) next to the weapon you’ll attack with.'); return true; }
+    k = 'std:' + el.dataset.name; }
+  else { const o = el.closest('.opt'), n = o && o.querySelector('.opt-name'); if (n) { k = 'other'; name = n.textContent.trim(); } }
+  if (!k) return false;
+  e.preventDefault(); e.stopPropagation();
+  const trig = READY_MODE.trig.trim(); READY_MODE = null; document.documentElement.classList.remove('readying');
+  readyGo(k, trig, name); return true;
+}
+function readyGo(k, trig, other) {
+  trig = String(trig || '').trim(); other = String(other || '').trim();
+  if (!k || (k === 'other' && !other)) { toast('Pick what you want to ready.'); return; }
+  const c = k === 'other' ? null : readyChoices().find(x => x.k === k);
+  if (k !== 'other' && !c) { toast('That can’t be readied.'); render('combat'); return; }
   const r = { k, name: k === 'other' ? other : c.name.replace(/^Attack: /, 'Attack with '), trigger: trig };
   if (k.startsWith('sp:')) { const sp = S.spells[N(k.slice(3))]; r.spell = sp && sp.name; r.level = sp ? N(sp.level) : 0; r.i = N(k.slice(3)); }
   // A readied spell is cast now and held, so its slot is spent now, whether or not it ever goes off.
@@ -7027,10 +7074,13 @@ const robeLeft = it => { const p = (it && it.robe && it.robe.p) || {}; return Ob
 const robeD100 = () => 1 + Math.floor(Math.random() * 100);
 const robeKindOf = r => ROBE_RAND.find(k => r >= ROBE_P[k].r[0] && r <= ROBE_P[k].r[1]);
 let ROBE = null;
-function openRobe(i, view) { const it = S.inventory[i]; if (!isRobeItem(it)) return; ROBE = { i, view: view || (it.robe ? 'main' : 'setup'), msg: '', q: '' }; renderRobe(); }
+function openRobe(i, view) { const it = S.inventory[i]; if (!isRobeItem(it)) return; ROBE = { i, id: it.id, view: view || (it.robe ? 'main' : 'setup'), msg: '', q: '' }; renderRobe(); }
+// The robe the window is about: found by its id (the sheet can change underneath — a save from your other device, an
+// item added or removed — and its place in the inventory with it).
+function robeItem() { if (!ROBE) return null; if (ROBE.id) { const k = S.inventory.findIndex(x => x && x.id === ROBE.id); if (k >= 0) { ROBE.i = k; return S.inventory[k]; } } return S.inventory[ROBE.i] || null; }
 function robeBase() { const p = {}; ROBE_FIXED.forEach(k => p[k] = 2); return p; }
 function robeRoll() {
-  const it = S.inventory[ROBE.i]; if (!it) return;
+  const it = robeItem(); if (!it) return;
   const r = rollExpr('4d4', { need: true, label: 'Robe of Useful Items: extra patches' }), n = N(r.total) || 10, p = robeBase(), rolls = [];
   for (let k = 0; k < n; k++) { const d = robeD100(), kind = robeKindOf(d); p[kind] = N(p[kind]) + 1; rolls.push([d, kind]); }
   it.robe = { p, rolled: rolls, log: [] }; ROBE.view = 'main'; ROBE.msg = `<b>${n} extra patches</b> (4d4): ${rolls.map(([d, k]) => `${esc(ROBE_P[k].n)} <small>(${d})</small>`).join(', ')}.`;
@@ -7041,7 +7091,7 @@ function robeTile(k, n, i, act) {
   return `<div class="robe-p${n ? '' : ' gone'}"><div class="robe-pt"><b>${esc(P.n)}</b>${n > 1 ? `<span class="robe-n">×${n}</span>` : ''}</div><p>${esc(P.d)}</p>${act ? act : `<button class="btn sm gold" data-act="robedet" data-k="${k}" ${n ? '' : 'disabled'}>Detach</button>`}</div>`;
 }
 function renderRobe() {
-  const it = S.inventory[ROBE.i]; if (!it) return closeModal(); let h = `<div id="robem"><h3>${esc(it.name)}</h3>`;
+  const it = robeItem(); if (!it) return closeModal(); let h = `<div id="robem"><h3>${esc(it.name)}</h3>`;
   if (ROBE.view === 'setup') {
     h += `<p class="hint">Every robe has two each of a dagger, bullseye lantern, steel mirror, 10-foot pole, hempen rope and sack, plus <b>4d4 more patches</b> your DM rolls or picks.</p>
       <div class="bagpresets"><button class="bagpreset" data-act="roberoll"><b>Roll the extra patches</b><small>4d4 patches, each rolled on the d100 table</small></button><button class="bagpreset" data-act="robeview" data-v="edit"><b>My DM told me what they are</b><small>Count each kind of patch yourself</small></button></div>`;
@@ -7088,7 +7138,7 @@ function robeScrollItem(name) {
   return it;
 }
 function robeDetach(k, spell) {
-  const it = S.inventory[ROBE.i]; if (!it || !it.robe) return; const p = it.robe.p, P = ROBE_P[k]; if (!N(p[k])) return;
+  const it = robeItem(); if (!it || !it.robe) return; const p = it.robe.p, P = ROBE_P[k]; if (!N(p[k])) return;
   if (!it.equipped) { toast('Wear the robe first — patches only come off while you have it on.', 'fumble'); return; }
   if (incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take actions.`, 'fumble'); return; }
   if (k === 'scroll' && !spell) { ROBE.view = 'scroll'; ROBE.q = ''; renderRobe(); return; }
@@ -7399,9 +7449,21 @@ function openInfPick(name, rep, all) {
     ${full ? `<p class="inf-warn" style="margin:0 0 8px">You already have ${aMax} infused items — this ends the oldest: <b>${esc(full.name)}</b> (${esc(infLabel(full.infusion))}).</p>` : ''}
     ${d.choose ? fld('Resistance to', `<select class="f" id="infChoice">${d.choose.map(c => `<option>${c}</option>`).join('')}</select>`) : ''}
     <div class="lbl">Choose an item you carry</div>
-    <div class="crlist">${cands.map(([it, i]) => `<button class="crrow sel" data-act="infgo" data-i="${i}"><div><b>${esc(it.name)}</b> <span class="hint">${it.weapon ? 'Weapon' : it.armor ? (it.armor.type === 'shield' ? 'Shield' : 'Armor') : 'Item'}${it.equipped ? ' · equipped' : ''}</span></div></button>`).join('') || '<p class="hint">No matching nonmagical items — create one below, or show every item.</p>'}</div>
-    <div class="row" style="margin-top:8px"><input class="f" id="infNewName" placeholder="${esc(rep || (d.item || 'Item').replace(/^(A|An) /i, '').replace(/^pair of /i, ''))}"><button class="btn sm" data-act="infgo" data-i="-1">Create it</button>${!all && !rep && d.ok ? `<button class="btn sm ghost" data-act="infpickall">Show every item</button>` : ''}</div>
+    ${cands.length ? `<div class="castopts infopts">${cands.map(([it, i]) => `<button class="castopt" data-act="infgo" data-i="${i}"><b>${esc(it.name)}</b><span class="co-sub">${it.weapon ? 'Weapon' : it.armor ? (it.armor.type === 'shield' ? 'Shield' : 'Armor') : 'Item'}${it.equipped ? ' · equipped' : ''}${it.attuned ? ' · attuned' : ''}</span></button>`).join('')}</div>` : '<p class="hint">No matching nonmagical items — create one below, or show every item.</p>'}
+    <div class="lbl" style="margin-top:12px">Or make a new one</div>
+    <div class="row inf-new"><input class="f" id="infNewName" placeholder="${esc(rep || (d.item || 'Item').replace(/^(A|An) /i, '').replace(/^pair of /i, ''))}"><button class="btn sm" data-act="infgo" data-i="-1">Create it</button>${!all && !rep && d.ok ? `<button class="btn sm ghost" data-act="infpickall">Show every item</button>` : ''}</div>
     <div class="actions"><button class="btn" data-act="close">Cancel</button></div>`);
+}
+// Replicate Magic Item into an object you already have: it gets the magic item's bonuses (AC, saves, speed…) and
+// charges, as if it were that item; ending the infusion puts back what it had. (Older infusions get this on load.)
+function infRepApply(it) {
+  const inf = it.infusion; if (!inf || !inf.rep || inf.repMods) return false;
+  const m = DND.magic.find(x => x[0] === inf.rep); if (!m) return false;
+  const md = Object.assign({}, m[6] || {}); inf.prev = inf.prev || {}; inf.prev.mods = it.mods ? JSON.parse(JSON.stringify(it.mods)) : null;
+  it.mods = Object.assign({}, it.mods || {}, md); delete it.mods.base; delete it.mods.charges; delete it.mods.heal;
+  if (md.charges && !it.charges) { it.charges = { max: md.charges, used: 0 }; inf.repCharges = true; }
+  if (md.heal && !it.heal) { it.heal = md.heal; inf.repHeal = true; }
+  inf.repMods = true; return true;
 }
 function infGo(i) {
   const P = INFPICK; if (!P) return; const d = INF[P.name] || {};
@@ -7416,6 +7478,7 @@ function infGo(i) {
   it.infusion = { name: P.name, rep: P.rep || '', at: Date.now(), prev, created: i < 0, choice: d.choose ? (($('#infChoice') || {}).value || '') : '' };
   const needAtt = P.rep ? repAttune(P.rep) : !!d.attune; if (needAtt) { it.attune = true; it.attuned = !!prev.attuned && !!prev.attune; }
   if (d.charges) { it.charges = { max: d.charges[0], used: 0, reset: 'long' }; it.infusion.charges = true; }
+  if (P.rep && i >= 0) infRepApply(it);
   if (!it.magic) it.magic = { rarity: P.rep ? ((DND.magic.find(x => x[0] === P.rep) || [])[3] || 'uncommon') : 'uncommon', type: 'infusion', src: 'TCE', name: P.rep || '' };
   if (!it.summary) it.summary = P.rep ? ((DND.magic.find(x => x[0] === P.rep) || [])[5] || '') : ((DND.options.infusion.list.find(x => x[0] === P.name) || [])[1] || '');
   pendingLabel = 'Infuse ' + it.name; closeModal(true); save(); render();
@@ -7426,6 +7489,7 @@ function infEndItem(it) {
   if (inf.created && inf.name === 'Replicate Magic Item') { const k = S.inventory.indexOf(it); if (k >= 0) { S.inventory.splice(k, 1); S.attacks = S.attacks.filter(a => a.item !== it.id); } return; }
   const p = inf.prev;
   if (p) { it.attune = p.attune; it.attuned = p.attuned; if (inf.charges) { if (p.charges) it.charges = p.charges; else delete it.charges; } if (!p.magic && it.magic && it.magic.type === 'infusion') delete it.magic; if (p.summary !== undefined) it.summary = p.summary; }
+  if (inf.repMods) { if (p && p.mods) it.mods = p.mods; else delete it.mods; if (inf.repCharges) delete it.charges; if (inf.repHeal) delete it.heal; }
   delete it.infusion;
 }
 function infEnd(i) {
@@ -7492,7 +7556,7 @@ function compCard(c, i, mini, inCol) {
   const hp = c.count > 1 ? `<div class="grpHp">${(c.hps || []).map((h, k) => `<label class="ghp"><span>#${k + 1}</span>${inp(`companions.${i}.hps.${k}`, { num: 1, cls: 'sm', label: c.name + ' ' + (k + 1) + ' HP' })}</label>`).join('')}<span class="hint">of ${N(c.maxhp)} each</span></div>`
     : c.maxhp ? `<div class="chp chp2"><div class="chp-ring"><div class="ring-svg">${hpRingSVG(c.hp, c.maxhp, c.temp)}</div>
         <div class="chp-center"><div class="curline">${inp(`companions.${i}.hp`, { num: 1, cls: 'cur', label: c.name + ' current HP' })}${N(c.temp) ? `<span class="tmpbadge">+${N(c.temp)}</span>` : ''}</div><div class="hp-max">of ${N(c.maxhp)}</div></div></div>
-        <div class="chp-side"><select class="f ptyqt sel-dmg" id="chpt${i}" aria-label="Damage type for ${esc(c.name)}" title="Damage type"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="chp${i}" type="text" autocomplete="off" placeholder="Amount" aria-label="${esc(c.name)} HP: -20 (or 20) for damage, +20 to heal, then Enter">
+        <div class="chp-side"><select class="f ptyqt sel-dmg" id="chpt${i}" aria-label="Damage type for ${esc(c.name)}" title="Damage type">${dmgTypeOpts()}</select><input class="f" id="chp${i}" type="text" autocomplete="off" placeholder="Amount" aria-label="${esc(c.name)} HP: -20 (or 20) for damage, +20 to heal, then Enter">
           <div class="chp-btns"><button class="btn hpi dmg" data-act="comphp" data-i="${i}" data-d="-1" title="Damage ${esc(c.name)}" aria-label="Damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-act="comphp" data-i="${i}" data-d="1" title="Heal ${esc(c.name)}" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmp" data-act="comphp" data-i="${i}" data-d="0" title="Give ${esc(c.name)} temporary HP (they don't stack — the higher stays)" aria-label="Temporary HP">${ICON.hpTemp}</button></div></div></div>` : '';
   return `<div class="${mini ? 'cm-card' : inCol ? 'comp2 incol' : 'panel comp2'}"><div class="comp-h2">${picThumb(c.tmpl ? `compMods.${c.tmpl}.img` : `companions.${i}.img`, c.name)}<div class="grow"><b class="cname">${esc(c.name)}</b><div class="ctags">${(inCol ? [] : tags).map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div></div>
       ${inCol ? compCmdBtn(c, i) : ''}<button class="icon-btn" data-act="compedit" data-i="${i}" title="Edit ${esc(c.name)}" aria-label="Edit">✎</button>${c.tmpl && COMP_RULES[c.tmpl] && COMP_RULES[c.tmpl].always ? '' : `<button class="btn sm ghost" data-act="dismiss" data-i="${i}">Dismiss</button>`}</div>
@@ -10087,7 +10151,7 @@ function ptyCardHTML(m) {
   const more = [['coins', 'Give coins'], ['help', 'Help (advantage on their next roll)'], down && !m.dead && !m.stable ? ['stab', 'Stabilize (Medicine, DC 10)'] : null, ['note', 'Send a message']].filter(Boolean);
   const hp = max ? `<div class="chp chp2"><div class="chp-ring"><div class="ring-svg">${hpRingSVG(cur, max, m.temp, f ? ' form' : '')}</div>
       <div class="chp-center"><div class="curline"><b class="ptym-cur">${cur}</b>${N(m.temp) ? `<span class="tmpbadge">+${N(m.temp)}</span>` : ''}</div><div class="hp-max">of ${max}</div></div></div>
-      ${act ? `<div class="chp-side"><select class="f ptyqt sel-dmg" id="ptyqt-${esc(id)}" aria-label="Damage type for ${esc(m.name)}" title="Damage type: their resistances and immunities apply"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="ptyq-${esc(id)}" autocomplete="off" placeholder="Amount" aria-label="Amount for ${esc(m.name)}: -20 (or 20) for damage, +20 to heal, then Enter">
+      ${act ? `<div class="chp-side"><select class="f ptyqt sel-dmg" id="ptyqt-${esc(id)}" aria-label="Damage type for ${esc(m.name)}" title="Damage type: their resistances and immunities apply">${dmgTypeOpts()}</select><input class="f" id="ptyq-${esc(id)}" autocomplete="off" placeholder="Amount" aria-label="Amount for ${esc(m.name)}: -20 (or 20) for damage, +20 to heal, then Enter">
         <div class="chp-btns"><button class="btn hpi dmg" data-pa="qdmg" data-id="${esc(id)}" title="Damage ${esc(m.name)}" aria-label="Damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-pa="qheal" data-id="${esc(id)}" title="Heal ${esc(m.name)}" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmp" data-pa="qtemp" data-id="${esc(id)}" title="Give ${esc(m.name)} temporary HP" aria-label="Temporary HP">${ICON.hpTemp}</button></div></div>` : ''}</div>` : '';
   return `<div class="panel comp2 ptym${down ? ' ' + down : ''}" data-mid="${esc(id)}"><div class="comp-h2">${m.thumb ? `<span class="picth"${/^#[0-9a-f]{6}$/i.test(m.acc || '') ? ` style="border-color:${m.acc}"` : ''}><img src="${esc(m.thumb)}" alt=""></span>` : `<span class="picadd">${esc(String(m.name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join(''))}</span>`}
       <div class="grow"><b class="cname${String(m.name || '').length > 26 ? ' n3' : String(m.name || '').length > 17 ? ' n2' : ''}" title="${esc(m.name || '')}">${esc(m.name || 'A character')}</b>${m.player ? `<div class="ptym-pl">${esc(m.player)}</div>` : ''}</div>
@@ -10289,7 +10353,7 @@ function ptyAmount(kind, ids) {
   PTY_AMT = { kind, ids };
   const T = { heal: 'Heal', temp: 'Temporary HP for', dmg: 'Damage' }[kind];
   openModal(`<h3>${T} ${esc(ptyNames(ids))}</h3>
-    <div class="row">${fld('Amount, or a roll like 2d4+2', `<input class="f" id="ptyAmt" autofocus placeholder="${kind === 'dmg' ? 'e.g. 7' : 'e.g. 1d8+3'}">`)}${kind === 'dmg' ? fld('Type', `<select class="f sel-dmg" id="ptyType"><option value="">—</option>${(DND.damageTypes || []).map(t => `<option>${esc(String(t).toLowerCase())}</option>`).join('')}</select>`) : ''}</div>
+    <div class="row">${fld('Amount, or a roll like 2d4+2', `<input class="f" id="ptyAmt" autofocus placeholder="${kind === 'dmg' ? 'e.g. 7' : 'e.g. 1d8+3'}">`)}${kind === 'dmg' ? fld('Type', `<select class="f sel-dmg" id="ptyType">${dmgTypeOpts('—')}</select>`) : ''}</div>
     ${fld('From what (they see this)', `<input class="f" id="ptyWhy" placeholder="${kind === 'heal' ? 'e.g. a potion, first aid' : kind === 'dmg' ? 'e.g. my fireball' : 'e.g. inspiring words'}">`)}
     <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-pa="amt" data-k="${kind}">${kind === 'heal' ? 'Heal' : kind === 'temp' ? 'Give temp HP' : 'Deal damage'}</button></div>`);
 }
@@ -10679,8 +10743,8 @@ function ptyCatchUp() {
 }
 setTimeout(ptyCatchUp, 2500); setInterval(ptyCatchUp, 20000);
 // Damage after resistances and immunities this sheet knows about.
-function ptyResist(n, type) { type = String(type || '').toLowerCase(); if (!type) return [n, '']; const D = defensesDetail(), has = arr => arr.some(x => /^all damage/.test(x.k) ? !new RegExp('except[^.]*\\b' + type + '\\b').test(x.k) : x.k.includes(type)); // ("all damage except psychic": every type but that one)
-  const vul = (D.vuln || []).some(x => x.k.includes(type));
+function ptyResist(n, type) { type = String(type || '').toLowerCase(); if (!type) return [n, '']; const magical = /\(magical\)/.test(type); type = type.replace(/\s*\(magical\)/, '').trim(); const D = defensesDetail(), hits = x => !(magical && /non-?magical|aren['’]t (?:silvered|adamantine|magical)/.test(x.k)), has = arr => arr.filter(hits).some(x => /^all damage/.test(x.k) ? !new RegExp('except[^.]*\\b' + type + '\\b').test(x.k) : x.k.includes(type)); // ("all damage except psychic": every type but that one)
+  const vul = (D.vuln || []).filter(hits).some(x => x.k.includes(type));
   if (has(D.immune)) return [0, 'immune']; if (has(D.resist)) return vul ? [n, 'resistant and vulnerable'] : [Math.floor(n / 2), 'resistant']; if (vul) return [n * 2, 'vulnerable']; return [n, '']; }
 function ptyApply(m) {
   const d = cleanData(m.data || {}), who = m.fromName || 'Someone', why = d.why || who;
@@ -11856,6 +11920,7 @@ function lvChoiceDefs(t) {
   if (c.asi.includes(nl)) defs.push({ id: 'asi', def: { type: 'asiOrFeat' } });
   (c.choices || []).concat((s && s.choices) || []).forEach((ch, k) => { if (ch.level === nl) defs.push({ id: 'ch' + k + '.' + ch.type, def: ch }); });
   if (t.isNew && c.mc && c.mc.skills) defs.push({ id: 'mcskill', def: { type: 'skill', n: c.mc.skills, from: c.skills.from } });
+  { const tc = t.isNew && c.mc && clsToolChoice(c.mc.profs); if (tc) defs.push({ id: 'mctool', def: { type: 'tool', n: tc.n, from: tc.from, label: `${c.name} multiclass ${tc.n > 1 ? 'tools' : 'tool'}` } }); }
   return defs;
 }
 function asiOrFeatUI(CH, id) {
@@ -11951,7 +12016,7 @@ function finishLevelUp() {
   if (sub && sub.profs && t.nl === t.c.sub.level) { if (sub.profs.armorCats) S.profs.armor = [...new Set((S.profs.armor || []).concat(sub.profs.armorCats))]; if (sub.profs.weaponCats) S.profs.weapons = [...new Set((S.profs.weapons || []).concat(sub.profs.weaponCats))]; S.profArmor = profArmorText(); S.profWeapons = profWeaponText(); }
   const notes = [];
   lvChoiceDefs({ ...t, row: clsRows().find(r => r.key === t.key), isNew: t.isNew }).forEach(d => {
-    const cid = d.id === 'asi' ? `asi.${t.key}.${t.nl}` : d.id === 'mcskill' ? `mc.${t.key}.skills` : `ch.${t.key}.${d.id.slice(2).split('.')[0]}.${t.nl}.${d.def.type}`;
+    const cid = d.id === 'asi' ? `asi.${t.key}.${t.nl}` : d.id === 'mcskill' ? `mc.${t.key}.skills` : d.id === 'mctool' ? `mc.${t.key}.tools` : `ch.${t.key}.${d.id.slice(2).split('.')[0]}.${t.nl}.${d.def.type}`;
     S.answered = S.answered || {};
     if (d.def.type === 'asiOrFeat') { if (asiDone(LV.ans, d.id)) S.answered[cid] = (LV.ans[d.id] || []).slice(); const r = applyAsiOrFeat(LV.ans, d.id); if (r) notes.push(r); return; }
     const v = ansList(LV.ans, d.id); if (!v.length) return;
@@ -12156,6 +12221,18 @@ function wzRacialSpells() {
   return out;
 }
 function wzClassRows() { return W.classes.filter(r => CL[r.key]); }
+// Tools a class lets you choose ("one artisan's tool", "three musical instruments", "one artisan's tool or musical
+// instrument"), from its proficiencies (or its multiclassing ones). null when there's nothing to choose.
+function clsToolChoice(txt) {
+  const t = String(txt || '').toLowerCase(), W1 = { one: 1, a: 1, an: 1, two: 2, three: 3, four: 4 };
+  const num = m => W1[m] || N(m) || 1;
+  let m = /\b(one|two|three|four|\d+|an?)\s+(?:type of\s+)?artisan'?s?'?\s+tools?\s+or\s+(?:one\s+)?musical\s+instruments?/.exec(t);
+  if (m) return { n: num(m[1]), from: ['artisan', 'instrument'] };
+  m = /\b(one|two|three|four|\d+|an?)\s+(?:type of\s+)?musical\s+instruments?/.exec(t); if (m) return { n: num(m[1]), from: 'instrument' };
+  m = /\b(one|two|three|four|\d+|an?)\s+(?:type of\s+)?artisan'?s?'?\s+tools?/.exec(t); if (m) return { n: num(m[1]), from: 'artisan' };
+  m = /\b(one|two|three|four|\d+|an?)\s+(?:type of\s+)?gaming\s+sets?/.exec(t); if (m) return { n: num(m[1]), from: 'gaming' };
+  return null;
+}
 function wzTotalLevel() { return wzClassRows().reduce((t, r) => t + N(r.level), 0); }
 function wzClassChoiceDefs() {
   const out = []; const rows = wzClassRows();
@@ -12163,6 +12240,7 @@ function wzClassChoiceDefs() {
     const c = CL[r.key], s = r.sub ? c.subclasses[r.sub] : null, L = N(r.level);
     if (ri === 0) out.push({ id: `cls.skills`, def: { type: 'skill', n: c.skills.n, from: c.skills.from, label: `${c.name} skills` }, cls: r.key });
     else if (c.mc && c.mc.skills) out.push({ id: `mc.${r.key}.skills`, def: { type: 'skill', n: c.mc.skills, from: c.skills.from, label: `${c.name} multiclass skill` }, cls: r.key });
+    { const tc = clsToolChoice(ri === 0 ? c.tools : c.mc && c.mc.profs); if (tc) out.push({ id: ri === 0 ? 'cls.tools' : `mc.${r.key}.tools`, def: { type: 'tool', n: tc.n, from: tc.from, label: `${c.name} ${tc.n > 1 ? 'tools' : 'tool'}${ri ? ' (multiclass)' : ''}` }, cls: r.key }); }
     c.asi.filter(l => l <= L).forEach(l => out.push({ id: `asi.${r.key}.${l}`, def: { type: 'asiOrFeat' }, cls: r.key, lvl: l }));
     (c.choices || []).concat((s && s.choices) || []).forEach((ch, k) => { if (ch.level <= L) out.push({ id: `ch.${r.key}.${k}.${ch.level}.${ch.type}`, def: { ...ch, label: `${choiceLabel(ch)} (${c.name} ${ch.level})` }, cls: r.key }); });
   });
@@ -12916,6 +12994,10 @@ function owedChoices() {
     // Class options are counted: enough picks of that kind means they're done.
     const need = {}; all.forEach(ch => { if (ch.level <= L && DND.options[ch.type]) need[ch.type] = (need[ch.type] || 0) + (ch.n || 1); });
     c.asi.filter(l => l <= L).forEach(l => out.push({ id: `asi.${r.key}.${l}`, def: { type: 'asiOrFeat' }, cls: r.key, lvl: l, label: `${c.name} ${l}: Ability Score Improvement or feat` }));
+    // The tools the class lets you choose (an artificer's artisan's tool, a bard's instruments…): owed when the sheet
+    // doesn't already have that many of that kind (character creation used to skip this choice).
+    { const tc = clsToolChoice(ri === 0 ? c.tools : c.mc && c.mc.profs); if (tc) { const pool = toolsFrom(tc.from).map(x => x.toLowerCase()), have = (S.tools || []).filter(t => pool.includes(String(t.name || '').toLowerCase())).length;
+      if (have < tc.n) out.push({ id: ri === 0 ? 'cls.tools' : `mc.${r.key}.tools`, def: { type: 'tool', n: tc.n - have, from: tc.from }, cls: r.key, lvl: 1, label: `${c.name}: ${tc.n > 1 ? `${tc.n} tool proficiencies` : 'tool proficiency'}${ri ? ' (multiclass)' : ''}` }); } }
     all.forEach((ch, k) => { if (ch.level > L) return; const id = `ch.${r.key}.${k}.${ch.level}.${ch.type}`;
       if (DND.options[ch.type] && (S.picks[ch.type] || []).length >= need[ch.type]) return;
       out.push({ id, def: ch, cls: r.key, lvl: ch.level, label: `${c.name} ${ch.level}: ${ch.label || choiceLabel(ch)}${(ch.n || 1) > 1 ? ' × ' + ch.n : ''}` }); });
@@ -13040,6 +13122,40 @@ function keepLocal(next, cur) {
   return next;
 }
 let GUESTCLAIM = false, GUESTDONE = false;
+// ----- The same character open in two places (a phone and a computer, a player and a co-editor) -----
+// Each copy remembers the sheet as the cloud last had it (CLOUD_BASE). When another copy's save arrives while this one
+// has changes of its own that aren't saved yet, the two are merged instead of one wiping out the other: whatever only
+// one side changed comes through, items are matched by their id, and counts both sides changed (gold, patches, uses)
+// add up both changes. Only a real clash on the same field keeps this copy's value.
+let CLOUD_BASE = null, CLOUD_BASE_AT = 0, EDIT_N = 0, SYNC_N = 0;
+const cloudDirty = () => EDIT_N > SYNC_N;
+function sheetMerge(b, l, r) {
+  const js = v => JSON.stringify(v);
+  const sl = js(l), sr = js(r); if (sl === sr) return l;
+  const sb = js(b); if (sl === sb) return r; if (sr === sb) return l;
+  if (typeof l === 'number' && typeof r === 'number' && typeof b === 'number') return Math.abs(l) > 1e11 || Math.abs(r) > 1e11 ? Math.max(l, r) : b + (l - b) + (r - b); // (times: the later one)
+  const obj = v => v && typeof v === 'object' && !Array.isArray(v);
+  if (Array.isArray(l) && Array.isArray(r)) {
+    const idd = a => Array.isArray(a) && a.length > 0 && a.every(x => obj(x) && x.id != null && x.id !== '');
+    if ((idd(l) || !l.length) && (idd(r) || !r.length) && (idd(b) || !(b && b.length))) {
+      const B = new Map((b || []).map(x => [x.id, x])), R = new Map(r.map(x => [x.id, x])), L = new Set(l.map(x => x.id)), out = [];
+      l.forEach(x => { const rx = R.get(x.id), bx = B.get(x.id);
+        if (!rx) { if (bx && js(bx) === js(x)) return; out.push(x); return; } // (gone there and untouched here: gone)
+        out.push(bx ? sheetMerge(bx, x, rx) : x); });
+      r.forEach(x => { if (!L.has(x.id) && !B.has(x.id)) out.push(x); }); // new there
+      return out;
+    }
+    // logs (entries stamped with a time, no id): both sides' entries, in time order
+    if ([l, r].every(a => a.every(x => obj(x) && typeof x.t === 'number'))) { const seen = new Set(), out = []; l.concat(r).forEach(x => { const k = js(x); if (!seen.has(k)) { seen.add(k); out.push(x); } }); return out.sort((x, y) => x.t - y.t); }
+    return l;
+  }
+  if (obj(l) && obj(r)) {
+    const bb = obj(b) ? b : {}, o = {};
+    new Set(Object.keys(l).concat(Object.keys(r))).forEach(k => { const v = sheetMerge(bb[k], l[k], r[k]); if (v !== undefined) o[k] = v; });
+    return o;
+  }
+  return l;
+}
 let CLOUD = null, DBX = null, cloudBusy = false, cloudAgain = false, cloudTimer = null, cloudPending = null, cloudFails = 0, cloudParts = 1, cloudUnsub = null, cloudRO = false;
 const clock = () => new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 // The toolbar slot is small: show a short label, keep the full sentence as the hover text.
@@ -13050,18 +13166,33 @@ function setSyncState(t) { UI.saveState = t; UI.saveFull = t; const el = $('#sav
 // On the website, edits are gathered into one save after 1.5s of quiet (never held longer than 6s), and anything
 // waiting is saved at once when the tab is hidden or closed — far fewer database writes, still near-live for others.
 let cloudFirst = 0;
-function cloudPush() { if (!CLOUD || !S.created || cloudRO) return; clearTimeout(cloudTimer);
+function cloudPush() { EDIT_N++; if (!CLOUD || !S.created || cloudRO) return; clearTimeout(cloudTimer);
   if (!window.SHEET_PAGES) { cloudTimer = setTimeout(cloudWrite, 350); return; }
   const now = Date.now(); if (!cloudFirst) cloudFirst = now;
   cloudTimer = setTimeout(() => { cloudFirst = 0; cloudWrite(); }, Math.max(0, Math.min(1500, cloudFirst + 6000 - now))); }
-function cloudFlush() { if (cloudTimer && cloudFirst) { clearTimeout(cloudTimer); cloudTimer = null; cloudFirst = 0; cloudWrite(); } }
+function cloudFlush() { if (cloudTimer && cloudFirst) { clearTimeout(cloudTimer); cloudTimer = null; cloudFirst = 0; cloudWrite(true); } }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') cloudFlush(); });
 addEventListener('pagehide', cloudFlush);
 const partRef = k => DBX.doc('sheets/part' + k);
-async function cloudWrite() {
+async function cloudWrite(force) {
   if (!CLOUD || !S.created || cloudRO) return;
   if (cloudBusy) { cloudAgain = true; return; }
+  // another copy saved while this one was busy (a popup open, typing): take that in first, so neither copy's changes are lost
+  if (cloudPending && CLOUD_BASE && N(cloudPending.savedAt) > CLOUD_BASE_AT) {
+    if (busyEditing() && !force) { clearTimeout(cloudTimer); cloudTimer = setTimeout(cloudWrite, 800); return; }
+    adoptRemote(cloudPending, true); if (typeof ROBE !== 'undefined' && ROBE && $('#robem')) try { renderRobe(); } catch (e) {}
+  }
   cloudBusy = true;
+  // offline: don't queue a whole-sheet write blind (it would land later on top of whatever was played meanwhile);
+  // it goes when the connection is back, after checking what's there
+  if (CLOUD_BASE && typeof navigator !== 'undefined' && navigator.onLine === false) { cloudBusy = false; setSyncState('Sync retrying…'); return; }
+  if (CLOUD_BASE) { let sn = null; try { sn = window.SHEET_PAGES ? await CLOUD.get({ source: 'server' }) : await CLOUD.get(); } catch (e) { cloudBusy = false; cloudFails++; setSyncState('Sync retrying…'); setTimeout(cloudWrite, Math.min(60000, 1500 * Math.pow(2, Math.min(cloudFails, 5)))); return; }
+    try { const d = sn && sn.exists ? sn.data() : null;
+    if (d && d.tab !== TAB && N(d.savedAt) > CLOUD_BASE_AT) { const txt = await cloudText(d);
+      if (txt && busyEditing() && !force) { cloudPending = { savedAt: d.savedAt, sheet: txt }; cloudBusy = false; clearTimeout(cloudTimer); cloudTimer = setTimeout(cloudWrite, 800); return; }
+      if (txt) { adoptRemote({ savedAt: d.savedAt, sheet: txt }, true); if (typeof ROBE !== 'undefined' && ROBE && $('#robem')) try { renderRobe(); } catch (e) {} } } } catch (e) {} }
+  if (CLOUD_BASE && !cloudDirty() && !GUESTCLAIM) { cloudBusy = false; setSyncState('Live · synced ' + clock()); return; }
+  const n0 = EDIT_N;
   try {
     const str = JSON.stringify(S), at = N(S.savedAt) || Date.now(), parts = [];
     for (let i = 0; i < str.length; i += PART) parts.push(str.slice(i, i + PART));
@@ -13069,7 +13200,7 @@ async function cloudWrite() {
     for (let k = 1; k < parts.length; k++) await partRef(k).set({ savedAt: at, k, data: parts[k] });
     await CLOUD.set({ v: 2, savedAt: at, tab: TAB, n: parts.length, data: parts[0], guestDone: GUESTDONE || GUESTCLAIM });
     for (let k = parts.length; k < cloudParts; k++) { try { await partRef(k).delete(); } catch (e) {} }
-    cloudParts = parts.length; cloudFails = 0;
+    cloudParts = parts.length; cloudFails = 0; CLOUD_BASE = str; CLOUD_BASE_AT = at; SYNC_N = Math.max(SYNC_N, n0);
     setSyncState('Live · synced ' + clock());
   } catch (e) {
     const c = e && e.code;
@@ -13091,20 +13222,24 @@ async function cloudText(d, partOf) {
 }
 // Typing in a field or working in a popup: wait, then catch up (a re-render would steal focus or the popup's place).
 function busyEditing() { const a = document.activeElement; return $('#modal').classList.contains('open') || $('#wizard').classList.contains('open') || !!(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && !a.closest('#page-nothing')); }
-function adoptRemote(d) {
+function adoptRemote(d, force) {
   let next; try { next = JSON.parse(d.sheet); } catch (e) { return; }
   if (!next || !next.created || !S.created) return;
-  if (busyEditing()) { cloudPending = d; return; }
+  if (busyEditing() && !force) { cloudPending = d; return; }
   cloudPending = null;
   const sx = scrollX, sy = scrollY;
+  let mine = false;
+  if (CLOUD_BASE && cloudDirty()) { try { const at = Math.max(N(next.savedAt), N(S.savedAt)); next = sheetMerge(JSON.parse(CLOUD_BASE), JSON.parse(JSON.stringify(S)), next); next.savedAt = at; mine = true; } catch (e) {} }
+  CLOUD_BASE = d.sheet; CLOUD_BASE_AT = N(d.savedAt);
   S = keepLocal(migrate(next), S); if (applyFixes(S)) rebuildAuto();
+  if (mine) { S.savedAt = Date.now(); writeLocal(); }
   try { localStorage.setItem(keyFor(S.id), JSON.stringify(S)); } catch (e) {}
   HIST = []; REDO = []; LAST = snapAll(); histButtons();
   applySources(S.sources); applyTheme(); render();
   scrollTo(sx, sy);
   setSyncState('Live · synced ' + clock());
 }
-setInterval(() => { if (cloudPending && !busyEditing() && N(cloudPending.savedAt) > N(S.savedAt)) adoptRemote(cloudPending); else if (cloudPending && N(cloudPending.savedAt) <= N(S.savedAt)) cloudPending = null; }, 400);
+setInterval(() => { if (!cloudPending || busyEditing()) return; if (CLOUD_BASE ? N(cloudPending.savedAt) > CLOUD_BASE_AT : N(cloudPending.savedAt) > N(S.savedAt)) adoptRemote(cloudPending); else cloudPending = null; }, 400);
 function cloudListen(ref, onFirst) {
   let checked = false;
   if (cloudUnsub) { try { cloudUnsub(); } catch (e) {} }
@@ -13112,9 +13247,10 @@ function cloudListen(ref, onFirst) {
     const d = snap.exists ? snap.data() : null;
     if (d) { cloudParts = Math.max(cloudParts, N(d.n) || 1); if (d.guestDone) GUESTDONE = true; }
     if (!checked) { if (snap.metadata.fromCache) return; checked = true; CLOUD = ref; if (await onFirst(d)) return; }
-    if (d && (d.sheet || d.v === 2) && d.tab !== TAB && N(d.savedAt) > N(S.savedAt)) {
+    const newer = () => CLOUD_BASE ? N(d.savedAt) > CLOUD_BASE_AT : N(d.savedAt) > N(S.savedAt);
+    if (d && (d.sheet || d.v === 2) && d.tab !== TAB && newer()) {
       const txt = await cloudText(d);
-      if (txt && N(d.savedAt) > N(S.savedAt)) adoptRemote({ savedAt: d.savedAt, sheet: txt });
+      if (txt && newer()) adoptRemote({ savedAt: d.savedAt, sheet: txt });
     }
   }, e => {
     const c = e && e.code;
@@ -13143,13 +13279,13 @@ function cloudListen(ref, onFirst) {
         // A newer copy of the sheet file is replacing the synced one: never lose the player's own settings, theme or layout.
         if (d && !cloudRO && !FROM_LOCAL) { try { const txt = await cloudText(d); const old = txt && JSON.parse(txt); if (old && old.id === S.id) { keepPrefs(S, old); hdrReset(S); try { applyTheme(); render(); } catch (e) {} } } catch (e) {} }
         if (!cloudRO) cloudWrite(); }
-      else if (d) setSyncState(cloudRO ? 'Live · view only (you can\'t edit this sheet)' : 'Live · synced ' + clock());
+      else if (d) { if (N(d.savedAt) === N(S.savedAt)) { CLOUD_BASE = JSON.stringify(S); CLOUD_BASE_AT = N(d.savedAt); SYNC_N = EDIT_N; } setSyncState(cloudRO ? 'Live · view only (you can\'t edit this sheet)' : 'Live · synced ' + clock()); }
     });
   } catch (e) {}
 })();
 // Catch up whenever the page comes back (phone unlocked, tab refocused) or the network returns.
-addEventListener('online', () => { if (CLOUD) cloudWrite(); });
-document.addEventListener('visibilitychange', () => { if (!document.hidden && CLOUD && /retrying|full/i.test(UI.saveState || '')) cloudWrite(); });
+addEventListener('online', () => { if (CLOUD && (cloudDirty() || !CLOUD_BASE)) cloudWrite(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && CLOUD && (cloudDirty() || !CLOUD_BASE) && /retrying|full/i.test(UI.saveState || '')) cloudWrite(); });
 
 // ---------- Boot ----------
 // For the GitHub Pages loader (new characters get their link once created).

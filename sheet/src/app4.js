@@ -98,6 +98,7 @@ function mainClick(e) {
     case 'econtab': UI.econTab = b.dataset.col; saveUI(); render('combat'); refresh(); pendingLabel = null; return;
     case 'qty': { const it = S.inventory[i]; it.qty = Math.max(0, N(it.qty) + N(b.dataset.d)); update(); break; }
     case 'concsave': concCheck(10, true); break;
+    case 'concend': if (S.concentration) { breakConc('ended'); } break;
     case 'endeffect': endEffect(b.dataset.n); if ($('#condmodal.extfxm')) openExtFx(); break;
     case 'addeffects': UI.extPick = ''; openExtFx(); break;
     case 'extfx': addExtFx(b.dataset.k); break;
