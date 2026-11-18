@@ -3756,3 +3756,9 @@ select.sel-dmg { white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 
 /* dropdown options stay on one line */
 .sel-pop .sp-o > span { white-space: nowrap; }
+
+/* No drop shadows: the soft shades drawn as gradients at scroll edges and under the pinned tops are gone too
+   (the divider lines themselves stay) */
+body.hubbody:not(.adminbody) .hub-head > .hub-views::before, body.hubbody:not(.adminbody) .hub-head::after, body.adminbody .adm-side::after,
+.nt-sl .nt-sl-wrap::before, .nt-sl .nt-sl-wrap::after, #wizard .wz3 .wz3-sc::before, #wizard .wz3 .wz3-sc::after,
+body:not(.adminbody) .nt-sl .nt-sl-wrap::before { background: none !important; }
