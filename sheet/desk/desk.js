@@ -128,7 +128,7 @@ async function pullAll() {
   const d = m.data(), next = normalize({ v: d.v, savedAt: d.savedAt, settings: d.settings });
   SYNCED.cre.clear(); cr.docs.forEach(x => { const c = x.data().data; if (c) { next.creatures[x.id] = c; SYNCED.cre.set(x.id, JSON.stringify(c)); } });
   SYNCED.ses.clear(); ss.docs.forEach(x => { const s = x.data().data; if (s) { next.sessions.push(s); SYNCED.ses.set(x.id, JSON.stringify(s)); } });
-  next.sessions.sort((a, b) => N(b.made) - N(a.made));
+  next.sessions.sort((a, b) => sessKey(a) - sessKey(b));
   S = normalize(next); SYNCED.main = JSON.stringify(mainBody());
   SYNCED.ses.forEach((v, k) => { const s = S.sessions.find(x => x.id === k); if (s) SYNCED.ses.set(k, JSON.stringify(s)); });
   writeLocal(); dHistBase(); return true;
@@ -196,9 +196,12 @@ function addToGroup(s, g, cid, n) {
   for (let i = 0; i < n; i++) { const x = newInst(c, same.length + n > 1 ? `${c.name} ${++k}` : c.name); g.list.push(x); out.push(x); }
   return out;
 }
+// Where an encounter sits in the list: its spot once the list has been reordered, newest first before that
+function sessKey(s) { return s.ord != null ? N(s.ord) : -N(s.made); }
+function sessTop(s) { const o = S.sessions.filter(x => x !== s && x.ord != null).map(x => N(x.ord)); if (o.length) s.ord = Math.min(...o) - 1; }
 function newSession(title) {
   const s = { id: 's' + uid(), title: title || 'Encounter ' + (S.sessions.length + 1), made: Date.now(), notes: '', groups: [{ id: 'g' + uid(), name: 'Group 1', notes: '', list: [] }] };
-  S.sessions.unshift(s); UI.session = s.id; UI.sel = ''; UI.open[s.id] = true; return s;
+  sessTop(s); S.sessions.unshift(s); UI.session = s.id; UI.sel = ''; UI.open[s.id] = true; return s;
 }
 // ---------- undo, redo and history (like the character sheet's) ----------
 // Every save compares the desk with the last snapshot, piece by piece (settings, each creature, each session, the order of
@@ -1389,7 +1392,7 @@ function railHTML(cur) {
     const kids = open ? `<div class="dk-tkids">${s.groups.map(g => `${multi || g.list.length === 0 ? `<div class="dk-tg"><span>${esc(g.name)}</span><small>${g.list.length}</small></div>` : ''}${g.list.map(x => {
       const p = hpPct(x);
       return `<button class="dk-tc${x.iid === UI.sel ? ' on' : ''}${x.down ? ' down' : ''}" data-act="sel" data-sid="${s.id}" data-iid="${x.iid}">${tokenHTML(instC(x), 22)}<span class="dk-tcn">${esc(x.name)}${x.conc ? `<i class="dk-cdot" title="Concentrating">${ICON.conc}</i>` : ''}${(x.conds || []).length ? `<i class="dk-cn" title="${esc(x.conds.map(c => c.n).join(', '))}">${x.conds.length}</i>` : ''}</span><span class="dk-tch"><span>${x.hp}<small>/${x.max}</small></span><span class="dk-tbar"><i class="${hpCls(p)}" style="width:${p}%"></i></span></span></button>`; }).join('')}`).join('')}${all.length ? '' : '<p class="dk-tnone">No creatures yet</p>'}</div>` : '';
-    return `<div class="dk-ts${s === cur ? ' cur' : ''}"><div class="dk-tsrow"><button class="dk-caret${open ? ' open' : ''}" data-act="toggle" data-sid="${s.id}" aria-label="${open ? 'Collapse' : 'Expand'} ${esc(s.title)}">${ICON.caret}</button><button class="dk-tsn" data-act="opensess" data-sid="${s.id}" title="${esc(plural(all.length, 'creature'))}"><b>${esc(s.title)}</b>${all.filter(x => x.down).length ? `<i class="dk-tsdn" title="${all.filter(x => x.down).length} down">${all.filter(x => x.down).length} down</i>` : ''}<i class="dk-tscnt" aria-label="${esc(plural(all.length, 'creature'))}">${all.length}</i></button></div>${kids}</div>`;
+    return `<div class="dk-ts${s === cur ? ' cur' : ''}" data-sid="${s.id}"><div class="dk-tsrow">${S.sessions.length > 1 ? '<span class="dk-tsgrip" title="Drag to reorder" aria-label="Drag to reorder">⠿</span>' : ''}<button class="dk-caret${open ? ' open' : ''}" data-act="toggle" data-sid="${s.id}" aria-label="${open ? 'Collapse' : 'Expand'} ${esc(s.title)}">${ICON.caret}</button><button class="dk-tsn" data-act="opensess" data-sid="${s.id}" title="${esc(plural(all.length, 'creature'))}"><b>${esc(s.title)}</b>${all.filter(x => x.down).length ? `<i class="dk-tsdn" title="${all.filter(x => x.down).length} down">${all.filter(x => x.down).length} down</i>` : ''}<i class="dk-tscnt" aria-label="${esc(plural(all.length, 'creature'))}">${all.length}</i></button></div>${kids}</div>`;
   }).join('');
   return `<div class="dk-railhd"><span>Encounters</span><button class="dk-btn sm gold" data-act="newsess">${ICON.plus} New</button><button class="dk-ix dk-railx" data-act="tree" aria-label="Close">${ICON.x}</button></div><div class="dk-tree" data-keep="tree">${tree || '<p class="dk-tnone">No encounters yet</p>'}</div>`;
 }
@@ -1756,7 +1759,7 @@ function doImport(file) {
     let nc = 0, ns = 0;
     const cr = d.creatures ? (Array.isArray(d.creatures) ? d.creatures : Object.values(d.creatures)) : [];
     cr.forEach(c => { if (c && c.name && Array.isArray(c.ab)) { if (!c.id || SRD[c.id]) c.id = 'c' + uid(); if (!c.src || c.src === 'SRD') c.src = 'Custom'; S.creatures[c.id] = c; nc++; } });
-    (d.sessions || []).forEach(s => { if (!s || !s.id || !Array.isArray(s.groups) && !Array.isArray(s.enc)) return; if (!s.groups) return; const ex = S.sessions.find(x => x.id === s.id); if (ex) s.id = 's' + uid(); s.groups.forEach(g => (g.list || []).forEach(x => { delete x.sheet; })); S.sessions.push(s); ns++; });
+    (d.sessions || []).forEach(s => { if (!s || !s.id || !Array.isArray(s.groups) && !Array.isArray(s.enc)) return; if (!s.groups) return; const ex = S.sessions.find(x => x.id === s.id); if (ex) s.id = 's' + uid(); s.groups.forEach(g => (g.list || []).forEach(x => { delete x.sheet; })); { const o = S.sessions.filter(x => x.ord != null).map(x => N(x.ord)); if (o.length) s.ord = Math.max(...o) + 1; else delete s.ord; } S.sessions.push(s); ns++; });
     if (d.settings && typeof d.settings === 'object') { ['hpMode', 'autoDmg'].forEach(k => { if (d.settings[k] != null) S.settings[k] = d.settings[k]; }); }
     S = normalize(S); closeModal(true); save(); render(); toastInfo(`Imported ${plural(nc, 'creature')} and ${plural(ns, 'encounter')}.`);
   };
@@ -1889,7 +1892,7 @@ async function onClick(e) {
     case 'delgroup': { const s = curSession(), g = s.groups.find(z => z.id === b.dataset.gid); if (!g) return; const go = () => { s.groups = s.groups.filter(z => z !== g); save(); paint(); }; return g.list.length ? confirmBox(`Delete <b>${esc(g.name)}</b> and its ${plural(g.list.length, 'creature')}?`, 'Delete group', go, true) : go(); }
     case 'restall': { const s = curSession(); return confirmBox('Reset every creature in this encounter to full HP, with conditions cleared and every use back?', 'Reset all', () => { sessionInsts(s).forEach(restInst); save(); paint(); toastInfo('Everyone is fresh.'); }); }
     case 'renamesess': { UI.session = b.dataset.sid; UI.sel = ''; UI.tab = 'sessions'; UI.tree = false; saveUI(); paint(); const t = $('#dk-stitle'); if (t) { t.focus(); t.select(); } return; }
-    case 'dupsess': { if (b.dataset.sid) UI.session = b.dataset.sid; const s = clone(curSession()); s.id = 's' + uid(); s.title = s.title + ' (copy)'; s.made = Date.now(); s.groups.forEach(g => { g.id = 'g' + uid(); g.list.forEach(z => { z.iid = 'i' + uid(); restInst(z); z.tg = ''; }); }); S.sessions.unshift(s); UI.session = s.id; UI.sel = ''; save(); paint(); return toastInfo('Encounter copied, with everyone reset.'); }
+    case 'dupsess': { if (b.dataset.sid) UI.session = b.dataset.sid; const s = clone(curSession()); s.id = 's' + uid(); s.title = s.title + ' (copy)'; s.made = Date.now(); s.groups.forEach(g => { g.id = 'g' + uid(); g.list.forEach(z => { z.iid = 'i' + uid(); restInst(z); z.tg = ''; }); }); sessTop(s); S.sessions.unshift(s); UI.session = s.id; UI.sel = ''; save(); paint(); return toastInfo('Encounter copied, with everyone reset.'); }
     case 'delsess': { if (b.dataset.sid) UI.session = b.dataset.sid; const s = curSession(); return confirmBox(`Delete the encounter <b>${esc(s.title)}</b> and its ${plural(sessionInsts(s).length, 'creature')}? This can’t be undone.`, 'Delete encounter', () => { S.sessions = S.sessions.filter(z => z !== s); UI.session = ''; UI.sel = ''; save(); paint(); }, true); }
     case 'toall': { const s = curSession(); return sendToTurn(sessionInsts(s).filter(z => !z.down), 'everyone in ' + s.title); }
     case 'togroup': { const g = curSession().groups.find(z => z.id === b.dataset.gid); return g && sendToTurn(g.list.filter(z => !z.down), g.name); }
@@ -4775,6 +4778,31 @@ async function onLootAct(act, b) {
   }
 }
 // ==== ITEMPARSE END ====
+// Reordering encounters: hold the ⠿ grip and drag, the same as reordering characters in the lobby. The row keeps its place
+// (invisible) while a copy follows your finger; the others slide out of the way; letting go drops it there.
+(() => { let RD = null;
+  const rowsOf = l => [...l.querySelectorAll(':scope > .dk-ts')];
+  const slide = (rows, mutate) => { const before = new Map(rows.map(x => [x, x.getBoundingClientRect().top])); mutate();
+    rows.forEach(x => { const dy = before.get(x) - x.getBoundingClientRect().top; if (!dy) return; x.style.transition = 'none'; x.style.transform = `translateY(${dy}px)`; requestAnimationFrame(() => { x.style.transition = 'transform .18s ease'; x.style.transform = ''; }); }); };
+  document.addEventListener('pointerdown', e => { const g = e.target.closest && e.target.closest('.dk-tsgrip'); if (!g || e.button > 0) return; const r = g.closest('.dk-ts'), list = r && r.parentElement; if (!list) return; e.preventDefault();
+    const b = r.getBoundingClientRect(), gh = r.cloneNode(true); gh.classList.add('dk-tsghost'); gh.removeAttribute('data-sid');
+    Object.assign(gh.style, { position: 'fixed', left: b.left + 'px', top: b.top + 'px', width: b.width + 'px', margin: 0, zIndex: 80, pointerEvents: 'none' });
+    (list.closest('.dk-rail') || list.parentElement).appendChild(gh); // (inside the panel, so it keeps the row's look) r.classList.add('dk-tshold'); document.body.classList.add('dk-tsdragging');
+    RD = { r, gh, list, dy: e.clientY - b.top, y: e.clientY, raf: 0 }; try { g.setPointerCapture(e.pointerId); } catch (x) {} });
+  const step = () => { const d = RD; if (!d) return; d.raf = 0; const lr = d.list.getBoundingClientRect(), h = d.gh.offsetHeight;
+    d.gh.style.top = Math.max(lr.top, Math.min(lr.bottom - h, d.y - d.dy)) + 'px';
+    const rows = rowsOf(d.list), peers = rows.filter(x => x !== d.r), mid = d.y - d.dy + h / 2, tgt = peers.find(x => { const bb = x.getBoundingClientRect(); return mid < bb.top + bb.height / 2; }), last = peers[peers.length - 1];
+    if (last && (tgt ? d.r.nextElementSibling !== tgt : last.nextElementSibling !== d.r)) slide(peers, () => tgt ? tgt.before(d.r) : last.after(d.r));
+    // near the list's top or bottom edge it scrolls along
+    const edge = 44; if (d.y < lr.top + edge && d.list.scrollTop > 0) { d.list.scrollTop -= 8; d.raf = requestAnimationFrame(step); } else if (d.y > lr.bottom - edge && d.list.scrollTop + d.list.clientHeight < d.list.scrollHeight) { d.list.scrollTop += 8; d.raf = requestAnimationFrame(step); } };
+  document.addEventListener('pointermove', e => { if (!RD) return; e.preventDefault(); RD.y = e.clientY; if (!RD.raf) RD.raf = requestAnimationFrame(step); }, { passive: false });
+  const end = () => { if (!RD) return; const d = RD; RD = null; if (d.raf) cancelAnimationFrame(d.raf); const pb = d.r.getBoundingClientRect();
+    d.gh.style.transition = 'top .16s ease'; d.gh.style.top = pb.top + 'px';
+    setTimeout(() => { d.gh.remove(); d.r.classList.remove('dk-tshold'); document.body.classList.remove('dk-tsdragging');
+      const ids = rowsOf(d.list).map(x => x.dataset.sid), at = new Map(ids.map((id, i) => [id, i]));
+      if (ids.join() === S.sessions.map(s => s.id).join()) return;
+      S.sessions.sort((a, b) => (at.has(a.id) ? at.get(a.id) : 1e9) - (at.has(b.id) ? at.get(b.id) : 1e9)); S.sessions.forEach((s, i) => { s.ord = i; });
+      save(); paint(); }, 170); };
+  document.addEventListener('pointerup', end); document.addEventListener('pointercancel', end); })();
 window.pgDesk = { hostsParty: true, mount, unmount, _t: () => ({ NT, clean, mdToHtml, htmlToMd, pageByTitle, S, UI, LOG, R20, GEN, NPCG, PLANUI, findInst, analyze, parseStatBlock, parseStatBlocks, normPaste, parseMulti, casterInfo, toRead, encStats, shapePlan }) };
 })();
-

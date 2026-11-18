@@ -14,14 +14,14 @@
 // opens the icon in a browser tab rather than as its own app.
 try { const q = new URLSearchParams(location.search); if (q.get('app') === 'home') { sessionStorage.setItem('pg-app', '1'); q.delete('app'); history.replaceState(history.state, '', location.pathname + (q.toString() ? '?' + q : '') + location.hash); } } catch (e) {}
 (() => { if (window.__pgGrab) return; window.__pgGrab = 1;
-  const GRIP = '.hr-grip, .nw-grip, .tgrip, .idrag, .sdrag, .bdrag, .gdrag, .mgrip, .pbar .grip, .pgph-th, .pg-sb-th, [data-mgrip], body.editing .tabwrap';
+  const GRIP = '.hr-grip, .dk-tsgrip, .nw-grip, .tgrip, .idrag, .sdrag, .bdrag, .gdrag, .mgrip, .pbar .grip, .pgph-th, .pg-sb-th, [data-mgrip], body.editing .tabwrap';
   const off = () => { const c = document.documentElement.classList; if (c.contains('pg-grabbing')) c.remove('pg-grabbing'); }; // (only when it's there: rewriting the page's class on every release made iPhones treat taps as hovers)
   addEventListener('pointerdown', e => { if (e.button > 0) return; const g = e.target.closest && e.target.closest(GRIP); if (g) document.documentElement.classList.add('pg-grabbing'); }, true);
   addEventListener('pointerup', off, true); addEventListener('pointercancel', off, true); addEventListener('blur', off); })();
 // Buttons act on the press (registered first so the release that follows is dropped before anything else sees it)
 (() => { if (window.__pgPress) return; window.__pgPress = 1;
   const SEL = 'button, [role="button"], [role="tab"], [role="menuitem"], [role="option"], summary, input[type="button"], input[type="submit"], input[type="reset"]';
-  const SKIP = '[disabled], [aria-disabled="true"], [draggable="true"], [data-press="up"], .hr-grip, .nw-grip, .idrag, .sdrag, .bdrag, .gdrag, .cgdrag, [data-mgrip], [data-mresize], [data-handle], [contenteditable="true"] *';
+  const SKIP = '[disabled], [aria-disabled="true"], [draggable="true"], [data-press="up"], .hr-grip, .dk-tsgrip, .nw-grip, .idrag, .sdrag, .bdrag, .gdrag, .cgdrag, [data-mgrip], [data-mresize], [data-handle], [contenteditable="true"] *';
   let ptr = 'mouse', eat = null;
   window.__pgEating = () => !!eat;
   addEventListener('pointerdown', e => { ptr = e.pointerType || 'mouse'; }, true);
