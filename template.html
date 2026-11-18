@@ -36,7 +36,7 @@
   --red: #A63A2C;
   --red-soft: #F5DCD6;
   --green: #3D7653;
-  --shadow: 0 1px 2px rgba(29,37,54,.08), 0 6px 18px rgba(29,37,54,.07);
+  --shadow: none;
   --temp: #5CC8FF; --temp-ink: #0B79B5; --temp-soft: #E3F5FF;
   color-scheme: light;
 }
@@ -60,7 +60,7 @@
   --red: #E58371;
   --red-soft: #3D2522;
   --green: #7FC79C;
-  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 22px rgba(0,0,0,.25);
+  --shadow: none;
   --temp: #6FD3FF; --temp-ink: #8FDDFF; --temp-soft: #12304A;
   color-scheme: dark;
 }
@@ -90,7 +90,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 .banner .wrap { padding-top: 18px; padding-bottom: 18px; display: grid; grid-template-columns: auto 1fr; gap: 20px; align-items: start; }
 .portrait-wrap { position: relative; width: 148px; height: 148px; border-radius: 14px; overflow: hidden;
-  border: 3px solid var(--gold); box-shadow: 0 0 0 3px rgba(244,238,223,.25), 0 8px 24px rgba(0,0,0,.35); background: #6d7c80; }
+  border: 3px solid var(--gold); box-shadow: 0 0 0 3px rgba(244,238,223,.25); background: #6d7c80; }
 .portrait-wrap img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 22%; display: block; }
 .portrait-edit { position: absolute; inset: auto 0 0 0; text-align: center; font-size: 12px; font-weight: 600; padding: 4px;
   background: rgba(15,21,35,.72); color: #F4EEDF; opacity: 0; transition: opacity .15s; cursor: pointer; }
@@ -178,7 +178,7 @@ input[type=checkbox] { accent-color: var(--gold); width: 16px; height: 16px; cur
 .ring-svg .rt { stroke: var(--line2); }
 .ring-svg .rf { stroke: var(--gold); stroke-linecap: round; transition: stroke-dasharray .35s; }
 .ring-svg .rf.low { stroke: #C9573F; }
-.ring-svg .rtmp { stroke: var(--temp); stroke-linecap: round; filter: drop-shadow(0 0 3px var(--temp)); }
+.ring-svg .rtmp { stroke: var(--temp); stroke-linecap: round; filter: none; }
 .hp-side .temp .lbl { color: var(--temp-ink); }
 .hp-side .temp .f { color: var(--temp-ink); border-color: var(--temp) !important; background: var(--temp-soft) !important; }
 .hp-center { position: absolute; inset: 22px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
@@ -399,7 +399,7 @@ table.mini tr:last-child td { border-bottom: 0; }
 /* ---------- Modal / toast ---------- */
 .modal-bg { position: fixed; inset: 0; background: rgba(10,14,24,.55); display: none; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
 .modal-bg.open { display: flex; }
-.modal { background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-top: 4px solid var(--gold); border-radius: 12px; max-width: 520px; width: 100%; padding: 18px 20px; box-shadow: 0 20px 60px rgba(0,0,0,.35); max-height: calc(100vh - 32px); overflow: auto; }
+.modal { background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-top: 4px solid var(--gold); border-radius: 12px; max-width: 520px; width: 100%; padding: 18px 20px; box-shadow: none; max-height: calc(100vh - 32px); overflow: auto; }
 .modal h3 { margin: 0 0 8px; font-size: 1.2rem; }
 .modal ul { padding-left: 18px; margin: 8px 0; }
 .modal li { margin: 3px 0; }
@@ -407,7 +407,7 @@ table.mini tr:last-child td { border-bottom: 0; }
 .modal .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .modal .f { border: 1px solid var(--line); background: var(--field); }
 .toasts { position: fixed; right: 16px; bottom: 16px; display: grid; gap: 8px; z-index: 60; max-width: min(360px, calc(100vw - 32px)); }
-.toast { background: var(--navy); color: var(--banner-ink); border-left: 4px solid var(--gold); border-radius: 8px; padding: 9px 12px; box-shadow: 0 8px 24px rgba(0,0,0,.3); font-size: .9rem; display: flex; gap: 10px; align-items: center; animation: tin .2s ease-out; }
+.toast { background: var(--navy); color: var(--banner-ink); border-left: 4px solid var(--gold); border-radius: 8px; padding: 9px 12px; box-shadow: none; font-size: .9rem; display: flex; gap: 10px; align-items: center; animation: tin .2s ease-out; }
 :root[data-theme="dark"] .toast { background: #2A3347; }
 .toast b.total { font-family: Arial, Helvetica, sans-serif; font-size: 1.35rem; color: var(--gold); min-width: 34px; text-align: center; }
 .toast .det { font-size: .78rem; opacity: .75; }
