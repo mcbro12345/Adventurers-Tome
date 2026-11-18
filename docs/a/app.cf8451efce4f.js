@@ -112,6 +112,7 @@ function applyFixes(s) {
   // Built in (every sheet): encumbrance on for everyone who had it off; Istalyn's sling bullets become bullets for her pistol.
   if (!done.has('enc1')) { if (s.settings && s.settings.encumbrance === 'off') s.settings.encumbrance = 'standard'; done.add('enc1'); changed = true; }
   if (!done.has('bullets1')) { if (/^istalyn\b/i.test(String(s.name || ''))) (s.inventory || []).forEach(it => { if (it && /^sling bullets$/i.test(String(it.name || '').trim())) { it.name = 'Bullets'; it.weight = 0.2; } }); done.add('bullets1'); changed = true; }
+  (s.inventory || []).forEach(it => { if (it && it.infusion && it.infusion.rep && !it.infusion.repMods && !it.infusion.created && typeof infRepApply === 'function' && infRepApply(it)) changed = true; });
   (EMBED.fixes || []).forEach(f => {
     if (done.has(f.id) || (f.who && s.id !== f.who)) return;
     if (f.type === 'spellstore' && !(s.spells || []).some(x => x.stored)) { const it = (s.inventory || []).find(x => x.name === f.item), d = DND.spellIndex[String(f.spell).toLowerCase()];
@@ -2586,6 +2587,15 @@ function postSheetRoll(t) {
   };
   wire();
 })();
+
+// Windows that are only a pixel or two taller than their box (rounding) don't show a scroll bar that scrolls by a pixel
+(() => { if (window.__pgNub) return; window.__pgNub = 1;
+  const SEL = '#modal-body, .modal, .wz-body, .wz-box, .pgm-t, .pgm-card, .dk-modal, .dk-mcard, .dk .drwin, .dk-setx, .pw, .pw-body, .setx, .pa-body';
+  const one = el => { const cs = getComputedStyle(el); if (!el.classList.contains('sc-nub') && !/auto|scroll/.test(cs.overflowY)) return; el.classList.remove('sc-nub'); const d = el.scrollHeight - el.clientHeight; if (d > 0 && d <= 3) { el.scrollTop = 0; el.classList.add('sc-nub'); } };
+  const all = () => document.querySelectorAll(SEL).forEach(el => { try { one(el); } catch (e) {} });
+  let raf = 0; const soon = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(all); };
+  addEventListener('resize', soon); addEventListener('click', () => setTimeout(soon, 60), true); addEventListener('input', soon, true);
+  new MutationObserver(soon).observe(document.documentElement, { childList: true, subtree: true }); setInterval(all, 1000); })();
 
 
 // ---------- Spell helpers ----------
@@ -7448,9 +7458,21 @@ function openInfPick(name, rep, all) {
     ${full ? `<p class="inf-warn" style="margin:0 0 8px">You already have ${aMax} infused items — this ends the oldest: <b>${esc(full.name)}</b> (${esc(infLabel(full.infusion))}).</p>` : ''}
     ${d.choose ? fld('Resistance to', `<select class="f" id="infChoice">${d.choose.map(c => `<option>${c}</option>`).join('')}</select>`) : ''}
     <div class="lbl">Choose an item you carry</div>
-    <div class="crlist">${cands.map(([it, i]) => `<button class="crrow sel" data-act="infgo" data-i="${i}"><div><b>${esc(it.name)}</b> <span class="hint">${it.weapon ? 'Weapon' : it.armor ? (it.armor.type === 'shield' ? 'Shield' : 'Armor') : 'Item'}${it.equipped ? ' · equipped' : ''}</span></div></button>`).join('') || '<p class="hint">No matching nonmagical items — create one below, or show every item.</p>'}</div>
-    <div class="row" style="margin-top:8px"><input class="f" id="infNewName" placeholder="${esc(rep || (d.item || 'Item').replace(/^(A|An) /i, '').replace(/^pair of /i, ''))}"><button class="btn sm" data-act="infgo" data-i="-1">Create it</button>${!all && !rep && d.ok ? `<button class="btn sm ghost" data-act="infpickall">Show every item</button>` : ''}</div>
+    ${cands.length ? `<div class="castopts infopts">${cands.map(([it, i]) => `<button class="castopt" data-act="infgo" data-i="${i}"><b>${esc(it.name)}</b><span class="co-sub">${it.weapon ? 'Weapon' : it.armor ? (it.armor.type === 'shield' ? 'Shield' : 'Armor') : 'Item'}${it.equipped ? ' · equipped' : ''}${it.attuned ? ' · attuned' : ''}</span></button>`).join('')}</div>` : '<p class="hint">No matching nonmagical items — create one below, or show every item.</p>'}
+    <div class="lbl" style="margin-top:12px">Or make a new one</div>
+    <div class="row inf-new"><input class="f" id="infNewName" placeholder="${esc(rep || (d.item || 'Item').replace(/^(A|An) /i, '').replace(/^pair of /i, ''))}"><button class="btn sm" data-act="infgo" data-i="-1">Create it</button>${!all && !rep && d.ok ? `<button class="btn sm ghost" data-act="infpickall">Show every item</button>` : ''}</div>
     <div class="actions"><button class="btn" data-act="close">Cancel</button></div>`);
+}
+// Replicate Magic Item into an object you already have: it gets the magic item's bonuses (AC, saves, speed…) and
+// charges, as if it were that item; ending the infusion puts back what it had. (Older infusions get this on load.)
+function infRepApply(it) {
+  const inf = it.infusion; if (!inf || !inf.rep || inf.repMods) return false;
+  const m = DND.magic.find(x => x[0] === inf.rep); if (!m) return false;
+  const md = Object.assign({}, m[6] || {}); inf.prev = inf.prev || {}; inf.prev.mods = it.mods ? JSON.parse(JSON.stringify(it.mods)) : null;
+  it.mods = Object.assign({}, it.mods || {}, md); delete it.mods.base; delete it.mods.charges; delete it.mods.heal;
+  if (md.charges && !it.charges) { it.charges = { max: md.charges, used: 0 }; inf.repCharges = true; }
+  if (md.heal && !it.heal) { it.heal = md.heal; inf.repHeal = true; }
+  inf.repMods = true; return true;
 }
 function infGo(i) {
   const P = INFPICK; if (!P) return; const d = INF[P.name] || {};
@@ -7465,6 +7487,7 @@ function infGo(i) {
   it.infusion = { name: P.name, rep: P.rep || '', at: Date.now(), prev, created: i < 0, choice: d.choose ? (($('#infChoice') || {}).value || '') : '' };
   const needAtt = P.rep ? repAttune(P.rep) : !!d.attune; if (needAtt) { it.attune = true; it.attuned = !!prev.attuned && !!prev.attune; }
   if (d.charges) { it.charges = { max: d.charges[0], used: 0, reset: 'long' }; it.infusion.charges = true; }
+  if (P.rep && i >= 0) infRepApply(it);
   if (!it.magic) it.magic = { rarity: P.rep ? ((DND.magic.find(x => x[0] === P.rep) || [])[3] || 'uncommon') : 'uncommon', type: 'infusion', src: 'TCE', name: P.rep || '' };
   if (!it.summary) it.summary = P.rep ? ((DND.magic.find(x => x[0] === P.rep) || [])[5] || '') : ((DND.options.infusion.list.find(x => x[0] === P.name) || [])[1] || '');
   pendingLabel = 'Infuse ' + it.name; closeModal(true); save(); render();
@@ -7475,6 +7498,7 @@ function infEndItem(it) {
   if (inf.created && inf.name === 'Replicate Magic Item') { const k = S.inventory.indexOf(it); if (k >= 0) { S.inventory.splice(k, 1); S.attacks = S.attacks.filter(a => a.item !== it.id); } return; }
   const p = inf.prev;
   if (p) { it.attune = p.attune; it.attuned = p.attuned; if (inf.charges) { if (p.charges) it.charges = p.charges; else delete it.charges; } if (!p.magic && it.magic && it.magic.type === 'infusion') delete it.magic; if (p.summary !== undefined) it.summary = p.summary; }
+  if (inf.repMods) { if (p && p.mods) it.mods = p.mods; else delete it.mods; if (inf.repCharges) delete it.charges; if (inf.repHeal) delete it.heal; }
   delete it.infusion;
 }
 function infEnd(i) {

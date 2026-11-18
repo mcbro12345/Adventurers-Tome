@@ -13,7 +13,7 @@
     document.documentElement.setAttribute('data-theme', t);
   })();
 </script>
-<link rel="stylesheet" href="a/sheet.37d346bd44e3.css">
+<link rel="stylesheet" href="a/sheet.854f2a1ec883.css">
 <link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" type="image/png" sizes="195x195" href="speed-dial-195.png"><link rel="icon" type="image/png" sizes="512x512" href="icon-512.png"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="icon" type="image/png" sizes="32x32" href="icon-32.png"><meta name="apple-mobile-web-app-title" content="Adventurer’s Tome"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="description" content="You’re invited to join a party on Adventurer’s Tome."><meta property="og:type" content="website"><meta property="og:site_name" content="adventurers-tome.web.app"><meta property="og:title" content="You’re invited to join a party"><meta property="og:description" content="Pick a character, or make a new one, and join your DM’s game on Adventurer’s Tome."><meta property="og:url" content="https://adventurers-tome.web.app/join/"><meta property="og:image" content="https://adventurers-tome.web.app/og-invite.png?v=2"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="2400"><meta property="og:image:height" content="1260"><meta property="og:image:alt" content="A party invitation on Adventurer’s Tome"><meta property="og:image" content="https://adventurers-tome.web.app/og-invite.png?v=2"><link rel="image_src" href="/speed-dial.png?v=1"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="2400"><meta property="og:image:height" content="1260"><meta property="og:image:alt" content="A party invitation on Adventurer’s Tome"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Adventurer’s Tome"><meta name="twitter:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta name="twitter:image" content="https://adventurers-tome.web.app/og-tour.png?v=5"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.webmanifest"><script>var t="dark";try{if(localStorage.getItem("pg-theme")==="light")t="light"}catch(e){}document.documentElement.setAttribute("data-pgtheme",t)</script><style>/* Loading screen: dark navy with a slowly spinning d20 (light parchment only behind the sign-in card in light mode) */
 html.pg-loading, html.pg-loading body { background: #0f1420; }
@@ -3972,6 +3972,9 @@ select.sel-dmg { white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 body.hubbody:not(.adminbody) .hub-head > .hub-views::before, body.hubbody:not(.adminbody) .hub-head::after, body.adminbody .adm-side::after,
 .nt-sl .nt-sl-wrap::before, .nt-sl .nt-sl-wrap::after, #wizard .wz3 .wz3-sc::before, #wizard .wz3 .wz3-sc::after,
 body:not(.adminbody) .nt-sl .nt-sl-wrap::before { background: none !important; }
+
+/* a window only a pixel or two too tall for its box: no scroll bar (see sc-nub in the script) */
+.sc-nub { overflow-y: hidden !important; }
 </style>
 </head>
 <body>
@@ -4925,7 +4928,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyC60HYoV4dCrwbam9HVVM8jNkJJbKRx4cM", "authDomain": "adventurers-tome-test-e4666.firebaseapp.com", "projectId": "adventurers-tome-test-e4666", "storageBucket": "adventurers-tome-test-e4666.firebasestorage.app", "messagingSenderId": "929153845947", "appId": "1:929153845947:web:13e9e1e1b1355988bbf79e", "test": true, "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261118133808', ASSETS = {"data": "a/data.e8173a24cd9b.js", "app": "a/app.4070b8545c3a.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.3502d0a8f91e.html", "desk": "a/desk.fc65b3b82d9c.js", "deskcss": "a/deskcss.98d730f4110e.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyC60HYoV4dCrwbam9HVVM8jNkJJbKRx4cM", "authDomain": "adventurers-tome-test-e4666.firebaseapp.com", "projectId": "adventurers-tome-test-e4666", "storageBucket": "adventurers-tome-test-e4666.firebasestorage.app", "messagingSenderId": "929153845947", "appId": "1:929153845947:web:13e9e1e1b1355988bbf79e", "test": true, "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261118134416', ASSETS = {"data": "a/data.e8173a24cd9b.js", "app": "a/app.cf8451efce4f.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.ab285da52c1a.html", "desk": "a/desk.fc65b3b82d9c.js", "deskcss": "a/deskcss.e7e8d1589ec8.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   // The test site says so on every page (and in the tab's title), so it's never mistaken for the real one.
   if (CFG.test) { window.PG_TEST = true; const mark = () => { if (!document.body || document.getElementById('pg-testmark')) return; const t = document.createElement('div'); t.id = 'pg-testmark'; t.textContent = 'Test site'; t.title = 'This is the test copy of Adventurer’s Tome. Changes here don’t touch the real site.'; document.body.appendChild(t);
       if (!/^\[Test\] /.test(document.title)) document.title = '[Test] ' + document.title; };
@@ -9012,6 +9015,15 @@ function pgRevealPanels() { try { if (matchMedia('(prefers-reduced-motion: reduc
   addEventListener('message', e => { if (e.source === window && e.data && e.data.__dnd20 === 'hi' && e.data.dir === 'toSheet') lastVer = String(e.data.version || ''); });
   window.pgDevExtTest = (v) => show(v || '1.4.4');
 })();
+
+// Windows that are only a pixel or two taller than their box (rounding) don't show a scroll bar that scrolls by a pixel
+(() => { if (window.__pgNub) return; window.__pgNub = 1;
+  const SEL = '#modal-body, .modal, .wz-body, .wz-box, .pgm-t, .pgm-card, .dk-modal, .dk-mcard, .dk .drwin, .dk-setx, .pw, .pw-body, .setx, .pa-body';
+  const one = el => { const cs = getComputedStyle(el); if (!el.classList.contains('sc-nub') && !/auto|scroll/.test(cs.overflowY)) return; el.classList.remove('sc-nub'); const d = el.scrollHeight - el.clientHeight; if (d > 0 && d <= 3) { el.scrollTop = 0; el.classList.add('sc-nub'); } };
+  const all = () => document.querySelectorAll(SEL).forEach(el => { try { one(el); } catch (e) {} });
+  let raf = 0; const soon = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(all); };
+  addEventListener('resize', soon); addEventListener('click', () => setTimeout(soon, 60), true); addEventListener('input', soon, true);
+  new MutationObserver(soon).observe(document.documentElement, { childList: true, subtree: true }); setInterval(all, 1000); })();
 
 </script>
 </body>
