@@ -630,8 +630,8 @@ body.adminbody .adm, body.adminbody .adm-main { background: transparent; }
 }
 /* the divider above the scrolling list casts a soft shadow onto it (computer and phone) */
 body.hubbody:not(.adminbody) .hub-head > .hub-views { z-index: 2; }
-body.hubbody:not(.adminbody) .hub-head > .hub-views::before { content: ''; position: absolute; left: 0; right: 0; bottom: -12px; height: 12px; pointer-events: none; background: linear-gradient(to bottom, rgba(5,8,14,.45), rgba(5,8,14,0)); -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); }
-@media (prefers-color-scheme: light) { body.hubbody:not(.adminbody) .hub-head > .hub-views::before { background: linear-gradient(to bottom, rgba(60,45,20,.16), rgba(60,45,20,0)); } }
+body.hubbody:not(.adminbody) .hub-head > .hub-views::before { content: ''; position: absolute; left: 0; right: 0; bottom: -12px; height: 12px; pointer-events: none; background: none; -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); }
+@media (prefers-color-scheme: light) { body.hubbody:not(.adminbody) .hub-head > .hub-views::before { background: none; } }
 @media (max-width: 884px) { body.hubbody .hp-row .hub-admin.btn { min-height: 0 !important; height: 22px !important; padding: 0 8px !important; font-size: .68rem !important; line-height: 1 !important; border-radius: 6px; } }
 /* admin on a phone: logo centred */
 @media (max-width: 1000px) { body.adminbody .adm-brand { display: flex !important; justify-content: center; } body.adminbody .adm-brand .hub-logo { margin: 0 auto; } }
@@ -668,15 +668,15 @@ body.hubbody:not(.adminbody) .hub-head, body.adminbody .adm-side { -webkit-trans
 body.hubbody:not(.adminbody) .hub-head > .hub-views::after, body.hubbody:not(.adminbody) .hub-head > .hub-views::before { display: none !important; }
 body.hubbody:not(.adminbody) .hub-head > .hub-views { padding-bottom: 14px; }
 body.hubbody:not(.adminbody) .hub-head { border-bottom: 1px solid rgba(201,150,43,.28); }
-body.hubbody:not(.adminbody) .hub-head::after { content: ''; position: absolute; left: 0; right: 0; top: 100%; height: 12px; pointer-events: none; background: linear-gradient(to bottom, rgba(5,8,14,.45), rgba(5,8,14,0)); }
-@media (prefers-color-scheme: light) { body.hubbody:not(.adminbody) .hub-head::after { background: linear-gradient(to bottom, rgba(60,45,20,.16), rgba(60,45,20,0)); } }
+body.hubbody:not(.adminbody) .hub-head::after { content: ''; position: absolute; left: 0; right: 0; top: 100%; height: 12px; pointer-events: none; background: none; }
+@media (prefers-color-scheme: light) { body.hubbody:not(.adminbody) .hub-head::after { background: none; } }
 html:has(body.hubbody:not(.adminbody)) { scrollbar-gutter: auto !important; }
 /* admin on a phone: the same divider (edge to edge) and soft shadow under the pinned header */
 @media (max-width: 1000px) {
   body.adminbody .adm-side { box-shadow: none !important; border-bottom: 1px solid rgba(201,150,43,.28); border-right: 0; }
-  body.adminbody .adm-side::after { content: ''; position: absolute; left: 0; right: 0; top: 100%; height: 12px; pointer-events: none; background: linear-gradient(to bottom, rgba(5,8,14,.45), rgba(5,8,14,0)); }
+  body.adminbody .adm-side::after { content: ''; position: absolute; left: 0; right: 0; top: 100%; height: 12px; pointer-events: none; background: none; }
 }
-@media (max-width: 1000px) and (prefers-color-scheme: light) { body.adminbody .adm-side::after { background: linear-gradient(to bottom, rgba(60,45,20,.16), rgba(60,45,20,0)); } }
+@media (max-width: 1000px) and (prefers-color-scheme: light) { body.adminbody .adm-side::after { background: none; } }
 /* admin on a phone: a person's "Characters" dropdown opens inside their card, as on a computer */
 @media (max-width: 884px) {
   body.adminbody .adm-t tbody > tr:not(.adm-subrow):has(+ tr.adm-subrow:not([hidden])) { margin-bottom: 0; border-bottom-left-radius: 0; border-bottom-right-radius: 0; border-bottom-color: transparent; }
@@ -1284,7 +1284,7 @@ html.mobile .pg-pubtag .pt-sub { display: block; font-weight: 600; font-size: .9
 html.mobile.pg-public .pg-pubrow .pg-pubtag { max-width: none; white-space: normal; }
 /* the divider under Safari's bar on phones (shown once the page scrolls under it) */
 .pg-topedge { position: fixed; left: 0; right: 0; top: 0; height: 1px; z-index: 50; pointer-events: none; opacity: 0; transition: opacity .2s ease;
-  background: color-mix(in srgb, var(--gold, #c9962b) 45%, transparent); box-shadow: none; }
+  background: color-mix(in srgb, var(--gold, #c9962b) 45%, transparent); box-shadow: 0 1px 0 rgba(0,0,0,.35); }
 .pg-topedge.on { opacity: 1; }
 /* desktop view-only logo: sized to the room above the toolbar (--plh is set by the page) */
 .pg-publogo.pinned .hub-logo { gap: calc(var(--plh, 32px) * .26); height: var(--plh, 32px); }
@@ -3021,15 +3021,15 @@ html.mobile #wizard .wz3 .wz3-two { grid-template-columns: 1fr; } html.mobile #w
 /* scroll edges: a divider line and a shadow where there's more to see */
 #wizard .wz3 .wz3-sc { position: relative; }
 #wizard .wz3 .wz3-sc::before, #wizard .wz3 .wz3-sc::after { content: ''; position: absolute; left: 0; right: 0; height: 18px; z-index: 2; pointer-events: none; opacity: 0; }
-#wizard .wz3 .wz3-sc::before { top: 0; border-top: 1px solid var(--wc-edge); background: linear-gradient(to bottom, rgba(0,0,0,.45), transparent); }
-#wizard .wz3 .wz3-sc::after { bottom: 0; border-bottom: 1px solid var(--wc-edge); background: linear-gradient(to top, rgba(0,0,0,.45), transparent); }
+#wizard .wz3 .wz3-sc::before { top: 0; border-top: 1px solid var(--wc-edge); background: none; }
+#wizard .wz3 .wz3-sc::after { bottom: 0; border-bottom: 1px solid var(--wc-edge); background: none; }
 #wizard .wz3 .wz3-sc.top::before, #wizard .wz3 .wz3-sc.bot::after { opacity: 1; }
 #wizard .wz3 .wz3-list + * { }
 #wizard .wz3 .wz3-sc:has(> .wz3-list)::before { border-radius: 14px 14px 0 0; } #wizard .wz3 .wz3-sc:has(> .wz3-list)::after { border-radius: 0 0 14px 14px; }
 /* book headings in the card grids get a line running out to the right */
 :is(#wizard .wz3, #rcmodal) .wz3-g { display: flex; align-items: center; gap: 10px; }
 :is(#wizard .wz3, #rcmodal) .wz3-g::after { content: ''; flex: 1; height: 1px; background: var(--wc-edge); }
-html[data-theme="light"] #wizard .wz3 .wz3-sc::before { background: linear-gradient(to bottom, rgba(60,45,20,.18), transparent); } html[data-theme="light"] #wizard .wz3 .wz3-sc::after { background: linear-gradient(to top, rgba(60,45,20,.18), transparent); }
+html[data-theme="light"] #wizard .wz3 .wz3-sc::before { background: none; } html[data-theme="light"] #wizard .wz3 .wz3-sc::after { background: none; }
 /* class cards: a symbol beside the name */
 :is(#wizard .wz3, #rcmodal) .wz3-card.wic { display: grid; grid-template-columns: 42px minmax(0, 1fr); column-gap: 12px; row-gap: 6px; align-items: center; }
 :is(#wizard .wz3, #rcmodal) .wz3-cic { grid-row: span 2; display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px; background: rgba(224,170,58,.12); color: #e0aa3a; transition: background .15s, transform .2s; }
@@ -3310,8 +3310,8 @@ body.hdragging, body.hdragging * { cursor: grabbing !important; user-select: non
 .dd .au-pop { font-weight: 500; cursor: default; background: #ffffff; z-index: 80; }
 @media (prefers-color-scheme: dark) { .dd .au-pop { background: #19202f; border-color: rgba(201,150,43,.28); box-shadow: none; } }
 .adm-filters.dd-up { position: relative; z-index: 20; }
-.dd .au-opt.dd-solo { margin-bottom: 4px; box-shadow: none; }
-.dd .au-opt.dd-solo[aria-selected="true"] { box-shadow: inset 2px 0 0 #c9962b; }
+.dd .au-opt.dd-solo { margin-bottom: 4px; box-shadow: 0 1px 0 var(--adm-line); }
+.dd .au-opt.dd-solo[aria-selected="true"] { box-shadow: inset 2px 0 0 #c9962b, 0 1px 0 var(--adm-line); }
 .dd .au-pop.dd-right { left: auto; right: 0; }
 .dd .au-opt[aria-selected="true"] { background: rgba(201,150,43,.09); box-shadow: inset 2px 0 0 #c9962b; }
 .dd .au-opt[aria-selected="true"]:hover { background: rgba(201,150,43,.15); }

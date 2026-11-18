@@ -1305,7 +1305,7 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
   .dk { padding-bottom: calc(68px + var(--tablift, 0px) + env(safe-area-inset-bottom)); }
   .dk .dk-tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 44; order: 0; margin: 0; border: 0; border-radius: 0; display: flex; gap: 2px;
     padding: 4px max(4px, env(safe-area-inset-left)) calc(4px + var(--tablift, 0px) + env(safe-area-inset-bottom)) max(4px, env(safe-area-inset-right));
-    background: var(--card); box-shadow: none; }
+    background: var(--card); box-shadow: 0 -1px 0 var(--line); }
   .dk .dk-tabs button { flex: 1 1 0; min-width: 0; flex-direction: column; justify-content: center; gap: 4px; min-height: 54px; padding: 7px 2px 6px !important; border-radius: 12px; color: var(--soft); }
   .dk .dk-tabs button svg { width: 22px; height: 22px; }
   .dk .dk-tabs button span { font-size: .64rem !important; font-weight: 750; letter-spacing: .01em; line-height: 1.15; text-box: normal; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; padding-bottom: 1px; }
@@ -1464,9 +1464,7 @@ html[data-pgtheme="light"] .dk-back2 { color: #8a6420; } html[data-pgtheme="ligh
 .dk-ctxh b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }
 .dk-ctx .dk-mlist button.red { color: #e0715c; }
 @keyframes dkCtxIn { from { opacity: 0; transform: scale(.97); } }
-/* lists inside the floating panels: no extra divider lines at the scroll edges (the panel's own edges do that job); a soft
-   shadow still shows there's more to scroll */
-.dk-rail .dk-shade::before, .dk-rail .dk-shade::after, .dk-blist .dk-shade::before, .dk-blist .dk-shade::after { border: 0 !important; }
+/* lists inside the floating panels (Bestiary, Notes, Sessions) show the same divider line at the scroll edges as everywhere else */
 /* the notes page starts right beside the list (the gap between them is enough) */
 @media (min-width: 901px) { .dk[data-tab=notes] .dk-notesv > .dk-main { padding-left: 8px !important; } }
 /* Sessions and Bestiary: the main area starts right beside the list too; the scrolling areas fade out softly at the
@@ -1908,3 +1906,6 @@ body.dk-ldragging, body.dk-ldragging * { cursor: grabbing !important; user-selec
 /* damage-type boxes: wide enough for "Bludgeoning (magical)", and always one line */
 select.sel-dmg { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 12.5em; }
 @media (max-width: 380px) { select.sel-dmg { font-size: .78rem !important; padding-left: 6px !important; } }
+
+/* Bestiary opens with nothing picked: a quiet line where the stat block goes */
+.dk-bpick { margin: 40px 0 0; text-align: center; }

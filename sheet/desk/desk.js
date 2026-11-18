@@ -70,7 +70,7 @@ const XP_OF = c => N(c.xp) || XP_CR[N(c.cr)] || 0;
 // ---------- state ----------
 const DEF = () => ({ v: 2, savedAt: 0, settings: { dice: 'desk', hpMode: 'avg', autoDmg: true, rollFade: '0', r20campaign: '', campaign: '' }, creatures: {}, sessions: [] });
 let S = DEF();
-let UI = { tab: 'sessions', session: '', sel: '', best: 'srd:goblin', q: '', crMin: '', crMax: '', type: '', size: '', src: '', sort: 'name', open: {}, tree: false, log: false, sv: 'creatures', gen: 'enc', genAI: false, genP: { size: 4, level: 3, levels: '', diff: 'medium', env: 'forest', type: '', mine: false } };
+let UI = { tab: 'sessions', session: '', sel: '', best: '', q: '', crMin: '', crMax: '', type: '', size: '', src: '', sort: 'name', open: {}, tree: false, log: false, sv: 'creatures', gen: 'enc', genAI: false, genP: { size: 4, level: 3, levels: '', diff: 'medium', env: 'forest', type: '', mine: false } };
 let LOG = [];
 // Each party has its own desk (sessions, notes, settings); creatures you make or import are shared by all your desks.
 const DESK_PID = () => (CTX && CTX.party && CTX.party.id) || '';
@@ -1546,7 +1546,7 @@ function bestRows(L, c) {
 }
 function bestiaryHTML() {
   const types = Array.from(new Set(allCreatures().map(c => (c.type || '').toLowerCase().replace(/\s*\(.*$/, '').replace(/^swarm of .*/, 'swarm')))).filter(Boolean).sort();
-  const L = filteredCreatures(), c = getC(UI.best) || L[0], mine = Object.keys(S.creatures).length;
+  const L = filteredCreatures(), c = getC(UI.best), mine = Object.keys(S.creatures).length;
   const grps = []; S.sessions.forEach(s => s.groups.forEach(g => grps.push({ s, g })));
   const cur = curSession(), defG = cur ? cur.id + '|' + cur.groups[0].id : '';
   return `<div class="dk-best${UI.bopen && c ? ' bopen' : ''}">
@@ -1566,7 +1566,7 @@ function bestiaryHTML() {
     </section>
     <section class="dk-bview" data-keep="bview-${esc(c ? c.id : '')}">${c ? `<button class="dk-btn ghost dk-bback" data-act="bback">${ICON.back || '‹'} All creatures</button><div class="dk-card dk-badd"><div class="dk-row"><input class="dk-f dk-num" id="dk-bCount" type="number" min="1" max="30" value="1" aria-label="How many"><select class="dk-f" id="dk-bEnc" aria-label="Add to"><option value="__new">A new session</option>${grps.map(({ s, g }) => `<option value="${esc(s.id)}|${esc(g.id)}"${s.id + '|' + g.id === defG ? ' selected' : ''}>${esc(s.title)}${s.groups.length > 1 ? ' › ' + esc(g.name) : ''}</option>`).join('')}</select><button class="dk-btn gold" data-act="badd" data-cid="${esc(c.id)}">${ICON.plus} Add</button></div>
         <div class="dk-row"><button class="dk-btn sm" data-act="copyc" data-cid="${esc(c.id)}">Copy & edit</button>${c.src !== 'SRD' ? `<button class="dk-btn sm" data-act="editc" data-cid="${esc(c.id)}">Edit</button><button class="dk-btn sm red" data-act="delc" data-cid="${esc(c.id)}">Delete</button>` : ''}</div></div>
-      <div class="dk-card dk-sbcard">${statBlock(c)}</div>` : ''}<p class="dk-credit">${esc(TOK_CREDIT)}.</p></section></div>`;
+      <div class="dk-card dk-sbcard">${statBlock(c)}</div>` : '<p class="dk-hint dk-bpick">Pick a creature from the list to see its stat block.</p>'}<p class="dk-credit">${esc(TOK_CREDIT)}.</p></section></div>`;
 }
 function paintLog() { logRefresh();
   const box = $('.dk-loglist'); if (!box) return;
@@ -1870,7 +1870,7 @@ async function onClick(e) {
     case 'tkreset': TK.z = 1; TK.x = TK.y = 0; tkSync(); return;
     case 'tkclear': TK.im = null; paint(); return;
     case 'tkdl': tkDownload(); return;
-    case 'tab': if (b.dataset.close) closeModal(true); UI.tab = b.dataset.tab; UI.tree = false; if (CTX.partyHost && CTX.party && CTX.party.id) UI.ptab[CTX.party.id] = UI.tab; saveUI(); paint(); try { pills(); } catch (e2) {} scrollTo(0, 0); return;
+    case 'tab': if (b.dataset.close) closeModal(true); if (b.dataset.tab === 'bestiary' && UI.tab !== 'bestiary') { UI.best = ''; UI.bopen = false; } UI.tab = b.dataset.tab; UI.tree = false; if (CTX.partyHost && CTX.party && CTX.party.id) UI.ptab[CTX.party.id] = UI.tab; saveUI(); paint(); try { pills(); } catch (e2) {} scrollTo(0, 0); return;
     case 'settings': return openSettings(b.dataset.k);
     case 'quickroll': case 'diceroller': return diceRoller();
     case 'turnorder': if (typeof CTX.turnOrder === 'function') try { CTX.turnOrder(); } catch (e2) {} return;
@@ -1937,7 +1937,7 @@ async function onClick(e) {
     }
     case 'copyc': { const c = clone(getC(b.dataset.cid)); c.id = ''; c.name = c.name + ' (variant)'; c.src = 'Custom'; return openEditor(c, true); }
     case 'editc': return openEditor(getC(b.dataset.cid), false);
-    case 'delc': { const c = getC(b.dataset.cid), used = S.sessions.reduce((t, s) => t + sessionInsts(s).filter(z => z.cid === c.id).length, 0); return confirmBox(`Delete <b>${esc(c.name)}</b> from your creatures?${used ? ` ${plural(used, 'tracked copy')} in your sessions will lose their stat block.` : ''}`, 'Delete', () => { delete S.creatures[c.id]; UI.best = 'srd:goblin'; save(); paint(); }, true); }
+    case 'delc': { const c = getC(b.dataset.cid), used = S.sessions.reduce((t, s) => t + sessionInsts(s).filter(z => z.cid === c.id).length, 0); return confirmBox(`Delete <b>${esc(c.name)}</b> from your creatures?${used ? ` ${plural(used, 'tracked copy')} in your sessions will lose their stat block.` : ''}`, 'Delete', () => { delete S.creatures[c.id]; UI.best = ''; save(); paint(); }, true); }
     case 'edsave': return saveEditor();
     case 'edimg': { const f = $('.dk-imgf'); f.onchange = () => { const file = f.files[0]; f.value = ''; if (!file) return; thumbImage(file).then(url => { readEditor(); ED.c.img = url; const keep = ED; openEditor(ED.c, keep.isNew, keep.from); ED.isNew = keep.isNew; }, e => toast({ title: 'Couldn’t use that picture', det: esc(e.message), cls: 'bad' })); }; return f.click(); }
     case 'edimgx': readEditor(); ED.c.img = ''; { const keep = ED; openEditor(ED.c, keep.isNew, keep.from); } return;
@@ -2064,7 +2064,7 @@ function mount(root, ctx) {
     <div class="dk-modal" role="presentation"><div class="dk-mcard" role="dialog" aria-modal="true"></div></div>
     <div class="dk-rolls" aria-live="polite"></div><div class="dk-toasts" aria-live="polite"></div><input type="file" class="dk-impf" accept=".json,application/json" hidden><input type="file" class="dk-imgf" accept="image/*" hidden><input type="file" class="dk-tokf" accept="image/*" hidden><input type="file" class="dk-nimgf" accept="image/*" hidden><input type="file" class="dk-mapf" accept="image/*" hidden><input type="file" class="dk-nimpf" accept=".docx,.lk,.md,.markdown,.txt,.html,.htm,.zip,.textpack,.json,image/*" multiple hidden><input type="file" class="dk-ndirf" webkitdirectory multiple hidden><div class="dk-auto" hidden></div><input type="file" class="dk-notef" accept=".pdf,.docx,.txt,.md,.markdown,text/plain,application/pdf" multiple hidden>`;
   const loc = lsGet(''); S = normalize(loc && loc.v ? loc : null); dHistLoad();
-  const u = lsGet('-ui'); if (u) UI = Object.assign(UI, u, { tree: false, log: false });
+  const u = lsGet('-ui'); if (u) UI = Object.assign(UI, u, { tree: false, log: false, best: '', bopen: false });
   UI.ptab = UI.ptab || {};
   if (CTX.partyHost && CTX.party && CTX.party.id) { UI.tab = UI.ptab[CTX.party.id] || CTX.initialTab || 'party'; }
   if (!['sessions', 'notes', 'bestiary', 'gen', 'loot', 'tokens'].concat(CTX.partyHost ? ['party'] : []).includes(UI.tab)) UI.tab = CTX.partyHost ? 'party' : 'sessions';
