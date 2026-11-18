@@ -3771,3 +3771,8 @@ body:not(.adminbody) .nt-sl .nt-sl-wrap::before { background: none !important; }
 .pg-shade.sc-can::before, .pg-shade.sc-can::after, .dk-shade.sc-can::before, .dk-shade.sc-can::after, .nt-sl .nt-sl-wrap.sc-can::before, .nt-sl .nt-sl-wrap.sc-can::after,
 #wizard .wz3 .wz3-sc.can::before, #wizard .wz3 .wz3-sc.can::after, #modal-body .wz3-sc.can::before, #modal-body .wz3-sc.can::after { opacity: 1; transition: none; }
 .pg-shade::before, .pg-shade::after, .dk-shade::before, .dk-shade::after { margin-left: calc(-1 * var(--sh-pl, 0px)); margin-right: calc(-1 * var(--sh-pr, 0px)); }
+/* character creation's top panel: slimmer than the lobby's (smaller emblem, title and account picture, less padding) */
+html:not(.mobile) #wizard .wzh2 .hub-top { padding-top: 8px; padding-bottom: 8px; }
+html:not(.mobile) #wizard .wzh2 .hl-d20 { width: 56px; height: 56px; } html:not(.mobile) #wizard .wzh2 .hub-logo { gap: 12px; }
+html:not(.mobile) #wizard .wzh2 .hl-t { font-size: 36px; } html:not(.mobile) #wizard .wzh2 .hl-a { font-size: 11px; letter-spacing: .4em; }
+html:not(.mobile) #wizard .wzh2 .hub-acct .pg-ava { width: 40px !important; height: 40px !important; }
