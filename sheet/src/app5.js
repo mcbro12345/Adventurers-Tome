@@ -850,12 +850,13 @@ function renderWizard0() {
       b.animate(row ? [{ opacity: 0, maxWidth: '0px', transform: 'scale(.6)' }, { opacity: 1, maxWidth: w + 'px', transform: 'none' }] : [{ opacity: 0, maxHeight: '0px', minHeight: '0px', transform: 'translateX(-10px)', background: 'rgba(224,170,58,.35)' }, { opacity: 1, maxHeight: h + 'px', minHeight: h + 'px', transform: 'none', offset: .6 }, { background: 'transparent' }], { duration: 650, easing: 'cubic-bezier(.2,.8,.3,1)' }); } }); } { const l = $('#wizard .wz3-list.has'); const on = l && l.querySelector('.crrow.on'); if (on) l.scrollTop = Math.max(0, on.offsetTop - l.offsetTop - 60); }
   { const who = $('#wizard .wz3-who span'), key = who ? who.textContent : ''; if (who && W._who !== undefined && W._who !== key && who.animate) who.animate([{ opacity: 0, transform: 'translateY(4px)' }, { opacity: 1, transform: 'none' }], { duration: 260, easing: 'ease-out' }); W._who = key; }
   $$('#wizard [data-wzq]').forEach(i => filterWzSpells(i));
-  // Moving between steps: the new step slides in from the side you're heading (fades up on opening), and the step
+  // Moving between steps: the new step slides in from the way you're heading (up from below going forward in the
+  // step list down the side, sideways along the phone's step bar; fades up on opening), and the step
   // marker pops / the progress bar fills. Re-drawing the same step (picking options) doesn't animate.
   const prevSt = W._shown; W._shown = st;
   if (prevSt !== st && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) {
     const dir = prevSt == null ? 0 : st > prevSt ? 1 : -1, bd = $('#wizard .wz-body'), now = $('#wizard .wz-now'), on = $('#wizard .wz-step.on'), mob = document.documentElement.classList.contains('mobile');
-    const inK = dir ? [{ opacity: 0, transform: `translateX(${dir * 22}px)` }, { opacity: 1, transform: 'none' }] : [{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }];
+    const inK = dir ? [{ opacity: 0, transform: mob ? `translateX(${dir * 22}px)` : `translateY(${dir * 22}px)` }, { opacity: 1, transform: 'none' }] : [{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }];
     if (bd && bd.animate) bd.animate(inK, { duration: 280, easing: 'cubic-bezier(.2,.8,.3,1)' });
     if (now && now.animate && mob) now.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 220, easing: 'ease-out' });
     if (on && on.animate) on.animate(mob ? (dir >= 0 ? [{ transform: 'scaleX(.15)' }, { transform: 'none' }] : [{ opacity: .4 }, { opacity: 1 }]) : [{ transform: 'scale(.88)' }, { transform: 'none' }], { duration: mob ? 320 : 240, easing: 'cubic-bezier(.3,1.3,.5,1)' });
