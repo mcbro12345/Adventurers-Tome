@@ -4449,3 +4449,6 @@ html.readying .econ.col-action .chip[data-act="markopt"][data-name="Ready" i] { 
 /* damage-type boxes: wide enough for "Bludgeoning (magical)", and always one line */
 select.sel-dmg { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 12.5em; }
 @media (max-width: 380px) { select.sel-dmg { font-size: .78rem !important; padding-left: 6px !important; } }
+
+/* No drop shadows: the soft shade drawn at the scroll edges of window lists is gone (the divider lines stay) */
+#modal-body .wz3-sc::before, #modal-body .wz3-sc::after, :root:not([data-theme="dark"]) #modal-body .wz3-sc::before, :root:not([data-theme="dark"]) #modal-body .wz3-sc::after { background: none !important; }

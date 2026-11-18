@@ -36,7 +36,7 @@
   --red: #A63A2C;
   --red-soft: #F5DCD6;
   --green: #3D7653;
-  --shadow: 0 1px 2px rgba(29,37,54,.08), 0 6px 18px rgba(29,37,54,.07);
+  --shadow: none;
   --temp: #5CC8FF; --temp-ink: #0B79B5; --temp-soft: #E3F5FF;
   color-scheme: light;
 }
@@ -60,7 +60,7 @@
   --red: #E58371;
   --red-soft: #3D2522;
   --green: #7FC79C;
-  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 22px rgba(0,0,0,.25);
+  --shadow: none;
   --temp: #6FD3FF; --temp-ink: #8FDDFF; --temp-soft: #12304A;
   color-scheme: dark;
 }
@@ -90,7 +90,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 .banner .wrap { padding-top: 18px; padding-bottom: 18px; display: grid; grid-template-columns: auto 1fr; gap: 20px; align-items: start; }
 .portrait-wrap { position: relative; width: 148px; height: 148px; border-radius: 14px; overflow: hidden;
-  border: 3px solid var(--gold); box-shadow: 0 0 0 3px rgba(244,238,223,.25), 0 8px 24px rgba(0,0,0,.35); background: #6d7c80; }
+  border: 3px solid var(--gold); box-shadow: 0 0 0 3px rgba(244,238,223,.25); background: #6d7c80; }
 .portrait-wrap img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 22%; display: block; }
 .portrait-edit { position: absolute; inset: auto 0 0 0; text-align: center; font-size: 12px; font-weight: 600; padding: 4px;
   background: rgba(15,21,35,.72); color: #F4EEDF; opacity: 0; transition: opacity .15s; cursor: pointer; }
@@ -178,7 +178,7 @@ input[type=checkbox] { accent-color: var(--gold); width: 16px; height: 16px; cur
 .ring-svg .rt { stroke: var(--line2); }
 .ring-svg .rf { stroke: var(--gold); stroke-linecap: round; transition: stroke-dasharray .35s; }
 .ring-svg .rf.low { stroke: #C9573F; }
-.ring-svg .rtmp { stroke: var(--temp); stroke-linecap: round; filter: drop-shadow(0 0 3px var(--temp)); }
+.ring-svg .rtmp { stroke: var(--temp); stroke-linecap: round; filter: none; }
 .hp-side .temp .lbl { color: var(--temp-ink); }
 .hp-side .temp .f { color: var(--temp-ink); border-color: var(--temp) !important; background: var(--temp-soft) !important; }
 .hp-center { position: absolute; inset: 22px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
@@ -399,7 +399,7 @@ table.mini tr:last-child td { border-bottom: 0; }
 /* ---------- Modal / toast ---------- */
 .modal-bg { position: fixed; inset: 0; background: rgba(10,14,24,.55); display: none; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
 .modal-bg.open { display: flex; }
-.modal { background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-top: 4px solid var(--gold); border-radius: 12px; max-width: 520px; width: 100%; padding: 18px 20px; box-shadow: 0 20px 60px rgba(0,0,0,.35); max-height: calc(100vh - 32px); overflow: auto; }
+.modal { background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-top: 4px solid var(--gold); border-radius: 12px; max-width: 520px; width: 100%; padding: 18px 20px; box-shadow: none; max-height: calc(100vh - 32px); overflow: auto; }
 .modal h3 { margin: 0 0 8px; font-size: 1.2rem; }
 .modal ul { padding-left: 18px; margin: 8px 0; }
 .modal li { margin: 3px 0; }
@@ -407,7 +407,7 @@ table.mini tr:last-child td { border-bottom: 0; }
 .modal .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .modal .f { border: 1px solid var(--line); background: var(--field); }
 .toasts { position: fixed; right: 16px; bottom: 16px; display: grid; gap: 8px; z-index: 60; max-width: min(360px, calc(100vw - 32px)); }
-.toast { background: var(--navy); color: var(--banner-ink); border-left: 4px solid var(--gold); border-radius: 8px; padding: 9px 12px; box-shadow: 0 8px 24px rgba(0,0,0,.3); font-size: .9rem; display: flex; gap: 10px; align-items: center; animation: tin .2s ease-out; }
+.toast { background: var(--navy); color: var(--banner-ink); border-left: 4px solid var(--gold); border-radius: 8px; padding: 9px 12px; box-shadow: none; font-size: .9rem; display: flex; gap: 10px; align-items: center; animation: tin .2s ease-out; }
 :root[data-theme="dark"] .toast { background: #2A3347; }
 .toast b.total { font-family: Arial, Helvetica, sans-serif; font-size: 1.35rem; color: var(--gold); min-width: 34px; text-align: center; }
 .toast .det { font-size: .78rem; opacity: .75; }
@@ -1124,13 +1124,13 @@ body.editing .toolbar .zhid { display: inline-flex !important; }
 .tabmenu .pmenu { width: 24px; height: 22px; font-size: .8rem; }
 .dragging { opacity: .35; }
 body.dragging-any, body.dragging-any * { cursor: grabbing !important; user-select: none; }
-.dghost { position: fixed; left: 0; top: 0; z-index: 90; pointer-events: none; background: var(--navy); color: var(--banner-ink); border-radius: 999px; padding: 5px 12px; font-size: .82rem; font-weight: 700; box-shadow: 0 8px 24px rgba(0,0,0,.3); }
-.drop-before { box-shadow: -4px 0 0 0 var(--gold) !important; }
-.drop-after { box-shadow: 4px 0 0 0 var(--gold) !important; }
-[data-pid].drop-before { box-shadow: 0 -4px 0 0 var(--gold) !important; }
-[data-pid].drop-after { box-shadow: 0 4px 0 0 var(--gold) !important; }
+.dghost { position: fixed; left: 0; top: 0; z-index: 90; pointer-events: none; background: var(--navy); color: var(--banner-ink); border-radius: 999px; padding: 5px 12px; font-size: .82rem; font-weight: 700; box-shadow: none; }
+.drop-before { box-shadow: none !important; }
+.drop-after { box-shadow: none !important; }
+[data-pid].drop-before { box-shadow: none !important; }
+[data-pid].drop-after { box-shadow: none !important; }
 .page.dropon { outline: 3px dashed var(--gold); outline-offset: 4px; }
-#editbar { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 45; width: min(1100px, calc(100vw - 24px)); background: var(--panel); border: 2px solid var(--gold); border-radius: 14px; box-shadow: 0 12px 40px rgba(0,0,0,.25); padding: 10px 14px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+#editbar { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 45; width: min(1100px, calc(100vw - 24px)); background: var(--panel); border: 2px solid var(--gold); border-radius: 14px; box-shadow: none; padding: 10px 14px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .eb-text { flex: 1 1 380px; display: flex; flex-direction: column; font-size: .82rem; color: var(--soft); }
 .eb-text b:first-child { color: var(--ink); font-size: .95rem; }
 .eb-ctl { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
@@ -1141,7 +1141,7 @@ html.mobile .eb-text span { display: none; }
 
 /* Dice rolls: big card in the middle of the screen */
 #rolls { position: fixed; left: 50%; top: 28%; transform: translateX(-50%); z-index: 70; display: flex; flex-direction: column; gap: 10px; width: min(460px, calc(100vw - 24px)); pointer-events: none; }
-.toast.rollcard { pointer-events: auto; display: flex; align-items: center; gap: 16px; padding: 16px 20px; border-radius: 16px; background: var(--panel); color: var(--ink); border: 2px solid var(--gold); box-shadow: 0 18px 50px rgba(0,0,0,.35); animation: rollpop .28s cubic-bezier(.2,1.4,.4,1); flex-wrap: wrap; }
+.toast.rollcard { pointer-events: auto; display: flex; align-items: center; gap: 16px; padding: 16px 20px; border-radius: 16px; background: var(--panel); color: var(--ink); border: 2px solid var(--gold); box-shadow: none; animation: rollpop .28s cubic-bezier(.2,1.4,.4,1); flex-wrap: wrap; }
 .toast.rollcard b.total { font-size: 3.2rem; line-height: 1; min-width: 70px; text-align: center; color: var(--gold-ink); }
 .toast.rollcard > div { flex: 1; min-width: 0; font-size: 1rem; }
 .toast.rollcard .det { color: var(--soft); font-size: .82rem; }
@@ -1481,7 +1481,7 @@ html.mobile .rc-dmg b { font-size: 2.1rem; }
 .notetip { flex: none; border: 0; background: transparent; color: var(--soft); width: 22px; height: 22px; padding: 2px; border-radius: 6px; cursor: help; display: grid; place-items: center; }
 .notetip svg { width: 15px; height: 15px; }
  .notetip:focus-visible { color: var(--gold-ink); background: var(--gold-soft); }@media (hover:hover){:where(html:not(.mobile)) .notetip:hover{ color: var(--gold-ink); background: var(--gold-soft); }}
-#tipbox { position: fixed; z-index: 96; max-width: min(380px, calc(100vw - 16px)); background: var(--panel); color: var(--ink); border: 1px solid var(--gold); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.35); padding: 12px 14px; font-size: .92rem; line-height: 1.45; white-space: pre-wrap; overflow-wrap: break-word; display: none; pointer-events: auto; }
+#tipbox { position: fixed; z-index: 96; max-width: min(380px, calc(100vw - 16px)); background: var(--panel); color: var(--ink); border: 1px solid var(--gold); border-radius: 12px; box-shadow: none; padding: 12px 14px; font-size: .92rem; line-height: 1.45; white-space: pre-wrap; overflow-wrap: break-word; display: none; pointer-events: auto; }
 #tipbox.on { display: block; }
 #tipbox b { display: block; margin-bottom: 4px; color: var(--gold-ink); white-space: normal; }
 html.mobile .rl-row { grid-template-columns: 1fr; gap: 2px; }
@@ -1505,7 +1505,7 @@ html.mobile .namebox { padding-right: 74px; }
 html.mobile body { padding-bottom: calc(64px + var(--tablift, 0px)); }
 /* Bottom tab bar: always reachable with a thumb, icon + label, no scrolling. */
 html.mobile .tabs { position: fixed !important; left: 0; right: 0; bottom: 0; top: auto; z-index: 44; margin: 0 !important; padding: 4px 4px calc(4px + var(--tablift, 0px)) !important;
-  background: var(--panel); box-shadow: 0 -1px 0 var(--line), 0 -6px 18px rgba(0,0,0,.12); display: flex; flex-wrap: nowrap !important; justify-content: space-around; overflow: visible; }
+  background: var(--panel); box-shadow: none; display: flex; flex-wrap: nowrap !important; justify-content: space-around; overflow: visible; }
 html.mobile .tabs > :first-child, html.mobile .tabs > :last-child { margin: 0; }
 html.mobile .tabwrap { flex: 1 1 0; min-width: 0; }
 html.mobile .tab { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 0 4px !important; font-size: .6rem !important; letter-spacing: 0; border-radius: 10px; color: var(--soft); box-shadow: none !important; }
@@ -1758,7 +1758,7 @@ html:not(.mobile) .toolbar:not(.tb-compact) [data-zi="history"] .ti { display: n
 .r20box .row { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
 #rollask { position: fixed; inset: 0; z-index: 90; display: none; align-items: center; justify-content: center; background: rgba(10,14,24,.45); padding: 16px; }
 #rollask.on { display: flex; }
-.ra-card { background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-top: 4px solid var(--gold); border-radius: 12px; padding: 16px 18px; width: min(380px, 100%); box-shadow: 0 20px 60px rgba(0,0,0,.35); }
+.ra-card { background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-top: 4px solid var(--gold); border-radius: 12px; padding: 16px 18px; width: min(380px, 100%); box-shadow: none; }
 .ra-t { font-weight: 800; font-size: 1.05rem; }
 .ra-expr { font-size: 1.1rem; font-weight: 700; margin: 6px 0 10px; color: var(--gold-ink); }
 .ra-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
@@ -1846,7 +1846,7 @@ html.mobile .advtile .advopt { height: 40px; font-size: .9rem; }
 .rl-tabs { display: inline-flex; gap: 4px; background: var(--line); padding: 3px; border-radius: 10px; margin-left: 8px; }
 .rl-tab { border: 0; background: transparent; color: var(--soft); font: inherit; font-weight: 700; font-size: .85rem; padding: 5px 12px; border-radius: 8px; cursor: pointer; }
 .rl-tab span { opacity: .65; font-weight: 600; margin-left: 2px; }
-.rl-tab.on { background: var(--panel); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+.rl-tab.on { background: var(--panel); color: var(--ink); box-shadow: none; }
 
 .xsublv { display: inline-flex; align-items: center; gap: 2px; font-size: .8rem; color: var(--soft); margin: 0 4px; } .xsublv .linkbtn { padding: 0 4px; font-weight: 700; }
 
@@ -2078,7 +2078,7 @@ html.mobile .sc-fxpanel { grid-column: 1 / -1; }
 .inf-card.is-on { border-left-color: var(--gold); }
 .inf-ch { display: flex; align-items: flex-start; gap: 8px; }
 .inf-ch b { font-size: 1rem; }
-.inf-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--gold); margin-top: 6px; box-shadow: 0 0 8px var(--gold); flex: none; }
+.inf-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--gold); margin-top: 6px; box-shadow: none; flex: none; }
 .inf-card.off .inf-dot { background: var(--soft); box-shadow: none; }
 .inf-eff, .inf-tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .ichip { font-size: .78rem; font-weight: 700; background: color-mix(in srgb, var(--gold) 16%, var(--panel)); border: 1px solid color-mix(in srgb, var(--gold) 40%, transparent); border-radius: 999px; padding: 2px 10px; }
@@ -2240,7 +2240,7 @@ html.mobile .econ table.mini .atkbtn { padding: 6px 10px; }
 html.mobile .notetip { display: inline-grid !important; }
 html.mobile .irow .notetip { display: none !important; }
 /* On phones the ⓘ text opens as a sheet above the tab bar instead of a hover bubble */
-html.mobile #tipbox { left: 8px !important; right: 8px !important; top: auto !important; bottom: calc(76px + var(--tablift, 0px)) !important; max-width: none !important; max-height: 58vh !important; border-radius: 16px; box-shadow: 0 -8px 40px rgba(0,0,0,.45); padding: 14px 16px 16px; }
+html.mobile #tipbox { left: 8px !important; right: 8px !important; top: auto !important; bottom: calc(76px + var(--tablift, 0px)) !important; max-width: none !important; max-height: 58vh !important; border-radius: 16px; box-shadow: none; padding: 14px 16px 16px; }
 html.mobile #tipbox::before { content: ''; display: block; width: 40px; height: 4px; border-radius: 4px; background: var(--line); margin: -4px auto 10px; }
 html.mobile .ce-row { grid-template-columns: 1fr 1fr 1fr 32px !important; grid-template-areas: "n n n x" "k h d d" "s c . ." "t t t t"; }
 html.mobile .ce-row [data-ce="0"] { grid-area: n; } html.mobile .ce-row .icon-btn { grid-area: x; }
@@ -2756,7 +2756,7 @@ html .sc-wrap2.fxonly .sc-fxpanel { grid-column: 1 / -1 !important; }
 .idrag { flex: none; cursor: grab; color: var(--soft); opacity: .55; font-size: 1rem; line-height: 1; padding: 2px 3px 2px 0; touch-action: none; user-select: none; }
 @media (hover:hover){:where(html:not(.mobile)) .irow:hover .idrag{ opacity: 1; }}
 body.idragging, body.idragging * { cursor: grabbing !important; user-select: none !important; }
-.idrag-ghost { position: fixed; z-index: 120; pointer-events: none; opacity: .92; background: var(--panel); border: 1px solid var(--gold); border-radius: 10px; box-shadow: 0 12px 28px rgba(0,0,0,.28); }
+.idrag-ghost { position: fixed; z-index: 120; pointer-events: none; opacity: .92; background: var(--panel); border: 1px solid var(--gold); border-radius: 10px; box-shadow: none; }
 .idrag-src { display: none !important; }
 .idrag-ph { border: 2px dashed var(--gold); border-radius: 10px; background: var(--gold-soft); margin: 4px 0; }
 #page-inventory [data-zi].idrop { outline: 2px solid color-mix(in srgb, var(--gold) 55%, transparent); outline-offset: 2px; border-radius: 12px; }
@@ -2791,7 +2791,7 @@ html.mobile .iord button { width: 30px; height: 17px; font-size: .55rem; border-
 html.mobile .irow2 .idrag { display: none; }
 /* Inspiration pill: sits on the bottom edge of the portrait, over the line between the banner and HP */
 .banner-row { position: relative; }
-.insp { position: absolute; left: 50%; bottom: -24px; transform: translateX(-50%); z-index: 6; display: flex; align-items: center; gap: 2px; padding: 3px; border-radius: 999px; background: var(--panel); border: 1.5px solid var(--gold); box-shadow: 0 4px 12px rgba(0,0,0,.28); white-space: nowrap; }
+.insp { position: absolute; left: 50%; bottom: -24px; transform: translateX(-50%); z-index: 6; display: flex; align-items: center; gap: 2px; padding: 3px; border-radius: 999px; background: var(--panel); border: 1.5px solid var(--gold); box-shadow: none; white-space: nowrap; }
 .insp-b { width: 26px; height: 26px; border-radius: 50%; border: 0; background: transparent; color: var(--gold-ink); font-size: 1.05rem; font-weight: 800; line-height: 1; display: grid; place-items: center; cursor: pointer; }
 @media (hover:hover){:where(html:not(.mobile)) .insp-b:hover:not([disabled]){ background: var(--gold-soft); }}
 .insp-b[disabled] { opacity: .3; cursor: default; }
@@ -2830,7 +2830,7 @@ tr.cathead td, .lvl-label.cathead { padding: 6px 8px !important; }
 .sdrag-src { display: none !important; }
 tr.sdrag-ph td, div.sdrag-ph { border: 2px dashed var(--gold); background: var(--gold-soft); border-radius: 8px; }
 div.sdrag-ph { margin: 4px 0; }
-.sdrag-ghost { position: fixed; z-index: 120; pointer-events: none; padding: 8px 14px; border-radius: 10px; background: var(--panel); border: 1px solid var(--gold); box-shadow: 0 12px 28px rgba(0,0,0,.28); font-weight: 700; }
+.sdrag-ghost { position: fixed; z-index: 120; pointer-events: none; padding: 8px 14px; border-radius: 10px; background: var(--panel); border: 1px solid var(--gold); box-shadow: none; font-weight: 700; }
 html.mobile .sdrag { display: none; }
 html.mobile .sord .iord, html.mobile .spmv .mvto { opacity: 1; }
 html.mobile .sord .iord { flex-direction: column; }
@@ -2860,7 +2860,7 @@ body.editing [data-pid] { position: relative; outline: 2px dashed color-mix(in s
 .modbar .menu-list { right: 0; left: auto; min-width: 190px; z-index: 60; }
 .modbar .menu-list button.on { color: var(--gold-ink); font-weight: 800; }
 .szg { display: inline-block; vertical-align: middle; width: 36px; height: 10px; margin-right: 8px; border-radius: 3px; background: linear-gradient(90deg, var(--gold) 0 calc(var(--n) / 12 * 100%), var(--line) calc(var(--n) / 12 * 100%)); }
-.mresize { position: absolute; right: -6px; bottom: -6px; width: 18px; height: 18px; border-radius: 6px; background: var(--gold); cursor: nwse-resize; z-index: 5; touch-action: none; box-shadow: 0 2px 6px rgba(0,0,0,.3); }
+.mresize { position: absolute; right: -6px; bottom: -6px; width: 18px; height: 18px; border-radius: 6px; background: var(--gold); cursor: nwse-resize; z-index: 5; touch-action: none; box-shadow: none; }
 .mresize::after { content: ''; position: absolute; inset: 4px; border-right: 2px solid var(--on-gold, #1D2536); border-bottom: 2px solid var(--on-gold, #1D2536); border-radius: 0 0 3px 0; }
 .gph { border: 2px dashed var(--gold); border-radius: 12px; background: color-mix(in srgb, var(--gold) 14%, transparent); min-height: 80px; pointer-events: none; z-index: 1; }
 .gmoving { opacity: .25; }
@@ -3012,7 +3012,7 @@ html:not(.mobile) body.editing .oocbar.emod, html:not(.mobile) body.editing .tur
 .mv-btns .mvft { padding: 3px 7px; min-width: 0; } .mv-btns .mvback { padding: 3px 8px; }
 
 /* Dragging a whole container: a copy of its header row follows the pointer; the original stays in place, faded. */
-.bdrag-ghost { position: fixed !important; z-index: 120; pointer-events: none; margin: 0 !important; padding: 0 !important; min-height: 0 !important; opacity: .95; background: var(--panel); border: 1px solid var(--gold) !important; border-radius: 10px; box-shadow: 0 12px 28px rgba(0,0,0,.3); overflow: hidden; }
+.bdrag-ghost { position: fixed !important; z-index: 120; pointer-events: none; margin: 0 !important; padding: 0 !important; min-height: 0 !important; opacity: .95; background: var(--panel); border: 1px solid var(--gold) !important; border-radius: 10px; box-shadow: none; overflow: hidden; }
 .bdrag-ghost .subh { margin: 0 !important; }
 .bdrag-ghost .bdrag { opacity: 1 !important; color: var(--gold-ink); }
 .bdrag-src { opacity: .35; outline: 2px dashed var(--line-strong, var(--line)); outline-offset: -2px; }
@@ -3129,7 +3129,7 @@ html.mobile .wizard .checkline { min-height: 44px; display: flex; align-items: c
 html.mobile .wizard input[type=checkbox] { width: 22px; height: 22px; }
 html.mobile .wizard .wz-portrait { width: 84px; height: 84px; }
 /* Tooltip vignette: a small looping animation in the corner of an info box */
-#tipbox .tipfx { float: right; width: 84px; height: 84px; margin: 2px 0 8px 12px; border-radius: 10px; border: 1px solid var(--line); box-shadow: 0 2px 10px rgba(0,0,0,.25); }
+#tipbox .tipfx { float: right; width: 84px; height: 84px; margin: 2px 0 8px 12px; border-radius: 10px; border: 1px solid var(--line); box-shadow: none; }
 html.mobile #tipbox .tipfx { width: 76px; height: 76px; }
 
 /* Inspiration with one at a time: the whole badge is one tap target (no − / +) */
@@ -3173,7 +3173,7 @@ html.mobile #tipbox, html.mobile #modal-body, html.mobile .setx, html.mobile .wz
 /* Phone tooltips: a close button that stays put while the text scrolls. */
 .tipx { display: none; }
 html.mobile #tipbox .tipx { display: grid; place-items: center; position: sticky; top: 0; float: right; z-index: 3; width: 32px; height: 32px; margin: -4px -6px 4px 10px; padding: 0;
-  border: 1px solid var(--line); border-radius: 50%; background: var(--panel2); color: var(--ink); font-size: .9rem; line-height: 1; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
+  border: 1px solid var(--line); border-radius: 50%; background: var(--panel2); color: var(--ink); font-size: .9rem; line-height: 1; box-shadow: none; }
 /* Conditions on phones: a roomy two-column grid and one tidy row per adjustment. */
 html.mobile #condmodal .cm2-lbl { margin: 20px 0 10px; }
 html.mobile #condmodal .cchips2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
@@ -3279,7 +3279,7 @@ html.mobile .irow2 > .imeta .inote-m { margin: 0; line-height: 1.4; display: -we
 .lrlist { margin: 0 0 6px; padding-left: 18px; display: grid; gap: 6px; line-height: 1.4; }
 .lrlist small { color: var(--soft); }
 /* Sliding along the phone tab bar: the highlight lifts a little and the tab under your finger lights up. */
-html.mobile .tabs.tdrag .tab-ind { background: color-mix(in srgb, var(--gold) 26%, transparent); box-shadow: inset 0 2px 0 var(--gold), 0 4px 14px rgba(0,0,0,.25); }
+html.mobile .tabs.tdrag .tab-ind { background: color-mix(in srgb, var(--gold) 26%, transparent); box-shadow: inset 0 2px 0 var(--gold); }
 html.mobile .tabs.tdrag .tab.on:not(.thov) { color: var(--soft); }
 html.mobile .tabs .tab.thov { color: var(--gold-ink); }
 html.mobile .tabs .tab-ind { transition: transform .32s cubic-bezier(.3,1.25,.5,1), width .32s, height .32s; }
@@ -3291,8 +3291,8 @@ html.mobile #tipbox.closing .tipx { transform: rotate(90deg) scale(.86); transit
 html.mobile .tabs { -webkit-transform: translateZ(0); transform: translateZ(0); isolation: isolate; }
 html.mobile .notetip.tippin { color: inherit; background: none; }
 /* Phone tab bar: the same thin gold divider as the admin tabs, with a soft shadow cast up onto the page */
-html.mobile .tabs { border-top: 1px solid color-mix(in srgb, var(--gold) 32%, transparent) !important; box-shadow: 0 -8px 20px rgba(0,0,0,.28) !important; }
-html.mobile:not([data-theme="dark"]) .tabs { box-shadow: 0 -6px 16px rgba(60,45,20,.12) !important; }
+html.mobile .tabs { border-top: 1px solid color-mix(in srgb, var(--gold) 32%, transparent) !important; box-shadow: none !important; }
+html.mobile:not([data-theme="dark"]) .tabs { box-shadow: none !important; }
 .modal:has(.setx) #modal-body { overflow-x: clip !important; }
 /* ===== Windows fade in and out ===== */
 @keyframes wFadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -3551,7 +3551,7 @@ html.mobile .ptyh-btns { width: 100%; } html.mobile .ptyh-btns .btn { flex: 1; t
 .ptym .cname.n2 { font-size: .95rem; } .ptym .cname.n3 { font-size: .8rem; }
 .ptyask-bg { position: fixed; inset: 0; z-index: 10050; display: grid; place-items: center; padding: 16px; background: rgba(8,10,16,.62); backdrop-filter: blur(2px); animation: ptyFade .15s ease; }
 @keyframes ptyFade { from { opacity: 0; } to { opacity: 1; } }
-.ptyask-m { width: min(440px, 100%); background: var(--panel); color: var(--ink); border: 1px solid var(--line2); border-top: 3px solid var(--gold); border-radius: 16px; padding: 20px 20px 16px; box-shadow: 0 24px 60px rgba(0,0,0,.45); animation: wPopIn .2s cubic-bezier(.22,.9,.24,1); }
+.ptyask-m { width: min(440px, 100%); background: var(--panel); color: var(--ink); border: 1px solid var(--line2); border-top: 3px solid var(--gold); border-radius: 16px; padding: 20px 20px 16px; box-shadow: none; animation: wPopIn .2s cubic-bezier(.22,.9,.24,1); }
 .ptyask-n { font-size: .72rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--soft); margin-bottom: 6px; }
 .ptyask-q { margin: 0 0 18px; font-size: 1.1rem; line-height: 1.45; }
 .ptyask-b { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -3568,7 +3568,7 @@ html.mobile.hasbug:is(.realphone, .nodev) .devbtn.bugbtn, html.mobile.hasbug.pg-
 html.mobile.hasbug:is(.realphone, .nodev) .devbtn.logbtn, html.mobile.hasbug.pg-inphone .devbtn.logbtn { right: 48px; }
 
 /* a message from the DM or another player */
-.ptymsg-m { width: min(560px, 100%); background: linear-gradient(180deg, var(--panel), var(--panel2)); color: var(--ink); border: 1px solid var(--gold); border-radius: 18px; padding: 0; box-shadow: 0 28px 70px rgba(0,0,0,.5), 0 0 0 4px color-mix(in srgb, var(--gold) 18%, transparent); animation: wPopIn .22s cubic-bezier(.22,.9,.24,1); overflow: hidden; }
+.ptymsg-m { width: min(560px, 100%); background: linear-gradient(180deg, var(--panel), var(--panel2)); color: var(--ink); border: 1px solid var(--gold); border-radius: 18px; padding: 0; box-shadow: 0 0 0 4px color-mix(in srgb, var(--gold) 18%, transparent); animation: wPopIn .22s cubic-bezier(.22,.9,.24,1); overflow: hidden; }
 .ptymsg-top { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--line2); background: color-mix(in srgb, var(--gold) 10%, transparent); }
 .ptymsg-ic { width: 40px; height: 40px; flex: none; border-radius: 12px; display: grid; place-items: center; font-size: 1.2rem; background: var(--gold); color: var(--on-gold, #1b1406); }
 .ptymsg-top small { display: block; font-size: .7rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--soft); }
@@ -3594,7 +3594,7 @@ html.mobile.hasbug:is(.realphone, .nodev) .devbtn.logbtn, html.mobile.hasbug.pg-
 .ptyc-n small { font-weight: 600; color: var(--soft); }
 .ptyc-t { font-size: .92rem; overflow-wrap: anywhere; white-space: pre-wrap; }
 .ptychat-f { position: relative; }
-.ptychat-ac { position: absolute; left: 0; right: 0; bottom: calc(100% + 6px); z-index: 5; background: var(--panel); border: 1px solid var(--line2); border-radius: 12px; box-shadow: 0 -10px 28px rgba(0,0,0,.35); padding: 4px; display: flex; flex-direction: column; max-height: 240px; overflow-y: auto; }
+.ptychat-ac { position: absolute; left: 0; right: 0; bottom: calc(100% + 6px); z-index: 5; background: var(--panel); border: 1px solid var(--line2); border-radius: 12px; box-shadow: none; padding: 4px; display: flex; flex-direction: column; max-height: 240px; overflow-y: auto; }
 .ptychat-ac[hidden] { display: none; }
 .ptychat-ac .ac-i { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border: 0; border-radius: 8px; background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
 .ptychat-ac .ac-i.on{ background: var(--gold-soft); }@media (hover:hover){:where(html:not(.mobile)) .ptychat-ac .ac-i:hover{ background: var(--gold-soft); }}
@@ -3607,7 +3607,7 @@ html.mobile.hasbug:is(.realphone, .nodev) .devbtn.logbtn, html.mobile.hasbug.pg-
 .ptychat-f .f { flex: 1; min-width: 0; }
 
 /* Dice roller window (in the style of Roll20's) */
-.drwin { position: fixed; z-index: 9000; width: 320px; max-height: calc(100vh - 16px); overflow-y: auto; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-top: 3px solid var(--gold); border-radius: 12px; box-shadow: 0 18px 44px rgba(0,0,0,.45); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+.drwin { position: fixed; z-index: 9000; width: 320px; max-height: calc(100vh - 16px); overflow-y: auto; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-top: 3px solid var(--gold); border-radius: 12px; box-shadow: none; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
 .drwin.drag { opacity: .95; }
 .dr-head { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 8px; padding: 9px 10px 9px 14px; background: var(--panel2); border-bottom: 1px solid var(--line); cursor: move; touch-action: none; user-select: none; }
 .dr-head b { flex: 1; font: 700 .95rem Georgia, "Times New Roman", serif; letter-spacing: .03em; }
@@ -3640,7 +3640,7 @@ html.mobile.hasbug:is(.realphone, .nodev) .devbtn.logbtn, html.mobile.hasbug.pg-
 .dr-note.dis { background: color-mix(in srgb, #b8442a 16%, transparent); color: var(--ink); }
 .dr-tn { display: flex; align-items: center; gap: 10px; margin: 12px 0; min-height: 30px; }
 .dr-sw { flex: none; width: 38px; height: 22px; border-radius: 11px; border: 0; padding: 2px; background: color-mix(in srgb, var(--ink) 25%, transparent); cursor: pointer; transition: background .15s; }
-.dr-sw span { display: block; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.35); transition: transform .15s; }
+.dr-sw span { display: block; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: none; transition: transform .15s; }
 .dr-sw.on { background: var(--gold); } .dr-sw.on span { transform: translateX(16px); }
 .dr-tnl { font-size: .86rem; font-weight: 600; }
 .dr-dc { width: 56px; height: 30px; margin-left: auto; border: 1px solid var(--line); border-radius: 7px; background: var(--panel2); color: var(--ink); text-align: center; font: 700 .9rem system-ui, sans-serif; -moz-appearance: textfield; }
@@ -3762,7 +3762,7 @@ html.mobile.hasbug:is(.realphone, .nodev) .devbtn.dicebtn, html.mobile.hasbug.pg
 /* Inspiration: "Use" is a tab tucked behind the right end of the badge (only while you have some) */
 .insp-grp { position: absolute; left: 50%; bottom: -24px; transform: translateX(-50%); z-index: 6; }
 .insp-grp > .insp { position: relative; left: auto; bottom: auto; transform: none; }
-.insp-use { position: absolute; left: 100%; top: 50%; transform: translateY(-50%); margin-left: -14px; z-index: -1; display: flex; align-items: center; height: 26px; box-sizing: border-box; line-height: 1; padding: 1px 11px 0 22px; border-radius: 0 999px 999px 0; border: 1.5px solid var(--gold); border-left: 0; background: var(--panel); color: var(--gold-ink); font-weight: 800; font-size: .6rem; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,.22); white-space: nowrap; }
+.insp-use { position: absolute; left: 100%; top: 50%; transform: translateY(-50%); margin-left: -14px; z-index: -1; display: flex; align-items: center; height: 26px; box-sizing: border-box; line-height: 1; padding: 1px 11px 0 22px; border-radius: 0 999px 999px 0; border: 1.5px solid var(--gold); border-left: 0; background: var(--panel); color: var(--gold-ink); font-weight: 800; font-size: .6rem; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; box-shadow: none; white-space: nowrap; }
 @media (hover:hover){:where(html:not(.mobile)) .insp-use:hover{ background: var(--gold-soft); }}
 .insp-grp.mini { display: none; }
 html.mobile .banner-row .insp-grp { display: none; }
@@ -3799,7 +3799,7 @@ html.mobile .tile.hp { padding-bottom: 9px !important; }
 .tab[data-tab="party"].unread::after { content: attr(data-unread); position: absolute; top: 4px; right: calc(50% - 22px); min-width: 17px; height: 17px; padding: 0 4px; box-sizing: border-box; border-radius: 9px; background: #e04848; color: #fff; font: 800 10px/17px system-ui, sans-serif; text-align: center; box-shadow: 0 0 0 2px var(--panel); }
 /* Party chat pop-ups: their own card, bottom right (top on phones) */
 #pcpop { position: fixed; right: 18px; bottom: 18px; z-index: 9800; display: flex; flex-direction: column; gap: 10px; width: min(360px, calc(100vw - 24px)); pointer-events: none; }
-.pcp { --pc: var(--gold); pointer-events: auto; position: relative; background: var(--panel); color: var(--ink); border: 1.5px solid var(--pc); border-radius: 16px; box-shadow: 0 18px 40px rgba(0,0,0,.4), 0 0 0 4px color-mix(in srgb, var(--pc) 18%, transparent); padding: 12px 12px 10px; transform: translateX(30px) scale(.96); opacity: 0; transition: transform .25s cubic-bezier(.2,.9,.3,1.2), opacity .2s; overflow: hidden; }
+.pcp { --pc: var(--gold); pointer-events: auto; position: relative; background: var(--panel); color: var(--ink); border: 1.5px solid var(--pc); border-radius: 16px; box-shadow: 0 0 0 4px color-mix(in srgb, var(--pc) 18%, transparent); padding: 12px 12px 10px; transform: translateX(30px) scale(.96); opacity: 0; transition: transform .25s cubic-bezier(.2,.9,.3,1.2), opacity .2s; overflow: hidden; }
 .pcp::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--pc); }
 .pcp.in { transform: none; opacity: 1; }
 .pcp.out { transform: translateX(40px); opacity: 0; }
@@ -3822,7 +3822,7 @@ html.mobile .pcp { transform: translateY(-20px); }
 html.mobile .pcp.in { transform: none; }
 html.mobile .pcp-rep input { font-size: 16px; }
 .ptychat-lw { position: relative; }
-.ptychat-jump { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); z-index: 2; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--line2); background: var(--panel); color: var(--ink); font-weight: 700; font-size: .78rem; cursor: pointer; box-shadow: 0 6px 16px rgba(0,0,0,.3); white-space: nowrap; }
+.ptychat-jump { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); z-index: 2; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--line2); background: var(--panel); color: var(--ink); font-weight: 700; font-size: .78rem; cursor: pointer; box-shadow: none; white-space: nowrap; }
 @media (hover:hover){:where(html:not(.mobile)) .ptychat-jump:hover{ border-color: var(--gold); }}
 .ptychat-jump.new { background: var(--gold); color: var(--gold-ink); border-color: var(--gold); }
 .ptychat-jump[hidden] { display: none; }
@@ -3851,7 +3851,7 @@ html.mobile .ptymain .ptym-grid { grid-template-columns: 1fr; }
 .ptychat-cmds { display: grid; grid-template-columns: auto 1fr; gap: 3px 8px; align-items: center; margin: -2px 0 8px; font-size: .78rem; color: var(--soft); }
 .ptychat-cmds code { white-space: nowrap; justify-self: start; }
 /* Party chat pop-out window */
-.pcwin { position: fixed; z-index: 9100; width: 360px; height: 480px; min-height: 260px; min-width: 280px; max-width: calc(100vw - 12px); max-height: calc(100vh - 12px); resize: both; overflow: hidden; display: flex; flex-direction: column; background: var(--panel); color: var(--ink); border: 1px solid var(--line2); border-radius: 14px; box-shadow: 0 20px 48px rgba(0,0,0,.45); }
+.pcwin { position: fixed; z-index: 9100; width: 360px; height: 480px; min-height: 260px; min-width: 280px; max-width: calc(100vw - 12px); max-height: calc(100vh - 12px); resize: both; overflow: hidden; display: flex; flex-direction: column; background: var(--panel); color: var(--ink); border: 1px solid var(--line2); border-radius: 14px; box-shadow: none; }
 .pcwin.drag { opacity: .96; }
 .pcw-head { display: flex; align-items: center; gap: 6px; padding: 9px 10px 9px 14px; border-bottom: 1px solid var(--line); background: var(--panel2); cursor: move; touch-action: none; user-select: none; }
 .pcw-head b { flex: 1; font-size: .92rem; letter-spacing: .04em; }
@@ -3924,9 +3924,9 @@ html.mobile.kbopen .mtab { display: none; }
 .mtab { position: fixed; left: 0; right: 0; bottom: calc(12px + var(--tablift, 0px) + env(safe-area-inset-bottom)); z-index: 46; display: flex; justify-content: center; pointer-events: none; }
 .mtab-b { pointer-events: auto; position: relative; display: inline-flex; align-items: center; gap: 10px; min-width: 200px; max-width: calc(100vw - 32px); height: 54px; padding: 0 16px 0 14px; border-radius: 27px;
   border: 1px solid color-mix(in srgb, var(--gold) 55%, var(--line)); background: color-mix(in srgb, var(--panel) 88%, transparent); -webkit-backdrop-filter: blur(14px) saturate(1.3); backdrop-filter: blur(14px) saturate(1.3);
-  color: var(--ink); box-shadow: 0 10px 30px rgba(0,0,0,.35), 0 0 0 1px rgba(255,255,255,.04) inset; cursor: pointer; touch-action: pan-y; transition: transform .2s cubic-bezier(.2,.9,.3,1), box-shadow .2s; -webkit-tap-highlight-color: transparent; }
+  color: var(--ink); box-shadow: 0 0 0 1px rgba(255,255,255,.04) inset; cursor: pointer; touch-action: pan-y; transition: transform .2s cubic-bezier(.2,.9,.3,1), box-shadow .2s; -webkit-tap-highlight-color: transparent; }
 .mtab-b:active { transform: scale(.97); }
-html.mtab-open .mtab-b { box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 35%, transparent), 0 10px 30px rgba(0,0,0,.35); }
+html.mtab-open .mtab-b { box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 35%, transparent); }
 .mtab-ic { width: 34px; height: 34px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--gold); color: var(--on-gold, #1D2536); }
 .mtab-ic svg { width: 19px; height: 19px; }
 .mtab-ic .cticon { font-size: 1rem; }
@@ -3941,7 +3941,7 @@ html.mtab-open .mtab-chev { transform: rotate(180deg); }
 .mtab-back { position: absolute; inset: 0; background: rgba(6,9,16,.45); opacity: 0; transition: opacity .2s ease; -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); }
 .mtab-menu.in .mtab-back { opacity: 1; }
 .mtab-card { position: absolute; left: 12px; right: 12px; bottom: calc(76px + var(--tablift, 0px) + env(safe-area-inset-bottom)); max-width: 440px; margin: 0 auto; padding: 10px; border-radius: 22px;
-  border: 1px solid var(--line); border-top: 3px solid var(--gold); background: var(--panel); box-shadow: 0 -10px 40px rgba(0,0,0,.35); transform-origin: 50% 100%;
+  border: 1px solid var(--line); border-top: 3px solid var(--gold); background: var(--panel); box-shadow: none; transform-origin: 50% 100%;
   opacity: 0; transform: translateY(16px) scale(.94); transition: opacity .2s ease, transform .26s cubic-bezier(.2,.9,.3,1.1); }
 .mtab-menu.in .mtab-card { opacity: 1; transform: none; }
 .mtab-menu.out .mtab-card { opacity: 0; transform: translateY(12px) scale(.96); transition-duration: .18s; }
@@ -4026,13 +4026,13 @@ html.mobile .drwin.closing, html.mobile .pcwin.closing { animation-duration: .22
 #rolllogmodal ~ .actions, .modal:has(#rolllogmodal) .actions { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 0; }
 /* Desktop: pop-up windows can be dragged by their title */
 @media (pointer: fine) and (min-width: 641px) { html:not(.mobile) :is(#modal-body, .hub-modal > .hub-card, .pg-out-card, #pg-msg .pgm-card) :is(h2, h3, .rl-head, .pw-head):first-of-type { cursor: move; } }
-.win-moving { transition: none !important; box-shadow: 0 30px 70px rgba(0,0,0,.5) !important; }
+.win-moving { transition: none !important; box-shadow: none !important; }
 body.win-dragging, body.win-dragging * { user-select: none !important; cursor: move !important; }
 /* Desktop: pop-up windows are floating windows like the dice roller and chat: no dimmed page behind, a title bar to
    drag, and a ✕ to close */
 html.mwin .modal-bg { background: transparent !important; pointer-events: none; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 html.mwin .modal-bg.open { animation: none; }
-html.mwin .modal-bg > .modal { pointer-events: auto; border: 1px solid var(--line); border-top: 3px solid var(--gold); border-radius: 12px; box-shadow: 0 18px 50px rgba(0,0,0,.5); padding-top: 0; max-height: calc(100vh - 40px); overflow-y: auto; }
+html.mwin .modal-bg > .modal { pointer-events: auto; border: 1px solid var(--line); border-top: 3px solid var(--gold); border-radius: 12px; box-shadow: none; padding-top: 0; max-height: calc(100vh - 40px); overflow-y: auto; }
 html.mwin .mw-head { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 8px; margin: 0 -20px 14px; padding: 9px 10px 9px 16px; background: var(--panel2); border-bottom: 1px solid var(--line); cursor: move; user-select: none; }
 html.mwin .mw-head b { flex: 1; min-width: 0; font: 700 .95rem Georgia, "Times New Roman", serif; letter-spacing: .03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 html.mwin .mw-x { width: 28px; height: 28px; border-radius: 7px; border: 0; background: transparent; color: var(--soft); cursor: pointer; font-size: .95rem; display: inline-grid; place-items: center; flex: none; }
@@ -4208,7 +4208,7 @@ html.mobile body.wizopen #modal.open, html.mobile body.wizopen #modal.closing { 
 .rl-tabs.inked { position: relative; }
 .rl-tabs.inked .rl-tab { position: relative; z-index: 1; transition: color .2s; }
 .rl-tabs.inked .rl-tab.on { background: transparent; box-shadow: none; }
-.rl-ink { position: absolute; left: 0; top: 3px; bottom: 3px; width: 0; border-radius: 8px; background: var(--panel); box-shadow: 0 1px 3px rgba(0,0,0,.2); transition: transform .28s cubic-bezier(.3,.7,.2,1), width .28s cubic-bezier(.3,.7,.2,1); }
+.rl-ink { position: absolute; left: 0; top: 3px; bottom: 3px; width: 0; border-radius: 8px; background: var(--panel); box-shadow: none; transition: transform .28s cubic-bezier(.3,.7,.2,1), width .28s cubic-bezier(.3,.7,.2,1); }
 #rolllogmodal .rl-list.in-r { animation: rlIn-r .26s cubic-bezier(.3,.7,.2,1); }
 #rolllogmodal .rl-list.in-l { animation: rlIn-l .26s cubic-bezier(.3,.7,.2,1); }
 @keyframes rlIn-r { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: none; } }
@@ -4322,7 +4322,7 @@ html:not(.mobile) #tabs .tab > .tabcount { z-index: 3; }
    =================================================================================================================== */
 :root[data-theme="dark"] { --panel: #1a2131; --panel2: #232c3d; --field: #121826; --ink: #e9e3d3; --soft: #a3acbe; --line: #2c3548; --line2: #252e40;
   --site-edge: color-mix(in srgb, var(--gold) 22%, transparent); --site-edge2: rgba(255,255,255,.07); --site-card: rgba(26,33,49,.82); --site-btn: #242d40; --site-btn-h: #2c3750;
-  --shadow: 0 1px 2px rgba(0,0,0,.25), 0 12px 30px rgba(0,0,0,.32); }
+  --shadow: none; }
 /* the page: the lobby's soft glow from the top */
 :root[data-theme="dark"] body { background-image: radial-gradient(ellipse 120% 80% at 50% 0%, rgba(42,56,86,.55) 0%, rgba(26,36,56,.25) 45%, transparent 80%); background-attachment: fixed; }
 /* cards: the lobby's panels (the coloured strip on top becomes a soft glow of the accent instead) */
@@ -4347,7 +4347,7 @@ html:not(.mobile) #tabs .tab > .tabcount { z-index: 3; }
 :root[data-theme="dark"] select.f { background-color: var(--field); border-color: var(--site-edge2); border-radius: 10px; }
 :root[data-theme="dark"] :is(select.f, input.f, textarea.f):focus { border-color: color-mix(in srgb, var(--gold) 55%, transparent); }
 /* the banner keeps the character's colours; its edge is the lobby's soft gold line */
-:root[data-theme="dark"] header.banner { border-bottom-color: color-mix(in srgb, var(--gold) 35%, transparent); box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+:root[data-theme="dark"] header.banner { border-bottom-color: color-mix(in srgb, var(--gold) 35%, transparent); box-shadow: none; }
 /* the banner's toolbar buttons: the lobby's dark rounded buttons */
 :root[data-theme="dark"] .tbtn:not(.gold) { background: rgba(36,45,64,.85); border-color: transparent; border-radius: 11px; }
 @media (hover:hover){:root[data-theme="dark"]:not(.mobile) .tbtn:not(.gold):not(.on):not([disabled]):hover{ background: var(--site-btn-h); filter: none; }}
@@ -4368,14 +4368,14 @@ html:not(.mobile) #tabs .tab > .tabcount { z-index: 3; }
 /* (on a computer the card hugs the bar's contents instead of running the full width of a wide window) */
 :root[data-theme="dark"]:not(.mobile) header.banner > .wrap::before { content: ''; position: absolute; z-index: -1; top: 4px; bottom: 6px; left: max(2px, calc(10px - (100vw - 100%) / 2)); right: max(2px, calc(10px - (100vw - 100%) / 2)); border-radius: 20px; pointer-events: none;
   background: radial-gradient(90% 160% at 20% 0%, color-mix(in srgb, var(--navy) 70%, rgba(40,52,78,.9)) 0%, color-mix(in srgb, var(--navy) 45%, rgba(24,31,47,.92)) 60%, rgba(20,26,40,.92) 100%);
-  border: 1px solid color-mix(in srgb, var(--gold) 30%, transparent); box-shadow: 0 12px 30px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.05); }
+  border: 1px solid color-mix(in srgb, var(--gold) 30%, transparent); box-shadow: inset 0 1px 0 rgba(255,255,255,.05); }
 :root[data-theme="dark"].mobile header.banner::before { content: ''; position: absolute; z-index: -1; inset: 4px 12px 6px; border-radius: 20px; pointer-events: none;
   background: radial-gradient(90% 160% at 20% 0%, color-mix(in srgb, var(--navy) 70%, rgba(40,52,78,.9)) 0%, color-mix(in srgb, var(--navy) 45%, rgba(24,31,47,.92)) 60%, rgba(20,26,40,.92) 100%);
-  border: 1px solid color-mix(in srgb, var(--gold) 30%, transparent); box-shadow: 0 12px 30px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.05); }
+  border: 1px solid color-mix(in srgb, var(--gold) 30%, transparent); box-shadow: inset 0 1px 0 rgba(255,255,255,.05); }
 :root[data-theme="dark"].mobile header.banner::before { inset: 3px 4px 6px; border-radius: 18px; }
 /* inside it: the level box and portrait in the lobby's tile style, and a calmer underline on the name */
 :root[data-theme="dark"] header.banner .lvlbox { background: rgba(255,255,255,.04); border-color: color-mix(in srgb, var(--gold) 22%, transparent); border-radius: 14px; }
-:root[data-theme="dark"] header.banner .portrait-wrap { box-shadow: 0 0 0 3px rgba(255,255,255,.06), 0 5px 12px rgba(0,0,0,.3); }
+:root[data-theme="dark"] header.banner .portrait-wrap { box-shadow: 0 0 0 3px rgba(255,255,255,.06); }
 :root[data-theme="dark"] header.banner .namebox input.f.name { border-bottom-color: transparent; }
 @media (hover:hover){:root[data-theme="dark"]:not(.mobile) header.banner .namebox input.f.name:is(:hover, :focus){ border-bottom-color: color-mix(in srgb, var(--gold) 45%, transparent); }}
 /* with the top bar as a card: a little more room inside it when it's the short version (no Player / Race /
@@ -4398,16 +4398,16 @@ html.mobile .ident-grid .fld :is(.identtxt, .f) { flex: 1 1 auto; min-width: 0; 
 html:not(.mobile) #tabs { border-radius: 999px !important; padding: 4px; }
 html:not(.mobile) #tabs .tab { flex-direction: row; justify-content: center; gap: 7px; padding: 6px 10px; font-size: .8rem; border-radius: 999px; }
 html:not(.mobile) #tabs .ticon, html:not(.mobile) #tabs .ticon svg { width: 17px; height: 17px; }
-html:not(.mobile) #tabs .tab-ind { background: var(--gold) !important; box-shadow: 0 4px 14px color-mix(in srgb, var(--gold) 35%, transparent) !important; border-radius: 999px !important; }
+html:not(.mobile) #tabs .tab-ind { background: var(--gold) !important; box-shadow: none !important; border-radius: 999px !important; }
 html:not(.mobile) #tabs .tab.on { color: var(--on-gold, #1b1406) !important; }
 html:not(.mobile) #tabs .tab::before { border-radius: 999px !important; inset: 0 !important; }
 /* The top bar stays put on a computer while the sheet scrolls under it. Its drop shadow only shows once something is
    actually underneath (fading in), and a strip of page backdrop behind it hides what scrolls past around its corners. */
 html:not(.mobile) header.banner { position: sticky !important; top: 0; z-index: 40; }
 html:not(.mobile) header.banner { transition: box-shadow .25s ease; }
-html:not(.mobile):not([data-theme="dark"]).hd-stuck header.banner { box-shadow: 0 10px 26px rgba(0,0,0,.22); }
-:root[data-theme="dark"]:not(.mobile) header.banner > .wrap::before { box-shadow: 0 12px 30px rgba(0,0,0,0), inset 0 1px 0 rgba(255,255,255,.05); transition: box-shadow .25s ease; }
-:root[data-theme="dark"]:not(.mobile).hd-stuck header.banner > .wrap::before { box-shadow: 0 14px 34px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.05); }
+html:not(.mobile):not([data-theme="dark"]).hd-stuck header.banner { box-shadow: none; }
+:root[data-theme="dark"]:not(.mobile) header.banner > .wrap::before { box-shadow: inset 0 1px 0 rgba(255,255,255,.05); transition: box-shadow .25s ease; }
+:root[data-theme="dark"]:not(.mobile).hd-stuck header.banner > .wrap::before { box-shadow: inset 0 1px 0 rgba(255,255,255,.05); }
 /* (the page's glow is drawn here at the window's size rather than as a fixed background: a fixed background inside a bar
    that stays put is redrawn on every scroll, which made its shadow flicker) */
 :root[data-theme="dark"]:not(.mobile) header.banner::before { content: ''; position: absolute; inset: 0 0 -14px; z-index: -2; pointer-events: none; opacity: 0; transition: opacity .25s ease;
@@ -4495,7 +4495,7 @@ html:not(.mobile) .ident-top .toolbar:has(> .insp-dock) > .pg-hubrow { padding-r
 .insp-dock .insp-go .insp-l { position: relative; display: block; height: 9px; margin-top: 1px; font-size: .52rem; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; color: var(--gold-ink); opacity: .85; }
 .insp-dock .insp-go .insp-l > span { display: block; text-align: center; transition: opacity .15s, transform .15s; }
 .insp-dock .insp-go .il-b { position: absolute; inset: 0; opacity: 0; transform: translateY(3px); }
- .insp-dock .insp-go:focus-visible { background: var(--gold); box-shadow: 0 2px 10px color-mix(in srgb, var(--gold) 45%, transparent); }@media (hover:hover){:where(html:not(.mobile)) .insp-dock .insp-go:not([disabled]):hover{ background: var(--gold); box-shadow: 0 2px 10px color-mix(in srgb, var(--gold) 45%, transparent); }}
+ .insp-dock .insp-go:focus-visible { background: var(--gold); box-shadow: none; }@media (hover:hover){:where(html:not(.mobile)) .insp-dock .insp-go:not([disabled]):hover{ background: var(--gold); box-shadow: none; }}
  .insp-dock .insp-go:focus-visible :is(.insp-n, .insp-l) { color: #10141c; opacity: 1; }@media (hover:hover){:where(html:not(.mobile)) .insp-dock .insp-go:not([disabled]):hover :is(.insp-n, .insp-l){ color: #10141c; opacity: 1; }}
  .insp-dock .insp-go:focus-visible .il-a { opacity: 0; transform: translateY(-3px); }@media (hover:hover){:where(html:not(.mobile)) .insp-dock .insp-go:not([disabled]):hover .il-a{ opacity: 0; transform: translateY(-3px); }}
  .insp-dock .insp-go:focus-visible .il-b { opacity: 1; transform: none; }@media (hover:hover){:where(html:not(.mobile)) .insp-dock .insp-go:not([disabled]):hover .il-b{ opacity: 1; transform: none; }}
@@ -4588,7 +4588,7 @@ label.setrow > input[type=checkbox] + span { flex: 1 1 auto; min-width: 0; text-
 label.setrow { align-items: flex-start; gap: 10px; }
 label.setrow > input[type=checkbox] { margin-top: 2px; }
 /* right-click menu on an inventory item */
-.ictx > .menu-list { position: fixed; display: block; z-index: 96; min-width: 210px; max-width: min(300px, calc(100vw - 16px)); overflow-y: auto; padding: 5px; right: auto; top: 0; left: 0; animation: wPopIn .12s ease; box-shadow: 0 12px 32px rgba(0,0,0,.4); }
+.ictx > .menu-list { position: fixed; display: block; z-index: 96; min-width: 210px; max-width: min(300px, calc(100vw - 16px)); overflow-y: auto; padding: 5px; right: auto; top: 0; left: 0; animation: wPopIn .12s ease; box-shadow: none; }
 .ictx .ictx-h { padding: 6px 10px 4px; font-weight: 800; font-size: .86rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ictx .ictx-h span { color: var(--soft); font-weight: 600; }
 .ictx hr { border: 0; border-top: 1px solid var(--line); margin: 4px 2px; }
@@ -4607,8 +4607,8 @@ html.mobile .pcwin { top: calc(var(--vvt, 0px) + env(safe-area-inset-top, 0px) +
   height: min(52svh, calc(var(--vvh, 100svh) - env(safe-area-inset-top, 0px) - 20px)) !important; max-height: none !important; min-height: 240px;
   border: 1px solid color-mix(in srgb, var(--gold) 38%, transparent) !important; border-radius: 22px !important; padding-bottom: 0 !important; overflow: hidden;
   background: linear-gradient(180deg, color-mix(in srgb, var(--panel) 92%, var(--gold) 8%), var(--panel) 70px) !important;
-  box-shadow: 0 22px 60px rgba(0,0,0,.55), 0 0 0 100vmax rgba(5,8,14,.38) !important; animation-name: pcDrop !important; transition: transform .2s ease; }
-html.mobile.kbup .pcwin { padding-bottom: 0 !important; box-shadow: 0 22px 60px rgba(0,0,0,.55), 0 0 0 100vmax rgba(5,8,14,.38) !important; }
+  box-shadow: 0 0 0 100vmax rgba(5,8,14,.38) !important; animation-name: pcDrop !important; transition: transform .2s ease; }
+html.mobile.kbup .pcwin { padding-bottom: 0 !important; box-shadow: 0 0 0 100vmax rgba(5,8,14,.38) !important; }
 html.mobile .pcwin.closing { animation-name: pcLift !important; }
 @keyframes pcDrop { from { transform: translateY(calc(-100% - 60px)); } }
 @keyframes pcLift { to { transform: translateY(calc(-100% - 60px)); } }
@@ -4660,7 +4660,7 @@ html.mobile .ptychat-cmds, html.mobile.kbup .pcwin .ptychat-cmds { display: none
 .pc-scrim { position: fixed; inset: -50px 0; z-index: 9099; background: rgba(5,8,14,.45); animation: pcScrimIn .2s ease; touch-action: none; -webkit-tap-highlight-color: transparent; }
 .pc-scrim.out { opacity: 0; transition: opacity .18s ease; pointer-events: none; }
 @keyframes pcScrimIn { from { opacity: 0; } }
-html.mobile .pcwin, html.mobile.kbup .pcwin { box-shadow: 0 22px 60px rgba(0,0,0,.55) !important; } /* (the cover does the dimming now) */
+html.mobile .pcwin, html.mobile.kbup .pcwin { box-shadow: none !important; } /* (the cover does the dimming now) */
 
 /* no divider lines around the chat's message box on phones */
 html.mobile .pcwin .ptychat-f, html.mobile.kbup .pcwin .ptychat-f, html.mobile.kbreal .pcwin .ptychat-f { border-top: 0 !important; border-bottom: 0 !important; }
@@ -4696,7 +4696,7 @@ html.mobile #rolls { top: calc(env(safe-area-inset-top) + 12px); }
 body:has(#modal.open) #rolls { top: 12px; }
 #rolls .toast.rollcard { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; column-gap: 18px; row-gap: 12px;
   padding: 16px 52px 16px 20px; border-radius: 18px; border: 1px solid color-mix(in srgb, var(--gold) 40%, transparent); background: color-mix(in srgb, var(--panel) 94%, transparent);
-  -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); box-shadow: 0 18px 50px rgba(0,0,0,.42); max-height: calc(100dvh - 32px); overflow-y: auto; overscroll-behavior: contain; animation: rcIn .2s cubic-bezier(.2,.8,.3,1); }
+  -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); box-shadow: none; max-height: calc(100dvh - 32px); overflow-y: auto; overscroll-behavior: contain; animation: rcIn .2s cubic-bezier(.2,.8,.3,1); }
 #rolls .toast.rollcard.rc-out { animation: rcOut .18s ease forwards; pointer-events: none; }
 @keyframes rcIn { from { opacity: 0; transform: translateY(-8px) scale(.98); } }
 @keyframes rcOut { to { opacity: 0; transform: translateY(-6px) scale(.98); } }
@@ -4753,7 +4753,7 @@ html.mobile #wizard .wz3 .wz3-main { flex: none !important; display: block !impo
 html.mobile #wizard .wz3 .wz-body { flex: none !important; overflow: visible !important; min-height: 0; }
 html.mobile #wizard .wz-foot { position: sticky; bottom: 0; z-index: 30; }
 html.mobile #wizard .crlist { max-height: none !important; overflow: hidden !important; overflow: clip !important; }
-html.mobile #wizard .wz3-pick > .wz3-q, html.mobile #wizard .wz-body input[data-wzq] { position: sticky; top: 8px; z-index: 4; box-shadow: 0 -8px 0 var(--wc-card, var(--panel)), 0 6px 14px rgba(0,0,0,.25); }
+html.mobile #wizard .wz3-pick > .wz3-q, html.mobile #wizard .wz-body input[data-wzq] { position: sticky; top: 8px; z-index: 4; box-shadow: none; }
 /* rows in the race / variant / class lists */
 #wizard .wz3-row { align-items: center; }
 #wizard .wz3-row.wic .wz3-cic { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: color-mix(in srgb, var(--gold) 16%, transparent); color: var(--gold-ink); margin-right: 2px; }
@@ -4761,7 +4761,7 @@ html.mobile #wizard .wz3-pick > .wz3-q, html.mobile #wizard .wz-body input[data-
 #wizard .wz3-row > div { flex: 1; min-width: 0; }
 #wizard .crlist > .wz3-g, #rcmodal .crlist > .wz3-g { margin: 0; padding: 10px 12px 6px; font-size: .72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--gold-ink); background: color-mix(in srgb, var(--ink) 4%, transparent); border-bottom: 1px solid var(--line2); }
 html.mobile #wizard .wz-box > .wz-foot { -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
-html.mobile #wizard .wz3-pick > .wz3-q, html.mobile #wizard .wz-body input[data-wzq] { -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); box-shadow: 0 6px 14px rgba(0,0,0,.25); }
+html.mobile #wizard .wz3-pick > .wz3-q, html.mobile #wizard .wz-body input[data-wzq] { -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); box-shadow: none; }
 
 /* Phones and tablets: anything you can tap lights up the moment your finger lands on it — the phone's own tap
    highlight (a CSS pressed style here made iPhones drop slower taps, so it isn't used) */
@@ -4770,8 +4770,8 @@ html.mobile #wizard .wz3-pick > .wz3-q, html.mobile #wizard .wz-body input[data-
   @media (prefers-color-scheme: light) { :where(button, a[href], summary, select, [role=button], [role=tab], [role=option], [role=menuitem], [data-act], [data-wact], [data-a], [data-pick], [data-roll], label.crrow) { -webkit-tap-highlight-color: rgba(0,0,0,.1); } }
 }
 /* phones: the search box pinned under the clock, with the page colour behind it so rows don't peek out above it */
-html.mobile #wizard .wz3-pick > .wz3-q, html.mobile #wizard .wz-body input[data-wzq] { top: calc(env(safe-area-inset-top) + 8px); box-shadow: 0 6px 14px rgba(0,0,0,.25); background-color: rgba(18,24,39,.94); }
-@media (prefers-color-scheme: light) { html.mobile #wizard .wz3-pick > .wz3-q, html.mobile #wizard .wz-body input[data-wzq] { box-shadow: 0 6px 14px rgba(0,0,0,.12); background-color: rgba(251,247,238,.95); } }
+html.mobile #wizard .wz3-pick > .wz3-q, html.mobile #wizard .wz-body input[data-wzq] { top: calc(env(safe-area-inset-top) + 8px); box-shadow: none; background-color: rgba(18,24,39,.94); }
+@media (prefers-color-scheme: light) { html.mobile #wizard .wz3-pick > .wz3-q, html.mobile #wizard .wz-body input[data-wzq] { box-shadow: none; background-color: rgba(251,247,238,.95); } }
 html.mobile #wizard .wz-box { overscroll-behavior: none !important; }
 html.mobile #wizard .wz-box * { overscroll-behavior: none !important; }
 /* phones: how to get your scores, as a 2 × 2 set of buttons instead of four squashed ones */
@@ -4788,7 +4788,7 @@ html.mobile #wizard .wz-box .segmini > button { white-space: nowrap; min-height:
 /* phones: lists in windows (change race, Level Up, choices) don't scroll inside the window; the window scrolls, and
    a list's search box stays pinned at the top of it while you go */
 html.mobile #modal-body .crlist.wz3-list { max-height: none !important; overflow: hidden !important; overflow: clip !important; }
-html.mobile #modal-body .wz3-pick > .wz3-q { position: sticky; top: 0; z-index: 4; background-color: var(--field, var(--panel)); box-shadow: 0 6px 14px rgba(0,0,0,.25); }
+html.mobile #modal-body .wz3-pick > .wz3-q { position: sticky; top: 0; z-index: 4; background-color: var(--field, var(--panel)); box-shadow: none; }
 /* Party chat on a phone, opening: a short drop with a fade on a curve that settles (instead of falling the whole height
    of the screen), on its own layer so it stays smooth; closing lifts and fades the same way */
 html.mobile .pcwin { animation: pcDrop2 .46s cubic-bezier(.22,1,.36,1) both !important; will-change: transform, opacity; }
@@ -4812,7 +4812,7 @@ html.mobile .pcwin { top: calc(var(--vvt, 0px) + env(safe-area-inset-top, 0px) +
 /* the portrait's "change" control: a small gold pencil badge in its corner on hover (like a party's picture), not a strip
    of text across the bottom; the whole portrait still takes the click */
 header.banner .portrait-wrap .portrait-edit { inset: auto 6px 6px auto !important; width: 28px; height: 28px; padding: 0 !important; display: grid; place-items: center; border-radius: 50% !important;
-  background: var(--gold) !important; color: #1b1406 !important; box-shadow: 0 2px 8px rgba(0,0,0,.35); font-size: 0 !important; transition: opacity .15s ease, transform .15s ease; }
+  background: var(--gold) !important; color: #1b1406 !important; box-shadow: none; font-size: 0 !important; transition: opacity .15s ease, transform .15s ease; }
 header.banner .portrait-wrap .portrait-edit svg { width: 14px; height: 14px; }
 @media (hover: hover) { @media (hover:hover){:where(html:not(.mobile)) :where(html:not(.mobile)) header.banner .portrait-wrap:hover .portrait-edit{ transform: scale(1.06); }} }
 html.mobile header.banner .portrait-wrap .portrait-edit { width: 24px; height: 24px; inset: auto 3px 3px auto !important; }
@@ -4844,7 +4844,7 @@ html:not(.mobile) .toolbar [data-zi="history"].iconly .ti { display: block !impo
 .mtab-grid > * { flex: 1 0 calc((100% - 16px) / 3); min-width: 0; box-sizing: border-box; }
 /* Holding the tab button to step through tabs: it lifts a little and gets a gold ring while you slide */
 .mtab-b { transition: transform .15s ease, box-shadow .15s ease; }
-.mtab-b.scrub { transform: scale(1.04); box-shadow: 0 0 0 2px var(--gold), 0 10px 28px rgba(0,0,0,.45); }
+.mtab-b.scrub { transform: scale(1.04); box-shadow: 0 0 0 2px var(--gold); }
 .mtab-b.scrub .mtab-l { transition: none; }
 .mtab-b, .mtab-b * { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
 /* Roll math in the Log (and anywhere else): a long value wraps inside the card instead of running off its edge; a really
@@ -4867,7 +4867,7 @@ html:not(.mobile) .toolbar [data-zi="history"].iconly .ti { display: block !impo
 }
 /* Phones: every close ✕ on a window or card looks like the tooltip's — a round button with a soft edge, which shrinks a
    little and turns gold as it's pressed. */
-html.mobile :is(.dr-x, .rc-x, .pcw-b[data-pcw="x"], .to-c, .mw-x, .dk-mwx, .pcp-x, .bg-vx) { width: 32px !important; height: 32px !important; min-width: 0; padding: 0 !important; border-radius: 50% !important; border: 1px solid var(--line, #3a4560) !important; background: var(--panel2, #232c3d) !important; color: var(--ink, #f4eedf) !important; opacity: 1 !important; font-size: .9rem !important; line-height: 1; display: inline-grid; place-items: center; flex: none; box-shadow: 0 2px 8px rgba(0,0,0,.25); transition: transform .12s ease, background-color .12s ease; -webkit-tap-highlight-color: transparent; }
+html.mobile :is(.dr-x, .rc-x, .pcw-b[data-pcw="x"], .to-c, .mw-x, .dk-mwx, .pcp-x, .bg-vx) { width: 32px !important; height: 32px !important; min-width: 0; padding: 0 !important; border-radius: 50% !important; border: 1px solid var(--line, #3a4560) !important; background: var(--panel2, #232c3d) !important; color: var(--ink, #f4eedf) !important; opacity: 1 !important; font-size: .9rem !important; line-height: 1; display: inline-grid; place-items: center; flex: none; box-shadow: none; transition: transform .12s ease, background-color .12s ease; -webkit-tap-highlight-color: transparent; }
 html.mobile :is(.dr-x, .rc-x, .pcw-b[data-pcw="x"], .to-c, .mw-x, .dk-mwx, .pcp-x, .bg-vx):active { transform: scale(.86); background: var(--gold-soft, rgba(201,150,43,.18)) !important; }
 html.mobile :is(.dr-x, .rc-x, .pcw-b[data-pcw="x"], .to-c, .mw-x, .dk-mwx, .pcp-x, .bg-vx) svg { width: 14px; height: 14px; }
 .xclosing { transform: rotate(90deg) scale(.86) !important; transition: transform .18s ease !important; }
@@ -4946,7 +4946,7 @@ html.mobile #wizard .wz3 .wz-steps { background: none !important; box-shadow: no
 :is(#page-features, #page-infusions) .fgrid { display: flex; flex-direction: column; gap: 4px; grid-template-columns: none !important; }
 :is(#page-features, #page-infusions) .fcard.frow { display: block; padding: 0; border: 0; border-radius: 12px; background: color-mix(in srgb, var(--ink) 3%, transparent); box-shadow: none; min-width: 0; transition: background-color .18s ease, box-shadow .18s ease; }
 @media (hover: hover) { @media (hover:hover){:where(html:not(.mobile)) :is(#page-features, #page-infusions) .fcard.frow:hover{ background: color-mix(in srgb, var(--ink) 5.5%, transparent); }} }
-:is(#page-features, #page-infusions) .fcard.frow.open { background: var(--panel2); box-shadow: 0 0 0 1px color-mix(in srgb, var(--gold) 28%, transparent), 0 6px 18px rgba(0,0,0,.18); }
+:is(#page-features, #page-infusions) .fcard.frow.open { background: var(--panel2); box-shadow: 0 0 0 1px color-mix(in srgb, var(--gold) 28%, transparent); }
 :is(#page-features, #page-infusions) .fcard.frow.editing { box-shadow: 0 0 0 2px var(--gold); }
 :is(#page-features, #page-infusions) .fl-sum { display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 0 12px 0 0; border-radius: 12px; }
 :is(#page-features, #page-infusions) .fl-tog { flex: 1 1 auto; min-width: 0; align-self: stretch; display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 10px; align-items: center; padding: 7px 0 7px 12px; border: 0; border-radius: 12px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
@@ -5117,6 +5117,25 @@ html.mobile .tile:is([data-zi="ac"], [data-zi="init"], [data-zi="speed"], [data-
 
 html.mobile .tile:is([data-zi="ac"],[data-zi="init"],[data-zi="speed"],[data-zi="prof"],[data-zi="passive"],[data-zi="hd"]) > .lbl { display: flex; flex-direction: column; justify-content: flex-end; }
 html.mobile .tile[data-zi="init"] > .roll.big { margin-top: -6px; margin-bottom: -6px; }
+/* Ready an action: picked straight from the Action column */
+.readybar { margin: 0 0 12px; padding: 12px 14px; border: 1px solid var(--gold); border-radius: 12px; background: color-mix(in srgb, var(--gold) 9%, var(--panel, transparent)); }
+.readybar .rb-h { display: flex; align-items: center; gap: 10px; }
+.readybar .rb-h b { flex: 1; font-size: 1rem; color: var(--gold-ink); }
+.readybar p { margin: 6px 0 10px; font-size: .82rem; line-height: 1.4; color: var(--soft); }
+.readybar .f { width: 100%; box-sizing: border-box; }
+.readybar .rb-other { display: flex; gap: 8px; margin-top: 8px; }
+.readybar .rb-other .f { flex: 1; min-width: 0; }
+html.readying .econ:not(.col-action) { opacity: .4; transition: opacity .2s; }
+html.readying .econ.col-action :is(.atkbtn, button.roll, [data-act="cast"], .chip[data-act="markopt"], .opt .btn:not(.notetip)) { box-shadow: 0 0 0 2px var(--gold); }
+html.readying .econ.col-action .chip[data-act="markopt"][data-name="Ready" i] { box-shadow: none; opacity: .5; }
+@media (prefers-reduced-motion: no-preference) { html.readying .readybar { animation: rbIn .2s ease-out; } @keyframes rbIn { from { opacity: 0; transform: translateY(-4px); } } }
+
+/* damage-type boxes: wide enough for "Bludgeoning (magical)", and always one line */
+select.sel-dmg { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 12.5em; }
+@media (max-width: 380px) { select.sel-dmg { font-size: .78rem !important; padding-left: 6px !important; } }
+
+/* No drop shadows: the soft shade drawn at the scroll edges of window lists is gone (the divider lines stay) */
+#modal-body .wz3-sc::before, #modal-body .wz3-sc::after, :root:not([data-theme="dark"]) #modal-body .wz3-sc::before, :root:not([data-theme="dark"]) #modal-body .wz3-sc::after { background: none !important; }
 
 </style>
 </head>
@@ -12362,6 +12381,7 @@ function applyFixes(s) {
   // Built in (every sheet): encumbrance on for everyone who had it off; Istalyn's sling bullets become bullets for her pistol.
   if (!done.has('enc1')) { if (s.settings && s.settings.encumbrance === 'off') s.settings.encumbrance = 'standard'; done.add('enc1'); changed = true; }
   if (!done.has('bullets1')) { if (/^istalyn\b/i.test(String(s.name || ''))) (s.inventory || []).forEach(it => { if (it && /^sling bullets$/i.test(String(it.name || '').trim())) { it.name = 'Bullets'; it.weight = 0.2; } }); done.add('bullets1'); changed = true; }
+  (s.inventory || []).forEach(it => { if (it && it.infusion && it.infusion.rep && !it.infusion.repMods && !it.infusion.created && typeof infRepApply === 'function' && infRepApply(it)) changed = true; });
   (EMBED.fixes || []).forEach(f => {
     if (done.has(f.id) || (f.who && s.id !== f.who)) return;
     if (f.type === 'spellstore' && !(s.spells || []).some(x => x.stored)) { const it = (s.inventory || []).find(x => x.name === f.item), d = DND.spellIndex[String(f.spell).toLowerCase()];
@@ -12692,7 +12712,7 @@ const blessed = () => selfBuffs().some(b => b.bless) || (S.conditions || []).inc
 const hasted = () => selfBuffs().some(b => b.speedMult) || (S.conditions || []).includes('Hasted');
 // A spell's duration as shown: one that isn't concentration on this sheet (unticked, e.g. cast from an item that
 // doesn't need it) drops the "Concentration, up to" part — "Concentration, up to 1 hour" reads "1 hour".
-function spDurTxt(s) { const d = String((s && s.duration) || ''); if (!s || s.conc) return d; const t = d.replace(/^\s*concentration\s*,?\s*/i, '').replace(/^up to\s+/i, ''); return t !== d ? t.charAt(0).toUpperCase() + t.slice(1) : d; }
+function spDurTxt(s) { const d = String((s && s.duration) || ''); if (!s || s.conc) return d; if (!/^\s*concentration/i.test(d)) return d; const t = d.replace(/^\s*concentration\s*,?\s*/i, '').replace(/^up to\s+/i, ''); return t !== d ? t.charAt(0).toUpperCase() + t.slice(1) : d; }
 function parseDur(d) {
   d = String(d || '').toLowerCase();
   if (/instant/.test(d)) return 0;
@@ -14280,7 +14300,7 @@ function renderVitals() {
         <div class="hp-center">${f ? inp('form.hp', { num: 1, cls: 'cur', label: 'Form HP' }) + `<div class="hp-max">of ${N(f.maxhp)}</div>` : `<div class="curline">` + inp('hp.cur', { num: 1, cls: 'cur', label: 'Current HP' }) + `<span class="tmpbadge" data-calc="tmpb" title="Temporary hit points"></span></div><div class="hp-max">of <span class="maxv" data-calc="hpmaxv"></span></div>`}</div></div>
       <div class="hp-side">
         ${f ? `<div class="formnote">Your HP: <b data-calc="truehp"></b> <button class="btn sm" data-act="endform">Revert</button></div>` : ''}
-        <div class="hp-actions"><div class="hp-amtrow"><select class="f hptype sel-dmg" id="hpType" aria-label="Damage type (resistances and immunities apply)" title="Damage type: your resistances and immunities apply"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="hpAmt" type="text" inputmode="text" autocomplete="off" enterkeyhint="done" placeholder="Amount" aria-label="HP amount: type -20 (or 20) and press Enter for damage, +20 to heal"></div>
+        <div class="hp-actions"><div class="hp-amtrow"><select class="f hptype sel-dmg" id="hpType" aria-label="Damage type (resistances and immunities apply)" title="Damage type: your resistances and immunities apply">${dmgTypeOpts()}</select><input class="f" id="hpAmt" type="text" inputmode="text" autocomplete="off" enterkeyhint="done" placeholder="Amount" aria-label="HP amount: type -20 (or 20) and press Enter for damage, +20 to heal"></div>
           <button class="btn red hpi" data-act="dmg" title="Take damage" aria-label="Take damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-act="heal" title="Heal" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmpbtn" data-act="tmphp" title="Gain temporary HP (they don't stack — the higher stays). 0 clears them." aria-label="Gain temporary HP">${ICON.hpTemp}</button></div>
         <div class="rest-actions"><button class="btn rest short" data-act="short" title="1 hour: spend Hit Dice, refresh short-rest features and Pact slots"><span class="ri">${ICON.hourglass}</span><span class="rl">Short Rest</span></button><button class="btn rest long" data-act="long" title="8 hours: full HP, all slots, features and Hit Dice"><span class="ri">${ICON.moon}</span><span class="rl">Long Rest</span></button></div>
       </div>
@@ -14295,7 +14315,7 @@ function renderVitals() {
   <div class="tile" data-zi="hd"><span class="lbl"><span class="ciw top">Hit Dice${ciBtn('hd', 'hit dice')}</span></span><span class="big" data-calc="hd"></span><span class="sub" data-calc="hdpools"></span></div>
   <div class="tile deathtile" data-zi="death"><span class="lbl">Death Saves</span><div class="death" data-calc-html="death"></div></div>
   <div class="tile condtile" data-zi="conds"><div class="tilehead"><span class="lbl">Conditions</span><button class="addc" data-act="conditions"><span class="tt">+ Add</span></button><span class="advbtns" role="group" aria-label="All d20 rolls"><button class="advb adv${S.rollAdv === 'adv' ? ' on' : ''}" data-act="rolladv" data-v="adv" aria-pressed="${S.rollAdv === 'adv'}" title="Advantage on every attack, check and save"><span class="al">Advantage</span></button><button class="advb dis${S.rollAdv === 'dis' ? ' on' : ''}" data-act="rolladv" data-v="dis" aria-pressed="${S.rollAdv === 'dis'}" title="Disadvantage on every attack, check and save"><span class="al">Disadvantage</span></button></span></div><div class="condchips" data-calc-html="conds"></div></div>
-  <div class="tile fxtile" data-zi="effects"><div class="tilehead"><span class="lbl">Active spells &amp; effects</span><button class="addc" data-act="addeffects" title="Spells and effects someone else put on you"><span class="tt">+ Add</span></button><span class="hint concnote" data-calc-html="concnote"></span></div><div class="fxchips" data-calc-html="fxchips"></div></div>
+  <div class="tile fxtile" data-zi="effects"><div class="tilehead"><span class="lbl">Active spells &amp; effects</span><button class="addc" data-act="addeffects" title="Spells and effects someone else put on you"><span class="tt">+ Add</span></button></div><div class="fxchips" data-calc-html="fxchips"></div></div>
 `;
 }
 
@@ -14359,7 +14379,18 @@ function mtabSync() {
   if (!de.classList.contains('mtabs')) de.classList.add('mtabs');
   if (!el) { el = document.createElement('div'); el.id = 'mtab'; el.className = 'mtab'; document.body.appendChild(el); mtabWire(el); }
   const ts = mtabTabs(), cur = ts.find(t => t.on) || ts[0]; if (!cur) return; const i = ts.indexOf(cur), other = ts.some(t => t.unread && !t.on);
-  { const h = `<button class="mtab-b${other ? ' unread' : ''}" aria-haspopup="menu" aria-expanded="${!!document.getElementById('mtabmenu')}" aria-label="${esc(cur.label)} — ${i + 1} of ${ts.length}. Choose a tab"><span class="mtab-ic" aria-hidden="true">${cur.ic}</span><span class="mtab-l">${esc(cur.label)}</span><span class="mtab-dots" aria-hidden="true">${ts.map(t => `<i${t.on ? ' class="on"' : ''}></i>`).join('')}</span><span class="mtab-chev">${MTAB_CHEV}</span></button>`; if (el._h !== h) { el._h = h; el.innerHTML = h; } } // (only redrawn when it changes)
+  { const h = `<button class="mtab-b${other ? ' unread' : ''}" aria-haspopup="menu" aria-expanded="${!!document.getElementById('mtabmenu')}" aria-label="${esc(cur.label)} — ${i + 1} of ${ts.length}. Choose a tab"><span class="mtab-ic" aria-hidden="true">${cur.ic}</span><span class="mtab-l">${esc(cur.label)}</span><span class="mtab-dots" aria-hidden="true">${ts.map(t => `<i${t.on ? ' class="on"' : ''}></i>`).join('')}</span><span class="mtab-chev">${MTAB_CHEV}</span></button>`; if (el._h !== h) { const k0 = el._k; el._h = h; el._k = cur.k;
+    // Changing tab morphs the pill: the old icon and name blur away, the pill eases to the new width with nothing in it
+    // to cut off, then the new icon and name blur in. (Anything else — an unread dot — just redraws.)
+    const b0 = el.querySelector('.mtab-b'), calmM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (el._mt) { el._mt.forEach(a => { try { a.cancel(); } catch (e) {} }); el._mt = null; }
+    if (!k0 || k0 === cur.k || calmM || !b0 || !b0.animate) el.innerHTML = h;
+    else { const ez = 'cubic-bezier(.3,.7,.3,1)', parts = b0.querySelectorAll('.mtab-ic, .mtab-l'), w0 = b0.getBoundingClientRect().width;
+      const outs = [...parts].map(x => x.animate([{ opacity: 1, filter: 'blur(0)' }, { opacity: 0, filter: 'blur(4px)' }], { duration: 110, easing: 'ease-in', fill: 'forwards' })); el._mt = outs;
+      (outs[0] || { finished: Promise.resolve() }).finished.then(() => { if (el._h !== h) return; el.innerHTML = h; const b = el.querySelector('.mtab-b'), w1 = b.getBoundingClientRect().width, nw = b.querySelectorAll('.mtab-ic, .mtab-l');
+        const ins = () => { el._mt = [...nw].map((x, n) => x.animate([{ opacity: 0, filter: 'blur(5px)', transform: 'translateY(4px)' }, { opacity: 1, filter: 'blur(0)', transform: 'none' }], { duration: 200, delay: n * 30, easing: ez, fill: 'backwards' })); };
+        if (Math.abs(w1 - w0) > 1) { nw.forEach(x => { x.style.opacity = '0'; }); const g = b.animate([{ width: w0 + 'px' }, { width: w1 + 'px' }], { duration: 190, easing: ez }); el._mt = [g]; g.finished.then(() => { nw.forEach(x => { x.style.opacity = ''; }); ins(); }).catch(() => { nw.forEach(x => { x.style.opacity = ''; }); }); }
+        else ins(); }).catch(() => {}); } } } // (only redrawn when it changes)
   const m = document.getElementById('mtabmenu'); if (m) mtabFill(m);
 }
 function mtabFill(m) { const ts = mtabTabs();
@@ -14831,6 +14862,9 @@ function postSheetRoll(t) {
 const SPI = n => DND.spellIndex[String(n || '').toLowerCase()];
 const AUTO = n => DND.spellAuto[n] || {};
 const DMGTYPES = DND.damageTypes.map(t => t.toLowerCase());
+// A damage-type list for "take damage" boxes. Bludgeoning, piercing and slashing also come as "(magical)": magical
+// weapons get past resistance to nonmagical attacks (Stoneskin, many monsters).
+const dmgTypeOpts = (none = 'Any') => `<option value="">${none}</option>` + DND.damageTypes.map(t => { const v = t.toLowerCase(); return `<option value="${v}">${t}</option>` + (/^(bludgeoning|piercing|slashing)$/.test(v) ? `<option value="${v} (magical)">${t} (magical)</option>` : ''); }).join('');
 function casterFor(key) { return casters().find(c => c.key === key); }
 const isPrepCaster = key => { const c = casterFor(key); return !!(c && c.prepared); };
 function spReady(sp) { if (sp.always || N(sp.level) === 0) return true; if (!casterFor(sp.cls)) return true; return isPrepCaster(sp.cls) ? !!sp.prepared : true; }
@@ -15658,7 +15692,7 @@ function renderCombat() {
     return `<div class="econ col-${key}" data-col="${key}" data-zi="${key}">
       <div class="econ-head"><span class="badge b-${key}"></span><h3>${title}</h3>
         ${key !== 'move' ? `<button class="pill" data-act="econ" data-col="${key}" title="Mark used / ready">Ready</button>` : ''}</div>
-      <div class="econ-body">${body}</div>
+      <div class="econ-body">${key === 'action' ? readyBarHTML() : ''}${body}</div>
 </div>`;
   };
   const cur = UI.econTab || 'action';
@@ -15770,6 +15804,7 @@ function calcText(key) {
   }
   return '';
 }
+function fxChipsHTML(fx) { return fx.map((e, j) => `<span class="fxc${e.conc ? ' conc' : ''}${e.rounds != null && e.rounds <= 1 ? ' ending' : ''}" title="${esc(fxTip(e))}">${e.conc ? '<i class="cdot"></i>' : ''}<b>${esc(e.name)}</b>${e.ally ? ' (ally)' : ''}${e.from ? '<small class="fxfrom" title="Cast on you by someone else">↘</small>' : ''}${e.buff && N(e.buff.ac) && !e.ally ? ` +${N(e.buff.ac)} AC` : ''}<span class="left">${(e.readied ? 'until your next turn' : e.rage && e.rounds == null ? "until rage ends" : fmtRounds(e.rounds))}</span>${e.repeat ? `<button class="rep" data-act="repeatfx" data-j="${j}" title="Roll ${esc(e.repeat.dice)} ${esc(e.repeat.type || '')}">${esc(String(e.repeat.dice).replace(/^1d/, 'd'))}</button>` : ''}${e.conc && S.concentration ? `<button class="rep ccs" data-act="concsave" title="Roll a concentration save (CON save)">CON save</button>` : ''}<button data-act="endeffect" data-n="${esc(e.name)}" aria-label="End ${esc(e.name)}">✕</button></span>`).join(''); }
 function calcHTML(key) {
   const [k, a] = key.split(':');
   switch (k) {
@@ -15793,8 +15828,11 @@ function calcHTML(key) {
     case 'atkpips': { const n = attacksPerAction(), left = canAttack() ? n - N(S.turn.attacks) : 0; let h = ''; for (let j = 0; j < n; j++) h += `<i class="ap${j < left ? ' on' : ''}"></i>`; return h; }
     case 'fxchips': {
       const fx = S.effects || [];
-      if (!fx.length) return '<span class="hint">No spells or effects running.</span>';
-      return fx.map((e, j) => `<span class="fxc${e.conc ? ' conc' : ''}${e.rounds != null && e.rounds <= 1 ? ' ending' : ''}" title="${esc(fxTip(e))}">${e.conc ? '<i class="cdot"></i>' : ''}<b>${esc(e.name)}</b>${e.ally ? ' (ally)' : ''}${e.from ? '<small class="fxfrom" title="Cast on you by someone else">↘</small>' : ''}${e.buff && N(e.buff.ac) && !e.ally ? ` +${N(e.buff.ac)} AC` : ''}<span class="left">${(e.readied ? 'until your next turn' : e.rage && e.rounds == null ? "until rage ends" : fmtRounds(e.rounds))}</span>${e.repeat ? `<button class="rep" data-act="repeatfx" data-j="${j}" title="Roll ${esc(e.repeat.dice)} ${esc(e.repeat.type || '')}">${esc(String(e.repeat.dice).replace(/^1d/, 'd'))}</button>` : ''}${e.conc && S.concentration ? `<button class="rep ccs" data-act="concsave" title="Roll a concentration save (CON save)">CON save</button>` : ''}<button data-act="endeffect" data-n="${esc(e.name)}" aria-label="End ${esc(e.name)}">✕</button></span>`).join('');
+      // concentrating on something with no pill of its own: it gets one, with the CON save and an ✕ to end it
+      const cc = S.concentration && !fx.some(e => e.conc) ? `<span class="fxc conc" title="You're concentrating on this"><i class="cdot"></i><b>${esc(S.concentration)}</b><button class="rep ccs" data-act="concsave" title="Roll a concentration save (CON save)">CON save</button><button data-act="concend" aria-label="End concentration on ${esc(S.concentration)}">✕</button></span>` : '';
+      if (!fx.length) return cc || '<span class="hint">No spells or effects running.</span>';
+      if (cc) return cc + fxChipsHTML(fx);
+      return fxChipsHTML(fx);
     }
     case 'slotsall': {
       let h = '';
@@ -16072,6 +16110,7 @@ document.addEventListener('click', e => { try { e._pc = !!(e.target.closest && e
 const TABSCROLL = {}; let tabFadeT = 0;
 function mainClick(e) {
   if (e.target.closest('#wizard')) return wizClick(e);
+  if (READY_MODE && readyTap(e)) return;
   const menu = e.target.closest('.menu');
   $$('.menu.open').forEach(m => { if (m !== menu) m.classList.remove('open'); });
   const am = e.target.closest('[data-asimode]'); if (am) return asiModeClick(am);
@@ -16163,6 +16202,7 @@ function mainClick(e) {
     case 'econtab': UI.econTab = b.dataset.col; saveUI(); render('combat'); refresh(); pendingLabel = null; return;
     case 'qty': { const it = S.inventory[i]; it.qty = Math.max(0, N(it.qty) + N(b.dataset.d)); update(); break; }
     case 'concsave': concCheck(10, true); break;
+    case 'concend': if (S.concentration) { breakConc('ended'); } break;
     case 'endeffect': endEffect(b.dataset.n); if ($('#condmodal.extfxm')) openExtFx(); break;
     case 'addeffects': UI.extPick = ''; openExtFx(); break;
     case 'extfx': addExtFx(b.dataset.k); break;
@@ -16236,8 +16276,8 @@ function mainClick(e) {
     case 'updatesheet': closeModal(true); $('#updateFile').value = ''; $('#updateFile').click(); pendingLabel = null; return;
     case 'useobjplain': closeModal(true); S.turn.used.action = true; pendingLabel = 'Use an Object'; update(); toast('<b>Use an Object</b> — action spent.', '', 4000); break;
     case 'markopt': if (b.dataset.col === 'action' && /^ready$/i.test(b.dataset.name)) openReady(); else markOpt(b); break;
-    case 'readypick': $$('#modal-body .castopt').forEach(x => x.classList.toggle('on', x === b)); READY_PICK = b.dataset.k; break;
-    case 'readygo': readyGo(); break;
+    case 'readycancel': readyEnd(); break;
+    case 'readyother': { const o = READY_MODE ? READY_MODE.other.trim() : ''; if (!o) { toast('Type what you want to ready, or tap something in your Action column.'); const x = $('#readyOther'); if (x) x.focus(); break; } const t = READY_MODE.trig; READY_MODE = null; document.documentElement.classList.remove('readying'); readyGo('other', t, o); break; }
     case 'oacast': closeModal(true); castSpell(i, 'reaction'); render('combat'); break;
     case 'oago': { closeModal(true); S.turn.used.reaction = true; const a = S.attacks[i]; attackRoll(i, true, { label: 'Opportunity Attack · ' + a.name, offTurn: true, notes: hasFeature('Sentinel') ? ['Sentinel: on a hit, its speed drops to 0 this turn'] : [] }); render('combat'); break; }
     case 'searchgo': { closeModal(true); S.turn.used[b.dataset.col || 'action'] = true; pendingLabel = 'Search'; update(); doRoll('skill:' + b.dataset.k); break; }
@@ -16390,10 +16430,10 @@ function mainClick(e) {
     case 'roberoll': robeRoll(); break;
     case 'robeview': if (ROBE) { ROBE.view = b.dataset.v; ROBE.edit = null; ROBE.msg = ''; renderRobe(); } break;
     case 'robecnt': if (ROBE && ROBE.edit) { const k = b.dataset.k; ROBE.edit[k] = Math.max(0, Math.min(40, N(ROBE.edit[k]) + N(b.dataset.d))); renderRobe(); } break;
-    case 'robesave': if (ROBE && ROBE.edit) { const it = S.inventory[ROBE.i]; if (it) { it.robe = Object.assign({ log: [] }, it.robe || {}, { p: Object.assign({}, ROBE.edit) }); pendingLabel = 'Robe of Useful Items: patches'; save(); render(); } ROBE.view = 'main'; ROBE.edit = null; ROBE.msg = ''; renderRobe(); } break;
+    case 'robesave': if (ROBE && ROBE.edit) { const it = robeItem(); if (it) { it.robe = Object.assign({ log: [] }, it.robe || {}, { p: Object.assign({}, ROBE.edit) }); pendingLabel = 'Robe of Useful Items: patches'; save(); render(); } ROBE.view = 'main'; ROBE.edit = null; ROBE.msg = ''; renderRobe(); } break;
     case 'robedet': robeDetach(b.dataset.k); break;
     case 'robescroll': robeDetach('scroll', b.dataset.v); break;
-    case 'robewear': if (ROBE) { const it = S.inventory[ROBE.i]; if (it && !it.equipped) { equipItem(ROBE.i); } renderRobe(); } break;
+    case 'robewear': if (ROBE) { const it = robeItem(); if (it && !it.equipped) { equipItem(S.inventory.indexOf(it)); } renderRobe(); } break;
     case 'unpack': unpackItem(i); break;
     case 'throwit': throwItem(i); break;
     case 'decktype': S.deck.variant = b.dataset.v; DECK.last = null; save(); renderDeck(); break;
@@ -16912,7 +16952,6 @@ function nextTurn() {
 }
 // ---------- Ready action ----------
 // Ready: pick what you'll do and the trigger; it waits in the Reaction column until you fire it with your reaction.
-let READY_PICK = '';
 function readyChoices() {
   const out = [];
   S.attacks.forEach((a, i) => { if (atkShown(a)) out.push({ k: 'atk:' + i, name: 'Attack: ' + a.name, sub: atkHit(a) >= 0 ? '+' + atkHit(a) + ' to hit' : atkHit(a) + ' to hit' }); });
@@ -16920,26 +16959,53 @@ function readyChoices() {
   (S.combat.action || []).forEach(o => { if (!/^(ready|attack)$/i.test(o.name)) out.push({ k: 'std:' + o.name, name: o.name, sub: o.text || '' }); });
   return out;
 }
+// Ready: you pick what you'll do straight from your Action column (an attack, a spell, a standard action or anything
+// else there); a bar at the top of the column holds the trigger and a "something else" box.
+let READY_MODE = null;
 function openReady() {
   if (incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take actions or reactions.`, 'fumble'); return; }
   if ((S.turn.used || {}).action) { toast('Your action is already used this turn.', 'fumble'); return; }
-  READY_PICK = '';
-  const ch = readyChoices();
-  openModal(`<h3>Ready an action</h3>
-    <p class="hint" style="margin:0 0 8px">Uses your action now. When the trigger happens before your next turn, use your reaction to do it. Readying a spell means casting it now and holding it with concentration.</p>
-    ${fld('Trigger', '<input class="f" id="readyTrig" placeholder="e.g. when the goblin comes through the door" autofocus>')}
-    <div class="lbl" style="margin-top:8px">What you'll do</div>
-    <div class="castopts">${ch.map(c => `<button class="castopt" data-act="readypick" data-k="${esc(c.k)}"><b>${esc(c.name)}</b><span>${esc(c.sub)}</span></button>`).join('')}
-      <button class="castopt ghost" data-act="readypick" data-k="other"><b>Something else…</b><span>type it below</span></button></div>
-    ${fld('Something else', '<input class="f" id="readyOther" placeholder="e.g. pull the lever">')}
-    <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="readygo">Ready it</button></div>`);
+  READY_MODE = { trig: '', other: '' }; UI.econTab = 'action'; document.documentElement.classList.add('readying'); render('combat');
+  // (scrolled so it sits just under whatever stays pinned at the top: the header on a computer, the column tabs on a phone)
+  const bar = $('.readybar'); if (bar) { const r = bar.getBoundingClientRect(); let top = 0;
+    $$('header.banner, #page-combat .seg').forEach(x => { const cs = getComputedStyle(x); if (/sticky|fixed/.test(cs.position)) top = Math.max(top, N(parseFloat(cs.top)) + x.offsetHeight); });
+    if (r.top < top + 8 || r.bottom > innerHeight) scrollTo({ top: Math.max(0, scrollY + r.top - top - 16), behavior: 'smooth' }); }
 }
-function readyGo() {
-  const other = ($('#readyOther') && $('#readyOther').value.trim()) || '', trig = ($('#readyTrig') && $('#readyTrig').value.trim()) || '';
-  const k = READY_PICK || (other ? 'other' : '');
-  if (!k) { toast('Pick what you want to ready.'); return; }
-  if (k === 'other' && !other) { toast('Type what you want to ready.'); return; }
-  const c = readyChoices().find(x => x.k === k);
+function readyEnd() { READY_MODE = null; document.documentElement.classList.remove('readying'); render('combat'); }
+function readyBarHTML() {
+  if (!READY_MODE) return '';
+  return `<div class="readybar"><div class="rb-h"><b>Ready an action</b><button class="btn sm" data-act="readycancel">Cancel</button></div>
+    <p>Tap what you'll do below. It uses your action now; when the trigger happens before your next turn, you do it with your reaction. Spells are cast now and held with concentration.</p>
+    <input class="f" id="readyTrig" placeholder="Trigger (optional): when the goblin comes through the door" value="${esc(READY_MODE.trig)}" aria-label="Trigger">
+    <div class="rb-other"><input class="f" id="readyOther" placeholder="Or something else: pull the lever" value="${esc(READY_MODE.other)}" aria-label="Something else to ready"><button class="btn sm gold" data-act="readyother">Ready it</button></div></div>`;
+}
+document.addEventListener('input', e => { if (!READY_MODE || !e.target) return; if (e.target.id === 'readyTrig') READY_MODE.trig = e.target.value; else if (e.target.id === 'readyOther') READY_MODE.other = e.target.value; });
+document.addEventListener('keydown', e => { if (READY_MODE && e.key === 'Escape' && !$('#modal').classList.contains('open')) readyEnd(); });
+// While readying, a tap in the Action column picks that thing instead of doing it. (true = handled)
+function readyTap(e) {
+  if (!READY_MODE) return false;
+  const el = e.target.closest('[data-roll], [data-act]'); if (!el || el.closest('.readybar') || el.closest('#modal')) return false;
+  const col = el.closest('.econ'); if (!col || col.dataset.col !== 'action') return false;
+  const act = el.dataset.act || '', roll = el.dataset.roll || '';
+  if (/^(notetip|toggle|menu|twohand|econ)$/.test(act)) return false; // (info, open/close a group, grip: they still work)
+  let k = '', name = '';
+  const m = /^(atk|dmg):(\d+)$/.exec(roll); if (m) k = 'atk:' + m[2];
+  else if (act === 'attack') k = 'atk:' + N(el.dataset.i);
+  else if (act === 'cast') k = 'sp:' + N(el.dataset.i);
+  else if (act === 'markopt') { if (/^ready$/i.test(el.dataset.name || '')) { readyEnd(); return true; }
+    if (/^attack$/i.test(el.dataset.name || '')) { e.preventDefault(); toast('Tap the ⚔ (or a roll) next to the weapon you’ll attack with.'); return true; }
+    k = 'std:' + el.dataset.name; }
+  else { const o = el.closest('.opt'), n = o && o.querySelector('.opt-name'); if (n) { k = 'other'; name = n.textContent.trim(); } }
+  if (!k) return false;
+  e.preventDefault(); e.stopPropagation();
+  const trig = READY_MODE.trig.trim(); READY_MODE = null; document.documentElement.classList.remove('readying');
+  readyGo(k, trig, name); return true;
+}
+function readyGo(k, trig, other) {
+  trig = String(trig || '').trim(); other = String(other || '').trim();
+  if (!k || (k === 'other' && !other)) { toast('Pick what you want to ready.'); return; }
+  const c = k === 'other' ? null : readyChoices().find(x => x.k === k);
+  if (k !== 'other' && !c) { toast('That can’t be readied.'); render('combat'); return; }
   const r = { k, name: k === 'other' ? other : c.name.replace(/^Attack: /, 'Attack with '), trigger: trig };
   if (k.startsWith('sp:')) { const sp = S.spells[N(k.slice(3))]; r.spell = sp && sp.name; r.level = sp ? N(sp.level) : 0; r.i = N(k.slice(3)); }
   // A readied spell is cast now and held, so its slot is spent now, whether or not it ever goes off.
@@ -19277,10 +19343,13 @@ const robeLeft = it => { const p = (it && it.robe && it.robe.p) || {}; return Ob
 const robeD100 = () => 1 + Math.floor(Math.random() * 100);
 const robeKindOf = r => ROBE_RAND.find(k => r >= ROBE_P[k].r[0] && r <= ROBE_P[k].r[1]);
 let ROBE = null;
-function openRobe(i, view) { const it = S.inventory[i]; if (!isRobeItem(it)) return; ROBE = { i, view: view || (it.robe ? 'main' : 'setup'), msg: '', q: '' }; renderRobe(); }
+function openRobe(i, view) { const it = S.inventory[i]; if (!isRobeItem(it)) return; ROBE = { i, id: it.id, view: view || (it.robe ? 'main' : 'setup'), msg: '', q: '' }; renderRobe(); }
+// The robe the window is about: found by its id (the sheet can change underneath — a save from your other device, an
+// item added or removed — and its place in the inventory with it).
+function robeItem() { if (!ROBE) return null; if (ROBE.id) { const k = S.inventory.findIndex(x => x && x.id === ROBE.id); if (k >= 0) { ROBE.i = k; return S.inventory[k]; } } return S.inventory[ROBE.i] || null; }
 function robeBase() { const p = {}; ROBE_FIXED.forEach(k => p[k] = 2); return p; }
 function robeRoll() {
-  const it = S.inventory[ROBE.i]; if (!it) return;
+  const it = robeItem(); if (!it) return;
   const r = rollExpr('4d4', { need: true, label: 'Robe of Useful Items: extra patches' }), n = N(r.total) || 10, p = robeBase(), rolls = [];
   for (let k = 0; k < n; k++) { const d = robeD100(), kind = robeKindOf(d); p[kind] = N(p[kind]) + 1; rolls.push([d, kind]); }
   it.robe = { p, rolled: rolls, log: [] }; ROBE.view = 'main'; ROBE.msg = `<b>${n} extra patches</b> (4d4): ${rolls.map(([d, k]) => `${esc(ROBE_P[k].n)} <small>(${d})</small>`).join(', ')}.`;
@@ -19291,7 +19360,7 @@ function robeTile(k, n, i, act) {
   return `<div class="robe-p${n ? '' : ' gone'}"><div class="robe-pt"><b>${esc(P.n)}</b>${n > 1 ? `<span class="robe-n">×${n}</span>` : ''}</div><p>${esc(P.d)}</p>${act ? act : `<button class="btn sm gold" data-act="robedet" data-k="${k}" ${n ? '' : 'disabled'}>Detach</button>`}</div>`;
 }
 function renderRobe() {
-  const it = S.inventory[ROBE.i]; if (!it) return closeModal(); let h = `<div id="robem"><h3>${esc(it.name)}</h3>`;
+  const it = robeItem(); if (!it) return closeModal(); let h = `<div id="robem"><h3>${esc(it.name)}</h3>`;
   if (ROBE.view === 'setup') {
     h += `<p class="hint">Every robe has two each of a dagger, bullseye lantern, steel mirror, 10-foot pole, hempen rope and sack, plus <b>4d4 more patches</b> your DM rolls or picks.</p>
       <div class="bagpresets"><button class="bagpreset" data-act="roberoll"><b>Roll the extra patches</b><small>4d4 patches, each rolled on the d100 table</small></button><button class="bagpreset" data-act="robeview" data-v="edit"><b>My DM told me what they are</b><small>Count each kind of patch yourself</small></button></div>`;
@@ -19338,7 +19407,7 @@ function robeScrollItem(name) {
   return it;
 }
 function robeDetach(k, spell) {
-  const it = S.inventory[ROBE.i]; if (!it || !it.robe) return; const p = it.robe.p, P = ROBE_P[k]; if (!N(p[k])) return;
+  const it = robeItem(); if (!it || !it.robe) return; const p = it.robe.p, P = ROBE_P[k]; if (!N(p[k])) return;
   if (!it.equipped) { toast('Wear the robe first — patches only come off while you have it on.', 'fumble'); return; }
   if (incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take actions.`, 'fumble'); return; }
   if (k === 'scroll' && !spell) { ROBE.view = 'scroll'; ROBE.q = ''; renderRobe(); return; }
@@ -19649,9 +19718,21 @@ function openInfPick(name, rep, all) {
     ${full ? `<p class="inf-warn" style="margin:0 0 8px">You already have ${aMax} infused items — this ends the oldest: <b>${esc(full.name)}</b> (${esc(infLabel(full.infusion))}).</p>` : ''}
     ${d.choose ? fld('Resistance to', `<select class="f" id="infChoice">${d.choose.map(c => `<option>${c}</option>`).join('')}</select>`) : ''}
     <div class="lbl">Choose an item you carry</div>
-    <div class="crlist">${cands.map(([it, i]) => `<button class="crrow sel" data-act="infgo" data-i="${i}"><div><b>${esc(it.name)}</b> <span class="hint">${it.weapon ? 'Weapon' : it.armor ? (it.armor.type === 'shield' ? 'Shield' : 'Armor') : 'Item'}${it.equipped ? ' · equipped' : ''}</span></div></button>`).join('') || '<p class="hint">No matching nonmagical items — create one below, or show every item.</p>'}</div>
-    <div class="row" style="margin-top:8px"><input class="f" id="infNewName" placeholder="${esc(rep || (d.item || 'Item').replace(/^(A|An) /i, '').replace(/^pair of /i, ''))}"><button class="btn sm" data-act="infgo" data-i="-1">Create it</button>${!all && !rep && d.ok ? `<button class="btn sm ghost" data-act="infpickall">Show every item</button>` : ''}</div>
+    ${cands.length ? `<div class="castopts infopts">${cands.map(([it, i]) => `<button class="castopt" data-act="infgo" data-i="${i}"><b>${esc(it.name)}</b><span class="co-sub">${it.weapon ? 'Weapon' : it.armor ? (it.armor.type === 'shield' ? 'Shield' : 'Armor') : 'Item'}${it.equipped ? ' · equipped' : ''}${it.attuned ? ' · attuned' : ''}</span></button>`).join('')}</div>` : '<p class="hint">No matching nonmagical items — create one below, or show every item.</p>'}
+    <div class="lbl" style="margin-top:12px">Or make a new one</div>
+    <div class="row inf-new"><input class="f" id="infNewName" placeholder="${esc(rep || (d.item || 'Item').replace(/^(A|An) /i, '').replace(/^pair of /i, ''))}"><button class="btn sm" data-act="infgo" data-i="-1">Create it</button>${!all && !rep && d.ok ? `<button class="btn sm ghost" data-act="infpickall">Show every item</button>` : ''}</div>
     <div class="actions"><button class="btn" data-act="close">Cancel</button></div>`);
+}
+// Replicate Magic Item into an object you already have: it gets the magic item's bonuses (AC, saves, speed…) and
+// charges, as if it were that item; ending the infusion puts back what it had. (Older infusions get this on load.)
+function infRepApply(it) {
+  const inf = it.infusion; if (!inf || !inf.rep || inf.repMods) return false;
+  const m = DND.magic.find(x => x[0] === inf.rep); if (!m) return false;
+  const md = Object.assign({}, m[6] || {}); inf.prev = inf.prev || {}; inf.prev.mods = it.mods ? JSON.parse(JSON.stringify(it.mods)) : null;
+  it.mods = Object.assign({}, it.mods || {}, md); delete it.mods.base; delete it.mods.charges; delete it.mods.heal;
+  if (md.charges && !it.charges) { it.charges = { max: md.charges, used: 0 }; inf.repCharges = true; }
+  if (md.heal && !it.heal) { it.heal = md.heal; inf.repHeal = true; }
+  inf.repMods = true; return true;
 }
 function infGo(i) {
   const P = INFPICK; if (!P) return; const d = INF[P.name] || {};
@@ -19666,6 +19747,7 @@ function infGo(i) {
   it.infusion = { name: P.name, rep: P.rep || '', at: Date.now(), prev, created: i < 0, choice: d.choose ? (($('#infChoice') || {}).value || '') : '' };
   const needAtt = P.rep ? repAttune(P.rep) : !!d.attune; if (needAtt) { it.attune = true; it.attuned = !!prev.attuned && !!prev.attune; }
   if (d.charges) { it.charges = { max: d.charges[0], used: 0, reset: 'long' }; it.infusion.charges = true; }
+  if (P.rep && i >= 0) infRepApply(it);
   if (!it.magic) it.magic = { rarity: P.rep ? ((DND.magic.find(x => x[0] === P.rep) || [])[3] || 'uncommon') : 'uncommon', type: 'infusion', src: 'TCE', name: P.rep || '' };
   if (!it.summary) it.summary = P.rep ? ((DND.magic.find(x => x[0] === P.rep) || [])[5] || '') : ((DND.options.infusion.list.find(x => x[0] === P.name) || [])[1] || '');
   pendingLabel = 'Infuse ' + it.name; closeModal(true); save(); render();
@@ -19676,6 +19758,7 @@ function infEndItem(it) {
   if (inf.created && inf.name === 'Replicate Magic Item') { const k = S.inventory.indexOf(it); if (k >= 0) { S.inventory.splice(k, 1); S.attacks = S.attacks.filter(a => a.item !== it.id); } return; }
   const p = inf.prev;
   if (p) { it.attune = p.attune; it.attuned = p.attuned; if (inf.charges) { if (p.charges) it.charges = p.charges; else delete it.charges; } if (!p.magic && it.magic && it.magic.type === 'infusion') delete it.magic; if (p.summary !== undefined) it.summary = p.summary; }
+  if (inf.repMods) { if (p && p.mods) it.mods = p.mods; else delete it.mods; if (inf.repCharges) delete it.charges; if (inf.repHeal) delete it.heal; }
   delete it.infusion;
 }
 function infEnd(i) {
@@ -19742,7 +19825,7 @@ function compCard(c, i, mini, inCol) {
   const hp = c.count > 1 ? `<div class="grpHp">${(c.hps || []).map((h, k) => `<label class="ghp"><span>#${k + 1}</span>${inp(`companions.${i}.hps.${k}`, { num: 1, cls: 'sm', label: c.name + ' ' + (k + 1) + ' HP' })}</label>`).join('')}<span class="hint">of ${N(c.maxhp)} each</span></div>`
     : c.maxhp ? `<div class="chp chp2"><div class="chp-ring"><div class="ring-svg">${hpRingSVG(c.hp, c.maxhp, c.temp)}</div>
         <div class="chp-center"><div class="curline">${inp(`companions.${i}.hp`, { num: 1, cls: 'cur', label: c.name + ' current HP' })}${N(c.temp) ? `<span class="tmpbadge">+${N(c.temp)}</span>` : ''}</div><div class="hp-max">of ${N(c.maxhp)}</div></div></div>
-        <div class="chp-side"><select class="f ptyqt sel-dmg" id="chpt${i}" aria-label="Damage type for ${esc(c.name)}" title="Damage type"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="chp${i}" type="text" autocomplete="off" placeholder="Amount" aria-label="${esc(c.name)} HP: -20 (or 20) for damage, +20 to heal, then Enter">
+        <div class="chp-side"><select class="f ptyqt sel-dmg" id="chpt${i}" aria-label="Damage type for ${esc(c.name)}" title="Damage type">${dmgTypeOpts()}</select><input class="f" id="chp${i}" type="text" autocomplete="off" placeholder="Amount" aria-label="${esc(c.name)} HP: -20 (or 20) for damage, +20 to heal, then Enter">
           <div class="chp-btns"><button class="btn hpi dmg" data-act="comphp" data-i="${i}" data-d="-1" title="Damage ${esc(c.name)}" aria-label="Damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-act="comphp" data-i="${i}" data-d="1" title="Heal ${esc(c.name)}" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmp" data-act="comphp" data-i="${i}" data-d="0" title="Give ${esc(c.name)} temporary HP (they don't stack — the higher stays)" aria-label="Temporary HP">${ICON.hpTemp}</button></div></div></div>` : '';
   return `<div class="${mini ? 'cm-card' : inCol ? 'comp2 incol' : 'panel comp2'}"><div class="comp-h2">${picThumb(c.tmpl ? `compMods.${c.tmpl}.img` : `companions.${i}.img`, c.name)}<div class="grow"><b class="cname">${esc(c.name)}</b><div class="ctags">${(inCol ? [] : tags).map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div></div>
       ${inCol ? compCmdBtn(c, i) : ''}<button class="icon-btn" data-act="compedit" data-i="${i}" title="Edit ${esc(c.name)}" aria-label="Edit">✎</button>${c.tmpl && COMP_RULES[c.tmpl] && COMP_RULES[c.tmpl].always ? '' : `<button class="btn sm ghost" data-act="dismiss" data-i="${i}">Dismiss</button>`}</div>
@@ -22337,7 +22420,7 @@ function ptyCardHTML(m) {
   const more = [['coins', 'Give coins'], ['help', 'Help (advantage on their next roll)'], down && !m.dead && !m.stable ? ['stab', 'Stabilize (Medicine, DC 10)'] : null, ['note', 'Send a message']].filter(Boolean);
   const hp = max ? `<div class="chp chp2"><div class="chp-ring"><div class="ring-svg">${hpRingSVG(cur, max, m.temp, f ? ' form' : '')}</div>
       <div class="chp-center"><div class="curline"><b class="ptym-cur">${cur}</b>${N(m.temp) ? `<span class="tmpbadge">+${N(m.temp)}</span>` : ''}</div><div class="hp-max">of ${max}</div></div></div>
-      ${act ? `<div class="chp-side"><select class="f ptyqt sel-dmg" id="ptyqt-${esc(id)}" aria-label="Damage type for ${esc(m.name)}" title="Damage type: their resistances and immunities apply"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="ptyq-${esc(id)}" autocomplete="off" placeholder="Amount" aria-label="Amount for ${esc(m.name)}: -20 (or 20) for damage, +20 to heal, then Enter">
+      ${act ? `<div class="chp-side"><select class="f ptyqt sel-dmg" id="ptyqt-${esc(id)}" aria-label="Damage type for ${esc(m.name)}" title="Damage type: their resistances and immunities apply">${dmgTypeOpts()}</select><input class="f" id="ptyq-${esc(id)}" autocomplete="off" placeholder="Amount" aria-label="Amount for ${esc(m.name)}: -20 (or 20) for damage, +20 to heal, then Enter">
         <div class="chp-btns"><button class="btn hpi dmg" data-pa="qdmg" data-id="${esc(id)}" title="Damage ${esc(m.name)}" aria-label="Damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-pa="qheal" data-id="${esc(id)}" title="Heal ${esc(m.name)}" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmp" data-pa="qtemp" data-id="${esc(id)}" title="Give ${esc(m.name)} temporary HP" aria-label="Temporary HP">${ICON.hpTemp}</button></div></div>` : ''}</div>` : '';
   return `<div class="panel comp2 ptym${down ? ' ' + down : ''}" data-mid="${esc(id)}"><div class="comp-h2">${m.thumb ? `<span class="picth"${/^#[0-9a-f]{6}$/i.test(m.acc || '') ? ` style="border-color:${m.acc}"` : ''}><img src="${esc(m.thumb)}" alt=""></span>` : `<span class="picadd">${esc(String(m.name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join(''))}</span>`}
       <div class="grow"><b class="cname${String(m.name || '').length > 26 ? ' n3' : String(m.name || '').length > 17 ? ' n2' : ''}" title="${esc(m.name || '')}">${esc(m.name || 'A character')}</b>${m.player ? `<div class="ptym-pl">${esc(m.player)}</div>` : ''}</div>
@@ -22539,7 +22622,7 @@ function ptyAmount(kind, ids) {
   PTY_AMT = { kind, ids };
   const T = { heal: 'Heal', temp: 'Temporary HP for', dmg: 'Damage' }[kind];
   openModal(`<h3>${T} ${esc(ptyNames(ids))}</h3>
-    <div class="row">${fld('Amount, or a roll like 2d4+2', `<input class="f" id="ptyAmt" autofocus placeholder="${kind === 'dmg' ? 'e.g. 7' : 'e.g. 1d8+3'}">`)}${kind === 'dmg' ? fld('Type', `<select class="f sel-dmg" id="ptyType"><option value="">—</option>${(DND.damageTypes || []).map(t => `<option>${esc(String(t).toLowerCase())}</option>`).join('')}</select>`) : ''}</div>
+    <div class="row">${fld('Amount, or a roll like 2d4+2', `<input class="f" id="ptyAmt" autofocus placeholder="${kind === 'dmg' ? 'e.g. 7' : 'e.g. 1d8+3'}">`)}${kind === 'dmg' ? fld('Type', `<select class="f sel-dmg" id="ptyType">${dmgTypeOpts('—')}</select>`) : ''}</div>
     ${fld('From what (they see this)', `<input class="f" id="ptyWhy" placeholder="${kind === 'heal' ? 'e.g. a potion, first aid' : kind === 'dmg' ? 'e.g. my fireball' : 'e.g. inspiring words'}">`)}
     <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-pa="amt" data-k="${kind}">${kind === 'heal' ? 'Heal' : kind === 'temp' ? 'Give temp HP' : 'Deal damage'}</button></div>`);
 }
@@ -22929,8 +23012,8 @@ function ptyCatchUp() {
 }
 setTimeout(ptyCatchUp, 2500); setInterval(ptyCatchUp, 20000);
 // Damage after resistances and immunities this sheet knows about.
-function ptyResist(n, type) { type = String(type || '').toLowerCase(); if (!type) return [n, '']; const D = defensesDetail(), has = arr => arr.some(x => /^all damage/.test(x.k) ? !new RegExp('except[^.]*\\b' + type + '\\b').test(x.k) : x.k.includes(type)); // ("all damage except psychic": every type but that one)
-  const vul = (D.vuln || []).some(x => x.k.includes(type));
+function ptyResist(n, type) { type = String(type || '').toLowerCase(); if (!type) return [n, '']; const magical = /\(magical\)/.test(type); type = type.replace(/\s*\(magical\)/, '').trim(); const D = defensesDetail(), hits = x => !(magical && /non-?magical|aren['’]t (?:silvered|adamantine|magical)/.test(x.k)), has = arr => arr.filter(hits).some(x => /^all damage/.test(x.k) ? !new RegExp('except[^.]*\\b' + type + '\\b').test(x.k) : x.k.includes(type)); // ("all damage except psychic": every type but that one)
+  const vul = (D.vuln || []).filter(hits).some(x => x.k.includes(type));
   if (has(D.immune)) return [0, 'immune']; if (has(D.resist)) return vul ? [n, 'resistant and vulnerable'] : [Math.floor(n / 2), 'resistant']; if (vul) return [n * 2, 'vulnerable']; return [n, '']; }
 function ptyApply(m) {
   const d = cleanData(m.data || {}), who = m.fromName || 'Someone', why = d.why || who;
@@ -24106,6 +24189,7 @@ function lvChoiceDefs(t) {
   if (c.asi.includes(nl)) defs.push({ id: 'asi', def: { type: 'asiOrFeat' } });
   (c.choices || []).concat((s && s.choices) || []).forEach((ch, k) => { if (ch.level === nl) defs.push({ id: 'ch' + k + '.' + ch.type, def: ch }); });
   if (t.isNew && c.mc && c.mc.skills) defs.push({ id: 'mcskill', def: { type: 'skill', n: c.mc.skills, from: c.skills.from } });
+  { const tc = t.isNew && c.mc && clsToolChoice(c.mc.profs); if (tc) defs.push({ id: 'mctool', def: { type: 'tool', n: tc.n, from: tc.from, label: `${c.name} multiclass ${tc.n > 1 ? 'tools' : 'tool'}` } }); }
   return defs;
 }
 function asiOrFeatUI(CH, id) {
@@ -24201,7 +24285,7 @@ function finishLevelUp() {
   if (sub && sub.profs && t.nl === t.c.sub.level) { if (sub.profs.armorCats) S.profs.armor = [...new Set((S.profs.armor || []).concat(sub.profs.armorCats))]; if (sub.profs.weaponCats) S.profs.weapons = [...new Set((S.profs.weapons || []).concat(sub.profs.weaponCats))]; S.profArmor = profArmorText(); S.profWeapons = profWeaponText(); }
   const notes = [];
   lvChoiceDefs({ ...t, row: clsRows().find(r => r.key === t.key), isNew: t.isNew }).forEach(d => {
-    const cid = d.id === 'asi' ? `asi.${t.key}.${t.nl}` : d.id === 'mcskill' ? `mc.${t.key}.skills` : `ch.${t.key}.${d.id.slice(2).split('.')[0]}.${t.nl}.${d.def.type}`;
+    const cid = d.id === 'asi' ? `asi.${t.key}.${t.nl}` : d.id === 'mcskill' ? `mc.${t.key}.skills` : d.id === 'mctool' ? `mc.${t.key}.tools` : `ch.${t.key}.${d.id.slice(2).split('.')[0]}.${t.nl}.${d.def.type}`;
     S.answered = S.answered || {};
     if (d.def.type === 'asiOrFeat') { if (asiDone(LV.ans, d.id)) S.answered[cid] = (LV.ans[d.id] || []).slice(); const r = applyAsiOrFeat(LV.ans, d.id); if (r) notes.push(r); return; }
     const v = ansList(LV.ans, d.id); if (!v.length) return;
@@ -24406,6 +24490,18 @@ function wzRacialSpells() {
   return out;
 }
 function wzClassRows() { return W.classes.filter(r => CL[r.key]); }
+// Tools a class lets you choose ("one artisan's tool", "three musical instruments", "one artisan's tool or musical
+// instrument"), from its proficiencies (or its multiclassing ones). null when there's nothing to choose.
+function clsToolChoice(txt) {
+  const t = String(txt || '').toLowerCase(), W1 = { one: 1, a: 1, an: 1, two: 2, three: 3, four: 4 };
+  const num = m => W1[m] || N(m) || 1;
+  let m = /\b(one|two|three|four|\d+|an?)\s+(?:type of\s+)?artisan'?s?'?\s+tools?\s+or\s+(?:one\s+)?musical\s+instruments?/.exec(t);
+  if (m) return { n: num(m[1]), from: ['artisan', 'instrument'] };
+  m = /\b(one|two|three|four|\d+|an?)\s+(?:type of\s+)?musical\s+instruments?/.exec(t); if (m) return { n: num(m[1]), from: 'instrument' };
+  m = /\b(one|two|three|four|\d+|an?)\s+(?:type of\s+)?artisan'?s?'?\s+tools?/.exec(t); if (m) return { n: num(m[1]), from: 'artisan' };
+  m = /\b(one|two|three|four|\d+|an?)\s+(?:type of\s+)?gaming\s+sets?/.exec(t); if (m) return { n: num(m[1]), from: 'gaming' };
+  return null;
+}
 function wzTotalLevel() { return wzClassRows().reduce((t, r) => t + N(r.level), 0); }
 function wzClassChoiceDefs() {
   const out = []; const rows = wzClassRows();
@@ -24413,6 +24509,7 @@ function wzClassChoiceDefs() {
     const c = CL[r.key], s = r.sub ? c.subclasses[r.sub] : null, L = N(r.level);
     if (ri === 0) out.push({ id: `cls.skills`, def: { type: 'skill', n: c.skills.n, from: c.skills.from, label: `${c.name} skills` }, cls: r.key });
     else if (c.mc && c.mc.skills) out.push({ id: `mc.${r.key}.skills`, def: { type: 'skill', n: c.mc.skills, from: c.skills.from, label: `${c.name} multiclass skill` }, cls: r.key });
+    { const tc = clsToolChoice(ri === 0 ? c.tools : c.mc && c.mc.profs); if (tc) out.push({ id: ri === 0 ? 'cls.tools' : `mc.${r.key}.tools`, def: { type: 'tool', n: tc.n, from: tc.from, label: `${c.name} ${tc.n > 1 ? 'tools' : 'tool'}${ri ? ' (multiclass)' : ''}` }, cls: r.key }); }
     c.asi.filter(l => l <= L).forEach(l => out.push({ id: `asi.${r.key}.${l}`, def: { type: 'asiOrFeat' }, cls: r.key, lvl: l }));
     (c.choices || []).concat((s && s.choices) || []).forEach((ch, k) => { if (ch.level <= L) out.push({ id: `ch.${r.key}.${k}.${ch.level}.${ch.type}`, def: { ...ch, label: `${choiceLabel(ch)} (${c.name} ${ch.level})` }, cls: r.key }); });
   });
@@ -25166,6 +25263,10 @@ function owedChoices() {
     // Class options are counted: enough picks of that kind means they're done.
     const need = {}; all.forEach(ch => { if (ch.level <= L && DND.options[ch.type]) need[ch.type] = (need[ch.type] || 0) + (ch.n || 1); });
     c.asi.filter(l => l <= L).forEach(l => out.push({ id: `asi.${r.key}.${l}`, def: { type: 'asiOrFeat' }, cls: r.key, lvl: l, label: `${c.name} ${l}: Ability Score Improvement or feat` }));
+    // The tools the class lets you choose (an artificer's artisan's tool, a bard's instruments…): owed when the sheet
+    // doesn't already have that many of that kind (character creation used to skip this choice).
+    { const tc = clsToolChoice(ri === 0 ? c.tools : c.mc && c.mc.profs); if (tc) { const pool = toolsFrom(tc.from).map(x => x.toLowerCase()), have = (S.tools || []).filter(t => pool.includes(String(t.name || '').toLowerCase())).length;
+      if (have < tc.n) out.push({ id: ri === 0 ? 'cls.tools' : `mc.${r.key}.tools`, def: { type: 'tool', n: tc.n - have, from: tc.from }, cls: r.key, lvl: 1, label: `${c.name}: ${tc.n > 1 ? `${tc.n} tool proficiencies` : 'tool proficiency'}${ri ? ' (multiclass)' : ''}` }); } }
     all.forEach((ch, k) => { if (ch.level > L) return; const id = `ch.${r.key}.${k}.${ch.level}.${ch.type}`;
       if (DND.options[ch.type] && (S.picks[ch.type] || []).length >= need[ch.type]) return;
       out.push({ id, def: ch, cls: r.key, lvl: ch.level, label: `${c.name} ${ch.level}: ${ch.label || choiceLabel(ch)}${(ch.n || 1) > 1 ? ' × ' + ch.n : ''}` }); });
@@ -25290,6 +25391,40 @@ function keepLocal(next, cur) {
   return next;
 }
 let GUESTCLAIM = false, GUESTDONE = false;
+// ----- The same character open in two places (a phone and a computer, a player and a co-editor) -----
+// Each copy remembers the sheet as the cloud last had it (CLOUD_BASE). When another copy's save arrives while this one
+// has changes of its own that aren't saved yet, the two are merged instead of one wiping out the other: whatever only
+// one side changed comes through, items are matched by their id, and counts both sides changed (gold, patches, uses)
+// add up both changes. Only a real clash on the same field keeps this copy's value.
+let CLOUD_BASE = null, CLOUD_BASE_AT = 0, EDIT_N = 0, SYNC_N = 0;
+const cloudDirty = () => EDIT_N > SYNC_N;
+function sheetMerge(b, l, r) {
+  const js = v => JSON.stringify(v);
+  const sl = js(l), sr = js(r); if (sl === sr) return l;
+  const sb = js(b); if (sl === sb) return r; if (sr === sb) return l;
+  if (typeof l === 'number' && typeof r === 'number' && typeof b === 'number') return Math.abs(l) > 1e11 || Math.abs(r) > 1e11 ? Math.max(l, r) : b + (l - b) + (r - b); // (times: the later one)
+  const obj = v => v && typeof v === 'object' && !Array.isArray(v);
+  if (Array.isArray(l) && Array.isArray(r)) {
+    const idd = a => Array.isArray(a) && a.length > 0 && a.every(x => obj(x) && x.id != null && x.id !== '');
+    if ((idd(l) || !l.length) && (idd(r) || !r.length) && (idd(b) || !(b && b.length))) {
+      const B = new Map((b || []).map(x => [x.id, x])), R = new Map(r.map(x => [x.id, x])), L = new Set(l.map(x => x.id)), out = [];
+      l.forEach(x => { const rx = R.get(x.id), bx = B.get(x.id);
+        if (!rx) { if (bx && js(bx) === js(x)) return; out.push(x); return; } // (gone there and untouched here: gone)
+        out.push(bx ? sheetMerge(bx, x, rx) : x); });
+      r.forEach(x => { if (!L.has(x.id) && !B.has(x.id)) out.push(x); }); // new there
+      return out;
+    }
+    // logs (entries stamped with a time, no id): both sides' entries, in time order
+    if ([l, r].every(a => a.every(x => obj(x) && typeof x.t === 'number'))) { const seen = new Set(), out = []; l.concat(r).forEach(x => { const k = js(x); if (!seen.has(k)) { seen.add(k); out.push(x); } }); return out.sort((x, y) => x.t - y.t); }
+    return l;
+  }
+  if (obj(l) && obj(r)) {
+    const bb = obj(b) ? b : {}, o = {};
+    new Set(Object.keys(l).concat(Object.keys(r))).forEach(k => { const v = sheetMerge(bb[k], l[k], r[k]); if (v !== undefined) o[k] = v; });
+    return o;
+  }
+  return l;
+}
 let CLOUD = null, DBX = null, cloudBusy = false, cloudAgain = false, cloudTimer = null, cloudPending = null, cloudFails = 0, cloudParts = 1, cloudUnsub = null, cloudRO = false;
 const clock = () => new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 // The toolbar slot is small: show a short label, keep the full sentence as the hover text.
@@ -25300,18 +25435,33 @@ function setSyncState(t) { UI.saveState = t; UI.saveFull = t; const el = $('#sav
 // On the website, edits are gathered into one save after 1.5s of quiet (never held longer than 6s), and anything
 // waiting is saved at once when the tab is hidden or closed — far fewer database writes, still near-live for others.
 let cloudFirst = 0;
-function cloudPush() { if (!CLOUD || !S.created || cloudRO) return; clearTimeout(cloudTimer);
+function cloudPush() { EDIT_N++; if (!CLOUD || !S.created || cloudRO) return; clearTimeout(cloudTimer);
   if (!window.SHEET_PAGES) { cloudTimer = setTimeout(cloudWrite, 350); return; }
   const now = Date.now(); if (!cloudFirst) cloudFirst = now;
   cloudTimer = setTimeout(() => { cloudFirst = 0; cloudWrite(); }, Math.max(0, Math.min(1500, cloudFirst + 6000 - now))); }
-function cloudFlush() { if (cloudTimer && cloudFirst) { clearTimeout(cloudTimer); cloudTimer = null; cloudFirst = 0; cloudWrite(); } }
+function cloudFlush() { if (cloudTimer && cloudFirst) { clearTimeout(cloudTimer); cloudTimer = null; cloudFirst = 0; cloudWrite(true); } }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') cloudFlush(); });
 addEventListener('pagehide', cloudFlush);
 const partRef = k => DBX.doc('sheets/part' + k);
-async function cloudWrite() {
+async function cloudWrite(force) {
   if (!CLOUD || !S.created || cloudRO) return;
   if (cloudBusy) { cloudAgain = true; return; }
+  // another copy saved while this one was busy (a popup open, typing): take that in first, so neither copy's changes are lost
+  if (cloudPending && CLOUD_BASE && N(cloudPending.savedAt) > CLOUD_BASE_AT) {
+    if (busyEditing() && !force) { clearTimeout(cloudTimer); cloudTimer = setTimeout(cloudWrite, 800); return; }
+    adoptRemote(cloudPending, true); if (typeof ROBE !== 'undefined' && ROBE && $('#robem')) try { renderRobe(); } catch (e) {}
+  }
   cloudBusy = true;
+  // offline: don't queue a whole-sheet write blind (it would land later on top of whatever was played meanwhile);
+  // it goes when the connection is back, after checking what's there
+  if (CLOUD_BASE && typeof navigator !== 'undefined' && navigator.onLine === false) { cloudBusy = false; setSyncState('Sync retrying…'); return; }
+  if (CLOUD_BASE) { let sn = null; try { sn = window.SHEET_PAGES ? await CLOUD.get({ source: 'server' }) : await CLOUD.get(); } catch (e) { cloudBusy = false; cloudFails++; setSyncState('Sync retrying…'); setTimeout(cloudWrite, Math.min(60000, 1500 * Math.pow(2, Math.min(cloudFails, 5)))); return; }
+    try { const d = sn && sn.exists ? sn.data() : null;
+    if (d && d.tab !== TAB && N(d.savedAt) > CLOUD_BASE_AT) { const txt = await cloudText(d);
+      if (txt && busyEditing() && !force) { cloudPending = { savedAt: d.savedAt, sheet: txt }; cloudBusy = false; clearTimeout(cloudTimer); cloudTimer = setTimeout(cloudWrite, 800); return; }
+      if (txt) { adoptRemote({ savedAt: d.savedAt, sheet: txt }, true); if (typeof ROBE !== 'undefined' && ROBE && $('#robem')) try { renderRobe(); } catch (e) {} } } } catch (e) {} }
+  if (CLOUD_BASE && !cloudDirty() && !GUESTCLAIM) { cloudBusy = false; setSyncState('Live · synced ' + clock()); return; }
+  const n0 = EDIT_N;
   try {
     const str = JSON.stringify(S), at = N(S.savedAt) || Date.now(), parts = [];
     for (let i = 0; i < str.length; i += PART) parts.push(str.slice(i, i + PART));
@@ -25319,7 +25469,7 @@ async function cloudWrite() {
     for (let k = 1; k < parts.length; k++) await partRef(k).set({ savedAt: at, k, data: parts[k] });
     await CLOUD.set({ v: 2, savedAt: at, tab: TAB, n: parts.length, data: parts[0], guestDone: GUESTDONE || GUESTCLAIM });
     for (let k = parts.length; k < cloudParts; k++) { try { await partRef(k).delete(); } catch (e) {} }
-    cloudParts = parts.length; cloudFails = 0;
+    cloudParts = parts.length; cloudFails = 0; CLOUD_BASE = str; CLOUD_BASE_AT = at; SYNC_N = Math.max(SYNC_N, n0);
     setSyncState('Live · synced ' + clock());
   } catch (e) {
     const c = e && e.code;
@@ -25341,20 +25491,24 @@ async function cloudText(d, partOf) {
 }
 // Typing in a field or working in a popup: wait, then catch up (a re-render would steal focus or the popup's place).
 function busyEditing() { const a = document.activeElement; return $('#modal').classList.contains('open') || $('#wizard').classList.contains('open') || !!(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && !a.closest('#page-nothing')); }
-function adoptRemote(d) {
+function adoptRemote(d, force) {
   let next; try { next = JSON.parse(d.sheet); } catch (e) { return; }
   if (!next || !next.created || !S.created) return;
-  if (busyEditing()) { cloudPending = d; return; }
+  if (busyEditing() && !force) { cloudPending = d; return; }
   cloudPending = null;
   const sx = scrollX, sy = scrollY;
+  let mine = false;
+  if (CLOUD_BASE && cloudDirty()) { try { const at = Math.max(N(next.savedAt), N(S.savedAt)); next = sheetMerge(JSON.parse(CLOUD_BASE), JSON.parse(JSON.stringify(S)), next); next.savedAt = at; mine = true; } catch (e) {} }
+  CLOUD_BASE = d.sheet; CLOUD_BASE_AT = N(d.savedAt);
   S = keepLocal(migrate(next), S); if (applyFixes(S)) rebuildAuto();
+  if (mine) { S.savedAt = Date.now(); writeLocal(); }
   try { localStorage.setItem(keyFor(S.id), JSON.stringify(S)); } catch (e) {}
   HIST = []; REDO = []; LAST = snapAll(); histButtons();
   applySources(S.sources); applyTheme(); render();
   scrollTo(sx, sy);
   setSyncState('Live · synced ' + clock());
 }
-setInterval(() => { if (cloudPending && !busyEditing() && N(cloudPending.savedAt) > N(S.savedAt)) adoptRemote(cloudPending); else if (cloudPending && N(cloudPending.savedAt) <= N(S.savedAt)) cloudPending = null; }, 400);
+setInterval(() => { if (!cloudPending || busyEditing()) return; if (CLOUD_BASE ? N(cloudPending.savedAt) > CLOUD_BASE_AT : N(cloudPending.savedAt) > N(S.savedAt)) adoptRemote(cloudPending); else cloudPending = null; }, 400);
 function cloudListen(ref, onFirst) {
   let checked = false;
   if (cloudUnsub) { try { cloudUnsub(); } catch (e) {} }
@@ -25362,9 +25516,10 @@ function cloudListen(ref, onFirst) {
     const d = snap.exists ? snap.data() : null;
     if (d) { cloudParts = Math.max(cloudParts, N(d.n) || 1); if (d.guestDone) GUESTDONE = true; }
     if (!checked) { if (snap.metadata.fromCache) return; checked = true; CLOUD = ref; if (await onFirst(d)) return; }
-    if (d && (d.sheet || d.v === 2) && d.tab !== TAB && N(d.savedAt) > N(S.savedAt)) {
+    const newer = () => CLOUD_BASE ? N(d.savedAt) > CLOUD_BASE_AT : N(d.savedAt) > N(S.savedAt);
+    if (d && (d.sheet || d.v === 2) && d.tab !== TAB && newer()) {
       const txt = await cloudText(d);
-      if (txt && N(d.savedAt) > N(S.savedAt)) adoptRemote({ savedAt: d.savedAt, sheet: txt });
+      if (txt && newer()) adoptRemote({ savedAt: d.savedAt, sheet: txt });
     }
   }, e => {
     const c = e && e.code;
@@ -25393,13 +25548,13 @@ function cloudListen(ref, onFirst) {
         // A newer copy of the sheet file is replacing the synced one: never lose the player's own settings, theme or layout.
         if (d && !cloudRO && !FROM_LOCAL) { try { const txt = await cloudText(d); const old = txt && JSON.parse(txt); if (old && old.id === S.id) { keepPrefs(S, old); hdrReset(S); try { applyTheme(); render(); } catch (e) {} } } catch (e) {} }
         if (!cloudRO) cloudWrite(); }
-      else if (d) setSyncState(cloudRO ? 'Live · view only (you can\'t edit this sheet)' : 'Live · synced ' + clock());
+      else if (d) { if (N(d.savedAt) === N(S.savedAt)) { CLOUD_BASE = JSON.stringify(S); CLOUD_BASE_AT = N(d.savedAt); SYNC_N = EDIT_N; } setSyncState(cloudRO ? 'Live · view only (you can\'t edit this sheet)' : 'Live · synced ' + clock()); }
     });
   } catch (e) {}
 })();
 // Catch up whenever the page comes back (phone unlocked, tab refocused) or the network returns.
-addEventListener('online', () => { if (CLOUD) cloudWrite(); });
-document.addEventListener('visibilitychange', () => { if (!document.hidden && CLOUD && /retrying|full/i.test(UI.saveState || '')) cloudWrite(); });
+addEventListener('online', () => { if (CLOUD && (cloudDirty() || !CLOUD_BASE)) cloudWrite(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && CLOUD && (cloudDirty() || !CLOUD_BASE) && /retrying|full/i.test(UI.saveState || '')) cloudWrite(); });
 
 // ---------- Boot ----------
 // For the GitHub Pages loader (new characters get their link once created).
