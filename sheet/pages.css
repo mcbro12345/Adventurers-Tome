@@ -3765,3 +3765,9 @@ body:not(.adminbody) .nt-sl .nt-sl-wrap::before { background: none !important; }
 
 /* a window only a pixel or two too tall for its box: no scroll bar (see sc-nub in the script) */
 .sc-nub { overflow-y: hidden !important; }
+
+/* Scroll-edge dividers: like the Notes list's, they're simply there (edge to edge) the whole time a list can scroll,
+   instead of appearing as it scrolls */
+.pg-shade.sc-can::before, .pg-shade.sc-can::after, .dk-shade.sc-can::before, .dk-shade.sc-can::after, .nt-sl .nt-sl-wrap.sc-can::before, .nt-sl .nt-sl-wrap.sc-can::after,
+#wizard .wz3 .wz3-sc.can::before, #wizard .wz3 .wz3-sc.can::after, #modal-body .wz3-sc.can::before, #modal-body .wz3-sc.can::after { opacity: 1; transition: none; }
+.pg-shade::before, .pg-shade::after, .dk-shade::before, .dk-shade::after { margin-left: calc(-1 * var(--sh-pl, 0px)); margin-right: calc(-1 * var(--sh-pr, 0px)); }
