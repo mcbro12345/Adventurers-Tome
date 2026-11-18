@@ -1921,3 +1921,13 @@ select.sel-dmg { white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 .pg-shade.sc-can::before, .pg-shade.sc-can::after, .dk-shade.sc-can::before, .dk-shade.sc-can::after, .nt-sl .nt-sl-wrap.sc-can::before, .nt-sl .nt-sl-wrap.sc-can::after,
 #wizard .wz3 .wz3-sc.can::before, #wizard .wz3 .wz3-sc.can::after, #modal-body .wz3-sc.can::before, #modal-body .wz3-sc.can::after { opacity: 1; transition: none; }
 .pg-shade::before, .pg-shade::after, .dk-shade::before, .dk-shade::after { margin-left: calc(-1 * var(--sh-pl, 0px)); margin-right: calc(-1 * var(--sh-pr, 0px)); }
+/* The Bestiary list sits like the Notes list: a fixed full-width line under the search and filters, and the list running
+   edge to edge down to the panel's bottom (no lines that come and go at its scroll edges) */
+@media (min-width: 641px) {
+  .dk[data-tab=bestiary] .dk-blist { padding-bottom: 0 !important; }
+  .dk[data-tab=bestiary] .dk-blist .dk-mlist2 { margin: 0 -14px !important; padding: 6px 8px 12px !important; border-top: 1px solid var(--line2); }
+  .dk[data-tab=bestiary] .dk-blist .dk-mlist2::before, .dk[data-tab=bestiary] .dk-blist .dk-mlist2::after { display: none !important; }
+  .dk[data-tab=bestiary] .dk-blist .dk-bcount { margin-bottom: -2px; }
+}
+/* steady scroll-edge lines elsewhere on the desk: the same quiet line colour as the Notes list's */
+.dk-shade::before, .dk-shade::after { border-color: var(--line2) !important; }
