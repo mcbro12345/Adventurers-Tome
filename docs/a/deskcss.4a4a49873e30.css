@@ -1464,7 +1464,8 @@ html[data-pgtheme="light"] .dk-back2 { color: #8a6420; } html[data-pgtheme="ligh
 .dk-ctxh b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }
 .dk-ctx .dk-mlist button.red { color: #e0715c; }
 @keyframes dkCtxIn { from { opacity: 0; transform: scale(.97); } }
-/* lists inside the floating panels (Bestiary, Notes, Sessions) show the same divider line at the scroll edges as everywhere else */
+/* the Notes and Sessions lists: no divider lines at the scroll edges (the panel's own edges do that job); the Bestiary list keeps them */
+.dk-rail .dk-shade::before, .dk-rail .dk-shade::after { border: 0 !important; }
 /* the notes page starts right beside the list (the gap between them is enough) */
 @media (min-width: 901px) { .dk[data-tab=notes] .dk-notesv > .dk-main { padding-left: 8px !important; } }
 /* Sessions and Bestiary: the main area starts right beside the list too; the scrolling areas fade out softly at the
@@ -1914,6 +1915,22 @@ select.sel-dmg { white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 .sc-nub { overflow-y: hidden !important; }
 /* the scroll-edge divider in desk lists: the same grey line as the rest of the site, so it reads on the panels' backgrounds */
 .dk-shade::before, .dk-shade::after { border-color: rgba(127,127,127,.32) !important; }
+
+/* Scroll-edge dividers: like the Notes list's, they're simply there (edge to edge) the whole time a list can scroll,
+   instead of appearing as it scrolls */
+.pg-shade.sc-can::before, .pg-shade.sc-can::after, .dk-shade.sc-can::before, .dk-shade.sc-can::after, .nt-sl .nt-sl-wrap.sc-can::before, .nt-sl .nt-sl-wrap.sc-can::after,
+#wizard .wz3 .wz3-sc.can::before, #wizard .wz3 .wz3-sc.can::after, #modal-body .wz3-sc.can::before, #modal-body .wz3-sc.can::after { opacity: 1; transition: none; }
+.pg-shade::before, .pg-shade::after, .dk-shade::before, .dk-shade::after { margin-left: calc(-1 * var(--sh-pl, 0px)); margin-right: calc(-1 * var(--sh-pr, 0px)); }
+/* The Bestiary list sits like the Notes list: a fixed full-width line under the search and filters, and the list running
+   edge to edge down to the panel's bottom (no lines that come and go at its scroll edges) */
+@media (min-width: 641px) {
+  .dk[data-tab=bestiary] .dk-blist { padding-bottom: 0 !important; }
+  .dk[data-tab=bestiary] .dk-blist .dk-mlist2 { margin: 0 -14px !important; padding: 6px 8px 12px !important; border-top: 1px solid var(--line2); }
+  .dk[data-tab=bestiary] .dk-blist .dk-mlist2::before, .dk[data-tab=bestiary] .dk-blist .dk-mlist2::after { display: none !important; }
+  .dk[data-tab=bestiary] .dk-blist .dk-bcount { margin-bottom: -2px; }
+}
+/* steady scroll-edge lines elsewhere on the desk: the same quiet line colour as the Notes list's */
+.dk-shade::before, .dk-shade::after { border-color: var(--line2) !important; }
 
 /* DM's Desk: the homebrew item builder — the same look as the character sheet's (extra.css .hbb-*), scoped to #hbd */
 #hbd .hbb-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }

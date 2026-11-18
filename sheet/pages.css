@@ -3776,3 +3776,5 @@ html:not(.mobile) #wizard .wzh2 .hub-top { padding-top: 8px; padding-bottom: 8px
 html:not(.mobile) #wizard .wzh2 .hl-d20 { width: 56px; height: 56px; } html:not(.mobile) #wizard .wzh2 .hub-logo { gap: 12px; }
 html:not(.mobile) #wizard .wzh2 .hl-t { font-size: 36px; } html:not(.mobile) #wizard .wzh2 .hl-a { font-size: 11px; letter-spacing: .4em; }
 html:not(.mobile) #wizard .wzh2 .hub-acct .pg-ava { width: 40px !important; height: 40px !important; }
+/* steady scroll-edge lines: a quieter line, like the Notes list's in the DM's Desk */
+.pg-shade::before, .pg-shade::after { border-color: rgba(127,127,127,.2); }
