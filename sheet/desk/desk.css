@@ -1464,7 +1464,8 @@ html[data-pgtheme="light"] .dk-back2 { color: #8a6420; } html[data-pgtheme="ligh
 .dk-ctxh b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }
 .dk-ctx .dk-mlist button.red { color: #e0715c; }
 @keyframes dkCtxIn { from { opacity: 0; transform: scale(.97); } }
-/* lists inside the floating panels (Bestiary, Notes, Sessions) show the same divider line at the scroll edges as everywhere else */
+/* the Notes and Sessions lists: no divider lines at the scroll edges (the panel's own edges do that job); the Bestiary list keeps them */
+.dk-rail .dk-shade::before, .dk-rail .dk-shade::after { border: 0 !important; }
 /* the notes page starts right beside the list (the gap between them is enough) */
 @media (min-width: 901px) { .dk[data-tab=notes] .dk-notesv > .dk-main { padding-left: 8px !important; } }
 /* Sessions and Bestiary: the main area starts right beside the list too; the scrolling areas fade out softly at the
