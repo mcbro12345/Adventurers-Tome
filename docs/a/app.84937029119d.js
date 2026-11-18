@@ -112,6 +112,7 @@ function applyFixes(s) {
   // Built in (every sheet): encumbrance on for everyone who had it off; Istalyn's sling bullets become bullets for her pistol.
   if (!done.has('enc1')) { if (s.settings && s.settings.encumbrance === 'off') s.settings.encumbrance = 'standard'; done.add('enc1'); changed = true; }
   if (!done.has('bullets1')) { if (/^istalyn\b/i.test(String(s.name || ''))) (s.inventory || []).forEach(it => { if (it && /^sling bullets$/i.test(String(it.name || '').trim())) { it.name = 'Bullets'; it.weight = 0.2; } }); done.add('bullets1'); changed = true; }
+  (s.inventory || []).forEach(it => { if (it && it.infusion && it.infusion.rep && !it.infusion.repMods && !it.infusion.created && typeof infRepApply === 'function' && infRepApply(it)) changed = true; });
   (EMBED.fixes || []).forEach(f => {
     if (done.has(f.id) || (f.who && s.id !== f.who)) return;
     if (f.type === 'spellstore' && !(s.spells || []).some(x => x.stored)) { const it = (s.inventory || []).find(x => x.name === f.item), d = DND.spellIndex[String(f.spell).toLowerCase()];
@@ -2045,7 +2046,7 @@ function renderVitals() {
   <div class="tile" data-zi="hd"><span class="lbl"><span class="ciw top">Hit Dice${ciBtn('hd', 'hit dice')}</span></span><span class="big" data-calc="hd"></span><span class="sub" data-calc="hdpools"></span></div>
   <div class="tile deathtile" data-zi="death"><span class="lbl">Death Saves</span><div class="death" data-calc-html="death"></div></div>
   <div class="tile condtile" data-zi="conds"><div class="tilehead"><span class="lbl">Conditions</span><button class="addc" data-act="conditions"><span class="tt">+ Add</span></button><span class="advbtns" role="group" aria-label="All d20 rolls"><button class="advb adv${S.rollAdv === 'adv' ? ' on' : ''}" data-act="rolladv" data-v="adv" aria-pressed="${S.rollAdv === 'adv'}" title="Advantage on every attack, check and save"><span class="al">Advantage</span></button><button class="advb dis${S.rollAdv === 'dis' ? ' on' : ''}" data-act="rolladv" data-v="dis" aria-pressed="${S.rollAdv === 'dis'}" title="Disadvantage on every attack, check and save"><span class="al">Disadvantage</span></button></span></div><div class="condchips" data-calc-html="conds"></div></div>
-  <div class="tile fxtile" data-zi="effects"><div class="tilehead"><span class="lbl">Active spells &amp; effects</span><button class="addc" data-act="addeffects" title="Spells and effects someone else put on you"><span class="tt">+ Add</span></button><span class="hint concnote" data-calc-html="concnote"></span></div><div class="fxchips" data-calc-html="fxchips"></div></div>
+  <div class="tile fxtile" data-zi="effects"><div class="tilehead"><span class="lbl">Active spells &amp; effects</span><button class="addc" data-act="addeffects" title="Spells and effects someone else put on you"><span class="tt">+ Add</span></button></div><div class="fxchips" data-calc-html="fxchips"></div></div>
 `;
 }
 
@@ -2109,11 +2110,18 @@ function mtabSync() {
   if (!de.classList.contains('mtabs')) de.classList.add('mtabs');
   if (!el) { el = document.createElement('div'); el.id = 'mtab'; el.className = 'mtab'; document.body.appendChild(el); mtabWire(el); }
   const ts = mtabTabs(), cur = ts.find(t => t.on) || ts[0]; if (!cur) return; const i = ts.indexOf(cur), other = ts.some(t => t.unread && !t.on);
-  { const h = `<button class="mtab-b${other ? ' unread' : ''}" aria-haspopup="menu" aria-expanded="${!!document.getElementById('mtabmenu')}" aria-label="${esc(cur.label)} — ${i + 1} of ${ts.length}. Choose a tab"><span class="mtab-ic" aria-hidden="true">${cur.ic}</span><span class="mtab-l">${esc(cur.label)}</span><span class="mtab-dots" aria-hidden="true">${ts.map(t => `<i${t.on ? ' class="on"' : ''}></i>`).join('')}</span><span class="mtab-chev">${MTAB_CHEV}</span></button>`; if (el._h !== h) { const k0 = el._k, b0 = el.querySelector('.mtab-b'), w0 = b0 ? b0.getBoundingClientRect().width : 0; el._h = h; el.innerHTML = h; el._k = cur.k;
-    // (changing tab morphs the pill: the new icon and name blur in as the pill eases to its new width)
-    if (k0 && k0 !== cur.k && !matchMedia('(prefers-reduced-motion: reduce)').matches) { const b = el.querySelector('.mtab-b'), w1 = b.getBoundingClientRect().width, ez = 'cubic-bezier(.3,.7,.3,1)';
-      if (b.animate && w0 && Math.abs(w1 - w0) > 1) b.animate([{ width: w0 + 'px' }, { width: w1 + 'px' }], { duration: 280, easing: ez });
-      ['.mtab-ic', '.mtab-l'].forEach((q, n) => { const x = b.querySelector(q); if (x && x.animate) x.animate([{ opacity: 0, filter: 'blur(5px)', transform: 'translateY(5px) scale(.92)' }, { opacity: 1, filter: 'blur(0)', transform: 'none' }], { duration: 280, delay: n * 40, easing: ez, fill: 'backwards' }); }); } } } // (only redrawn when it changes)
+  { const h = `<button class="mtab-b${other ? ' unread' : ''}" aria-haspopup="menu" aria-expanded="${!!document.getElementById('mtabmenu')}" aria-label="${esc(cur.label)} — ${i + 1} of ${ts.length}. Choose a tab"><span class="mtab-ic" aria-hidden="true">${cur.ic}</span><span class="mtab-l">${esc(cur.label)}</span><span class="mtab-dots" aria-hidden="true">${ts.map(t => `<i${t.on ? ' class="on"' : ''}></i>`).join('')}</span><span class="mtab-chev">${MTAB_CHEV}</span></button>`; if (el._h !== h) { const k0 = el._k; el._h = h; el._k = cur.k;
+    // Changing tab morphs the pill: the old icon and name blur away, the pill eases to the new width with nothing in it
+    // to cut off, then the new icon and name blur in. (Anything else — an unread dot — just redraws.)
+    const b0 = el.querySelector('.mtab-b'), calmM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (el._mt) { el._mt.forEach(a => { try { a.cancel(); } catch (e) {} }); el._mt = null; }
+    if (!k0 || k0 === cur.k || calmM || !b0 || !b0.animate) el.innerHTML = h;
+    else { const ez = 'cubic-bezier(.3,.7,.3,1)', parts = b0.querySelectorAll('.mtab-ic, .mtab-l'), w0 = b0.getBoundingClientRect().width;
+      const outs = [...parts].map(x => x.animate([{ opacity: 1, filter: 'blur(0)' }, { opacity: 0, filter: 'blur(4px)' }], { duration: 110, easing: 'ease-in', fill: 'forwards' })); el._mt = outs;
+      (outs[0] || { finished: Promise.resolve() }).finished.then(() => { if (el._h !== h) return; el.innerHTML = h; const b = el.querySelector('.mtab-b'), w1 = b.getBoundingClientRect().width, nw = b.querySelectorAll('.mtab-ic, .mtab-l');
+        const ins = () => { el._mt = [...nw].map((x, n) => x.animate([{ opacity: 0, filter: 'blur(5px)', transform: 'translateY(4px)' }, { opacity: 1, filter: 'blur(0)', transform: 'none' }], { duration: 200, delay: n * 30, easing: ez, fill: 'backwards' })); };
+        if (Math.abs(w1 - w0) > 1) { nw.forEach(x => { x.style.opacity = '0'; }); const g = b.animate([{ width: w0 + 'px' }, { width: w1 + 'px' }], { duration: 190, easing: ez }); el._mt = [g]; g.finished.then(() => { nw.forEach(x => { x.style.opacity = ''; }); ins(); }).catch(() => { nw.forEach(x => { x.style.opacity = ''; }); }); }
+        else ins(); }).catch(() => {}); } } } // (only redrawn when it changes)
   const m = document.getElementById('mtabmenu'); if (m) mtabFill(m);
 }
 function mtabFill(m) { const ts = mtabTabs();
@@ -2579,6 +2587,15 @@ function postSheetRoll(t) {
   };
   wire();
 })();
+
+// Windows that are only a pixel or two taller than their box (rounding) don't show a scroll bar that scrolls by a pixel
+(() => { if (window.__pgNub) return; window.__pgNub = 1;
+  const SEL = '#modal-body, .modal, .wz-body, .wz-box, .pgm-t, .pgm-card, .dk-modal, .dk-mcard, .dk .drwin, .dk-setx, .pw, .pw-body, .setx, .pa-body';
+  const one = el => { const cs = getComputedStyle(el); if (!el.classList.contains('sc-nub') && !/auto|scroll/.test(cs.overflowY)) return; el.classList.remove('sc-nub'); const d = el.scrollHeight - el.clientHeight; if (d > 0 && d <= 3) { el.scrollTop = 0; el.classList.add('sc-nub'); } };
+  const all = () => document.querySelectorAll(SEL).forEach(el => { try { one(el); } catch (e) {} });
+  let raf = 0; const soon = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(all); };
+  addEventListener('resize', soon); addEventListener('click', () => setTimeout(soon, 60), true); addEventListener('input', soon, true);
+  new MutationObserver(soon).observe(document.documentElement, { childList: true, subtree: true }); setInterval(all, 1000); })();
 
 
 // ---------- Spell helpers ----------
@@ -3527,6 +3544,7 @@ function calcText(key) {
   }
   return '';
 }
+function fxChipsHTML(fx) { return fx.map((e, j) => `<span class="fxc${e.conc ? ' conc' : ''}${e.rounds != null && e.rounds <= 1 ? ' ending' : ''}" title="${esc(fxTip(e))}">${e.conc ? '<i class="cdot"></i>' : ''}<b>${esc(e.name)}</b>${e.ally ? ' (ally)' : ''}${e.from ? '<small class="fxfrom" title="Cast on you by someone else">↘</small>' : ''}${e.buff && N(e.buff.ac) && !e.ally ? ` +${N(e.buff.ac)} AC` : ''}<span class="left">${(e.readied ? 'until your next turn' : e.rage && e.rounds == null ? "until rage ends" : fmtRounds(e.rounds))}</span>${e.repeat ? `<button class="rep" data-act="repeatfx" data-j="${j}" title="Roll ${esc(e.repeat.dice)} ${esc(e.repeat.type || '')}">${esc(String(e.repeat.dice).replace(/^1d/, 'd'))}</button>` : ''}${e.conc && S.concentration ? `<button class="rep ccs" data-act="concsave" title="Roll a concentration save (CON save)">CON save</button>` : ''}<button data-act="endeffect" data-n="${esc(e.name)}" aria-label="End ${esc(e.name)}">✕</button></span>`).join(''); }
 function calcHTML(key) {
   const [k, a] = key.split(':');
   switch (k) {
@@ -3550,8 +3568,11 @@ function calcHTML(key) {
     case 'atkpips': { const n = attacksPerAction(), left = canAttack() ? n - N(S.turn.attacks) : 0; let h = ''; for (let j = 0; j < n; j++) h += `<i class="ap${j < left ? ' on' : ''}"></i>`; return h; }
     case 'fxchips': {
       const fx = S.effects || [];
-      if (!fx.length) return '<span class="hint">No spells or effects running.</span>';
-      return fx.map((e, j) => `<span class="fxc${e.conc ? ' conc' : ''}${e.rounds != null && e.rounds <= 1 ? ' ending' : ''}" title="${esc(fxTip(e))}">${e.conc ? '<i class="cdot"></i>' : ''}<b>${esc(e.name)}</b>${e.ally ? ' (ally)' : ''}${e.from ? '<small class="fxfrom" title="Cast on you by someone else">↘</small>' : ''}${e.buff && N(e.buff.ac) && !e.ally ? ` +${N(e.buff.ac)} AC` : ''}<span class="left">${(e.readied ? 'until your next turn' : e.rage && e.rounds == null ? "until rage ends" : fmtRounds(e.rounds))}</span>${e.repeat ? `<button class="rep" data-act="repeatfx" data-j="${j}" title="Roll ${esc(e.repeat.dice)} ${esc(e.repeat.type || '')}">${esc(String(e.repeat.dice).replace(/^1d/, 'd'))}</button>` : ''}${e.conc && S.concentration ? `<button class="rep ccs" data-act="concsave" title="Roll a concentration save (CON save)">CON save</button>` : ''}<button data-act="endeffect" data-n="${esc(e.name)}" aria-label="End ${esc(e.name)}">✕</button></span>`).join('');
+      // concentrating on something with no pill of its own: it gets one, with the CON save and an ✕ to end it
+      const cc = S.concentration && !fx.some(e => e.conc) ? `<span class="fxc conc" title="You're concentrating on this"><i class="cdot"></i><b>${esc(S.concentration)}</b><button class="rep ccs" data-act="concsave" title="Roll a concentration save (CON save)">CON save</button><button data-act="concend" aria-label="End concentration on ${esc(S.concentration)}">✕</button></span>` : '';
+      if (!fx.length) return cc || '<span class="hint">No spells or effects running.</span>';
+      if (cc) return cc + fxChipsHTML(fx);
+      return fxChipsHTML(fx);
     }
     case 'slotsall': {
       let h = '';
@@ -3921,6 +3942,7 @@ function mainClick(e) {
     case 'econtab': UI.econTab = b.dataset.col; saveUI(); render('combat'); refresh(); pendingLabel = null; return;
     case 'qty': { const it = S.inventory[i]; it.qty = Math.max(0, N(it.qty) + N(b.dataset.d)); update(); break; }
     case 'concsave': concCheck(10, true); break;
+    case 'concend': if (S.concentration) { breakConc('ended'); } break;
     case 'endeffect': endEffect(b.dataset.n); if ($('#condmodal.extfxm')) openExtFx(); break;
     case 'addeffects': UI.extPick = ''; openExtFx(); break;
     case 'extfx': addExtFx(b.dataset.k); break;
@@ -7436,9 +7458,21 @@ function openInfPick(name, rep, all) {
     ${full ? `<p class="inf-warn" style="margin:0 0 8px">You already have ${aMax} infused items — this ends the oldest: <b>${esc(full.name)}</b> (${esc(infLabel(full.infusion))}).</p>` : ''}
     ${d.choose ? fld('Resistance to', `<select class="f" id="infChoice">${d.choose.map(c => `<option>${c}</option>`).join('')}</select>`) : ''}
     <div class="lbl">Choose an item you carry</div>
-    <div class="crlist">${cands.map(([it, i]) => `<button class="crrow sel" data-act="infgo" data-i="${i}"><div><b>${esc(it.name)}</b> <span class="hint">${it.weapon ? 'Weapon' : it.armor ? (it.armor.type === 'shield' ? 'Shield' : 'Armor') : 'Item'}${it.equipped ? ' · equipped' : ''}</span></div></button>`).join('') || '<p class="hint">No matching nonmagical items — create one below, or show every item.</p>'}</div>
-    <div class="row" style="margin-top:8px"><input class="f" id="infNewName" placeholder="${esc(rep || (d.item || 'Item').replace(/^(A|An) /i, '').replace(/^pair of /i, ''))}"><button class="btn sm" data-act="infgo" data-i="-1">Create it</button>${!all && !rep && d.ok ? `<button class="btn sm ghost" data-act="infpickall">Show every item</button>` : ''}</div>
+    ${cands.length ? `<div class="castopts infopts">${cands.map(([it, i]) => `<button class="castopt" data-act="infgo" data-i="${i}"><b>${esc(it.name)}</b><span class="co-sub">${it.weapon ? 'Weapon' : it.armor ? (it.armor.type === 'shield' ? 'Shield' : 'Armor') : 'Item'}${it.equipped ? ' · equipped' : ''}${it.attuned ? ' · attuned' : ''}</span></button>`).join('')}</div>` : '<p class="hint">No matching nonmagical items — create one below, or show every item.</p>'}
+    <div class="lbl" style="margin-top:12px">Or make a new one</div>
+    <div class="row inf-new"><input class="f" id="infNewName" placeholder="${esc(rep || (d.item || 'Item').replace(/^(A|An) /i, '').replace(/^pair of /i, ''))}"><button class="btn sm" data-act="infgo" data-i="-1">Create it</button>${!all && !rep && d.ok ? `<button class="btn sm ghost" data-act="infpickall">Show every item</button>` : ''}</div>
     <div class="actions"><button class="btn" data-act="close">Cancel</button></div>`);
+}
+// Replicate Magic Item into an object you already have: it gets the magic item's bonuses (AC, saves, speed…) and
+// charges, as if it were that item; ending the infusion puts back what it had. (Older infusions get this on load.)
+function infRepApply(it) {
+  const inf = it.infusion; if (!inf || !inf.rep || inf.repMods) return false;
+  const m = DND.magic.find(x => x[0] === inf.rep); if (!m) return false;
+  const md = Object.assign({}, m[6] || {}); inf.prev = inf.prev || {}; inf.prev.mods = it.mods ? JSON.parse(JSON.stringify(it.mods)) : null;
+  it.mods = Object.assign({}, it.mods || {}, md); delete it.mods.base; delete it.mods.charges; delete it.mods.heal;
+  if (md.charges && !it.charges) { it.charges = { max: md.charges, used: 0 }; inf.repCharges = true; }
+  if (md.heal && !it.heal) { it.heal = md.heal; inf.repHeal = true; }
+  inf.repMods = true; return true;
 }
 function infGo(i) {
   const P = INFPICK; if (!P) return; const d = INF[P.name] || {};
@@ -7453,6 +7487,7 @@ function infGo(i) {
   it.infusion = { name: P.name, rep: P.rep || '', at: Date.now(), prev, created: i < 0, choice: d.choose ? (($('#infChoice') || {}).value || '') : '' };
   const needAtt = P.rep ? repAttune(P.rep) : !!d.attune; if (needAtt) { it.attune = true; it.attuned = !!prev.attuned && !!prev.attune; }
   if (d.charges) { it.charges = { max: d.charges[0], used: 0, reset: 'long' }; it.infusion.charges = true; }
+  if (P.rep && i >= 0) infRepApply(it);
   if (!it.magic) it.magic = { rarity: P.rep ? ((DND.magic.find(x => x[0] === P.rep) || [])[3] || 'uncommon') : 'uncommon', type: 'infusion', src: 'TCE', name: P.rep || '' };
   if (!it.summary) it.summary = P.rep ? ((DND.magic.find(x => x[0] === P.rep) || [])[5] || '') : ((DND.options.infusion.list.find(x => x[0] === P.name) || [])[1] || '');
   pendingLabel = 'Infuse ' + it.name; closeModal(true); save(); render();
@@ -7463,6 +7498,7 @@ function infEndItem(it) {
   if (inf.created && inf.name === 'Replicate Magic Item') { const k = S.inventory.indexOf(it); if (k >= 0) { S.inventory.splice(k, 1); S.attacks = S.attacks.filter(a => a.item !== it.id); } return; }
   const p = inf.prev;
   if (p) { it.attune = p.attune; it.attuned = p.attuned; if (inf.charges) { if (p.charges) it.charges = p.charges; else delete it.charges; } if (!p.magic && it.magic && it.magic.type === 'infusion') delete it.magic; if (p.summary !== undefined) it.summary = p.summary; }
+  if (inf.repMods) { if (p && p.mods) it.mods = p.mods; else delete it.mods; if (inf.repCharges) delete it.charges; if (inf.repHeal) delete it.heal; }
   delete it.infusion;
 }
 function infEnd(i) {
@@ -12409,12 +12445,13 @@ function renderWizard0() {
       b.animate(row ? [{ opacity: 0, maxWidth: '0px', transform: 'scale(.6)' }, { opacity: 1, maxWidth: w + 'px', transform: 'none' }] : [{ opacity: 0, maxHeight: '0px', minHeight: '0px', transform: 'translateX(-10px)', background: 'rgba(224,170,58,.35)' }, { opacity: 1, maxHeight: h + 'px', minHeight: h + 'px', transform: 'none', offset: .6 }, { background: 'transparent' }], { duration: 650, easing: 'cubic-bezier(.2,.8,.3,1)' }); } }); } { const l = $('#wizard .wz3-list.has'); const on = l && l.querySelector('.crrow.on'); if (on) l.scrollTop = Math.max(0, on.offsetTop - l.offsetTop - 60); }
   { const who = $('#wizard .wz3-who span'), key = who ? who.textContent : ''; if (who && W._who !== undefined && W._who !== key && who.animate) who.animate([{ opacity: 0, transform: 'translateY(4px)' }, { opacity: 1, transform: 'none' }], { duration: 260, easing: 'ease-out' }); W._who = key; }
   $$('#wizard [data-wzq]').forEach(i => filterWzSpells(i));
-  // Moving between steps: the new step slides in from the side you're heading (fades up on opening), and the step
+  // Moving between steps: the new step slides in from the way you're heading (up from below going forward in the
+  // step list down the side, sideways along the phone's step bar; fades up on opening), and the step
   // marker pops / the progress bar fills. Re-drawing the same step (picking options) doesn't animate.
   const prevSt = W._shown; W._shown = st;
   if (prevSt !== st && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) {
     const dir = prevSt == null ? 0 : st > prevSt ? 1 : -1, bd = $('#wizard .wz-body'), now = $('#wizard .wz-now'), on = $('#wizard .wz-step.on'), mob = document.documentElement.classList.contains('mobile');
-    const inK = dir ? [{ opacity: 0, transform: `translateX(${dir * 22}px)` }, { opacity: 1, transform: 'none' }] : [{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }];
+    const inK = dir ? [{ opacity: 0, transform: mob ? `translateX(${dir * 22}px)` : `translateY(${dir * 22}px)` }, { opacity: 1, transform: 'none' }] : [{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }];
     if (bd && bd.animate) bd.animate(inK, { duration: 280, easing: 'cubic-bezier(.2,.8,.3,1)' });
     if (now && now.animate && mob) now.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 220, easing: 'ease-out' });
     if (on && on.animate) on.animate(mob ? (dir >= 0 ? [{ transform: 'scaleX(.15)' }, { transform: 'none' }] : [{ opacity: .4 }, { opacity: 1 }]) : [{ transform: 'scale(.88)' }, { transform: 'none' }], { duration: mob ? 320 : 240, easing: 'cubic-bezier(.3,1.3,.5,1)' });
@@ -12585,7 +12622,7 @@ function wz3Shades(root = '#wizard') {
   $$(`${root} .wz3-cards.has, ${root} .wz3-list`).forEach(box => {
     if (box.parentElement.classList.contains('wz3-sc')) return;
     const st = box.scrollTop, w = document.createElement('div'); w.className = 'wz3-sc'; box.before(w); w.appendChild(box); if (st) box.scrollTop = st; // (moving it would lose where it was scrolled to)
-    const paint = () => { w.classList.toggle('top', box.scrollTop > 2); w.classList.toggle('bot', box.scrollTop + box.clientHeight < box.scrollHeight - 2); };
+    const paint = () => { w.classList.toggle('top', box.scrollTop > 2); w.classList.toggle('bot', box.scrollTop + box.clientHeight < box.scrollHeight - 2); w.classList.toggle('can', box.scrollHeight > box.clientHeight + 2); };
     // (set straight away, and only eased once it's on screen, so a redrawn list doesn't fade its edges in again)
     box.addEventListener('scroll', paint, { passive: true }); paint(); requestAnimationFrame(() => requestAnimationFrame(() => w.classList.add('ready')));
   });

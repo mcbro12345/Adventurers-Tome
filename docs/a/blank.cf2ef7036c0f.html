@@ -1125,10 +1125,10 @@ body.editing .toolbar .zhid { display: inline-flex !important; }
 .dragging { opacity: .35; }
 body.dragging-any, body.dragging-any * { cursor: grabbing !important; user-select: none; }
 .dghost { position: fixed; left: 0; top: 0; z-index: 90; pointer-events: none; background: var(--navy); color: var(--banner-ink); border-radius: 999px; padding: 5px 12px; font-size: .82rem; font-weight: 700; box-shadow: none; }
-.drop-before { box-shadow: none !important; }
-.drop-after { box-shadow: none !important; }
-[data-pid].drop-before { box-shadow: none !important; }
-[data-pid].drop-after { box-shadow: none !important; }
+.drop-before { box-shadow: -4px 0 0 0 var(--gold) !important; }
+.drop-after { box-shadow: 4px 0 0 0 var(--gold) !important; }
+[data-pid].drop-before { box-shadow: 0 -4px 0 0 var(--gold) !important; }
+[data-pid].drop-after { box-shadow: 0 4px 0 0 var(--gold) !important; }
 .page.dropon { outline: 3px dashed var(--gold); outline-offset: 4px; }
 #editbar { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 45; width: min(1100px, calc(100vw - 24px)); background: var(--panel); border: 2px solid var(--gold); border-radius: 14px; box-shadow: none; padding: 10px 14px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .eb-text { flex: 1 1 380px; display: flex; flex-direction: column; font-size: .82rem; color: var(--soft); }
@@ -1505,7 +1505,7 @@ html.mobile .namebox { padding-right: 74px; }
 html.mobile body { padding-bottom: calc(64px + var(--tablift, 0px)); }
 /* Bottom tab bar: always reachable with a thumb, icon + label, no scrolling. */
 html.mobile .tabs { position: fixed !important; left: 0; right: 0; bottom: 0; top: auto; z-index: 44; margin: 0 !important; padding: 4px 4px calc(4px + var(--tablift, 0px)) !important;
-  background: var(--panel); box-shadow: none; display: flex; flex-wrap: nowrap !important; justify-content: space-around; overflow: visible; }
+  background: var(--panel); box-shadow: 0 -1px 0 var(--line); display: flex; flex-wrap: nowrap !important; justify-content: space-around; overflow: visible; }
 html.mobile .tabs > :first-child, html.mobile .tabs > :last-child { margin: 0; }
 html.mobile .tabwrap { flex: 1 1 0; min-width: 0; }
 html.mobile .tab { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 0 4px !important; font-size: .6rem !important; letter-spacing: 0; border-radius: 10px; color: var(--soft); box-shadow: none !important; }
@@ -4434,12 +4434,12 @@ html:not(.mobile) #sec-header:has(.ident.noid) .portrait-wrap { width: var(--pwf
 /* scroll edges in pop-up windows' lists (as in character creation): a line and a soft shadow wherever there's more */
 #modal-body .wz3-sc { position: relative; }
 #modal-body .wz3-sc::before, #modal-body .wz3-sc::after { content: ''; position: absolute; left: 0; right: 0; height: 18px; z-index: 2; pointer-events: none; opacity: 0; }
-#modal-body .wz3-sc::before { top: 0; border-top: 1px solid var(--wc-edge, var(--line)); background: linear-gradient(to bottom, rgba(0,0,0,.45), transparent); }
-#modal-body .wz3-sc::after { bottom: 0; border-bottom: 1px solid var(--wc-edge, var(--line)); background: linear-gradient(to top, rgba(0,0,0,.45), transparent); }
+#modal-body .wz3-sc::before { top: 0; border-top: 1px solid var(--wc-edge, var(--line)); background: none; }
+#modal-body .wz3-sc::after { bottom: 0; border-bottom: 1px solid var(--wc-edge, var(--line)); background: none; }
 #modal-body .wz3-sc.top::before, #modal-body .wz3-sc.bot::after { opacity: 1; }
 #modal-body .wz3-sc:has(> .wz3-list)::before { border-radius: 12px 12px 0 0; } #modal-body .wz3-sc:has(> .wz3-list)::after { border-radius: 0 0 12px 12px; }
-:root:not([data-theme="dark"]) #modal-body .wz3-sc::before { background: linear-gradient(to bottom, rgba(60,40,10,.14), transparent); }
-:root:not([data-theme="dark"]) #modal-body .wz3-sc::after { background: linear-gradient(to top, rgba(60,40,10,.14), transparent); }
+:root:not([data-theme="dark"]) #modal-body .wz3-sc::before { background: none; }
+:root:not([data-theme="dark"]) #modal-body .wz3-sc::after { background: none; }
 /* (a window's opening fade holds its first frame until it actually starts, so it can never flash up fully drawn first) */
 .modal-bg.open, .modal-bg.open > .modal, .wizard.open, #tipbox.on, .ptyask-bg, .ptyask-bg > :first-child { animation-fill-mode: backwards; }
 
@@ -4753,7 +4753,7 @@ html.mobile #wizard .wz3 .wz3-main { flex: none !important; display: block !impo
 html.mobile #wizard .wz3 .wz-body { flex: none !important; overflow: visible !important; min-height: 0; }
 html.mobile #wizard .wz-foot { position: sticky; bottom: 0; z-index: 30; }
 html.mobile #wizard .crlist { max-height: none !important; overflow: hidden !important; overflow: clip !important; }
-html.mobile #wizard .wz3-pick > .wz3-q, html.mobile #wizard .wz-body input[data-wzq] { position: sticky; top: 8px; z-index: 4; box-shadow: none; }
+html.mobile #wizard .wz3-pick > .wz3-q, html.mobile #wizard .wz-body input[data-wzq] { position: sticky; top: 8px; z-index: 4; box-shadow: 0 -8px 0 var(--wc-card, var(--panel)); }
 /* rows in the race / variant / class lists */
 #wizard .wz3-row { align-items: center; }
 #wizard .wz3-row.wic .wz3-cic { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: color-mix(in srgb, var(--gold) 16%, transparent); color: var(--gold-ink); margin-right: 2px; }
@@ -5136,6 +5136,15 @@ select.sel-dmg { white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 
 /* No drop shadows: the soft shade drawn at the scroll edges of window lists is gone (the divider lines stay) */
 #modal-body .wz3-sc::before, #modal-body .wz3-sc::after, :root:not([data-theme="dark"]) #modal-body .wz3-sc::before, :root:not([data-theme="dark"]) #modal-body .wz3-sc::after { background: none !important; }
+
+/* a window only a pixel or two too tall for its box: no scroll bar (see sc-nub in the script) */
+.sc-nub { overflow-y: hidden !important; }
+
+/* Scroll-edge dividers: like the Notes list's, they're simply there (edge to edge) the whole time a list can scroll,
+   instead of appearing as it scrolls */
+.pg-shade.sc-can::before, .pg-shade.sc-can::after, .dk-shade.sc-can::before, .dk-shade.sc-can::after, .nt-sl .nt-sl-wrap.sc-can::before, .nt-sl .nt-sl-wrap.sc-can::after,
+#wizard .wz3 .wz3-sc.can::before, #wizard .wz3 .wz3-sc.can::after, #modal-body .wz3-sc.can::before, #modal-body .wz3-sc.can::after { opacity: 1; transition: none; }
+.pg-shade::before, .pg-shade::after, .dk-shade::before, .dk-shade::after { margin-left: calc(-1 * var(--sh-pl, 0px)); margin-right: calc(-1 * var(--sh-pr, 0px)); }
 
 </style>
 </head>
@@ -14856,6 +14865,15 @@ function postSheetRoll(t) {
   };
   wire();
 })();
+
+// Windows that are only a pixel or two taller than their box (rounding) don't show a scroll bar that scrolls by a pixel
+(() => { if (window.__pgNub) return; window.__pgNub = 1;
+  const SEL = '#modal-body, .modal, .wz-body, .wz-box, .pgm-t, .pgm-card, .dk-modal, .dk-mcard, .dk .drwin, .dk-setx, .pw, .pw-body, .setx, .pa-body';
+  const one = el => { const cs = getComputedStyle(el); if (!el.classList.contains('sc-nub') && !/auto|scroll/.test(cs.overflowY)) return; el.classList.remove('sc-nub'); const d = el.scrollHeight - el.clientHeight; if (d > 0 && d <= 3) { el.scrollTop = 0; el.classList.add('sc-nub'); } };
+  const all = () => document.querySelectorAll(SEL).forEach(el => { try { one(el); } catch (e) {} });
+  let raf = 0; const soon = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(all); };
+  addEventListener('resize', soon); addEventListener('click', () => setTimeout(soon, 60), true); addEventListener('input', soon, true);
+  new MutationObserver(soon).observe(document.documentElement, { childList: true, subtree: true }); setInterval(all, 1000); })();
 
 
 // ---------- Spell helpers ----------
@@ -24705,12 +24723,13 @@ function renderWizard0() {
       b.animate(row ? [{ opacity: 0, maxWidth: '0px', transform: 'scale(.6)' }, { opacity: 1, maxWidth: w + 'px', transform: 'none' }] : [{ opacity: 0, maxHeight: '0px', minHeight: '0px', transform: 'translateX(-10px)', background: 'rgba(224,170,58,.35)' }, { opacity: 1, maxHeight: h + 'px', minHeight: h + 'px', transform: 'none', offset: .6 }, { background: 'transparent' }], { duration: 650, easing: 'cubic-bezier(.2,.8,.3,1)' }); } }); } { const l = $('#wizard .wz3-list.has'); const on = l && l.querySelector('.crrow.on'); if (on) l.scrollTop = Math.max(0, on.offsetTop - l.offsetTop - 60); }
   { const who = $('#wizard .wz3-who span'), key = who ? who.textContent : ''; if (who && W._who !== undefined && W._who !== key && who.animate) who.animate([{ opacity: 0, transform: 'translateY(4px)' }, { opacity: 1, transform: 'none' }], { duration: 260, easing: 'ease-out' }); W._who = key; }
   $$('#wizard [data-wzq]').forEach(i => filterWzSpells(i));
-  // Moving between steps: the new step slides in from the side you're heading (fades up on opening), and the step
+  // Moving between steps: the new step slides in from the way you're heading (up from below going forward in the
+  // step list down the side, sideways along the phone's step bar; fades up on opening), and the step
   // marker pops / the progress bar fills. Re-drawing the same step (picking options) doesn't animate.
   const prevSt = W._shown; W._shown = st;
   if (prevSt !== st && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) {
     const dir = prevSt == null ? 0 : st > prevSt ? 1 : -1, bd = $('#wizard .wz-body'), now = $('#wizard .wz-now'), on = $('#wizard .wz-step.on'), mob = document.documentElement.classList.contains('mobile');
-    const inK = dir ? [{ opacity: 0, transform: `translateX(${dir * 22}px)` }, { opacity: 1, transform: 'none' }] : [{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }];
+    const inK = dir ? [{ opacity: 0, transform: mob ? `translateX(${dir * 22}px)` : `translateY(${dir * 22}px)` }, { opacity: 1, transform: 'none' }] : [{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }];
     if (bd && bd.animate) bd.animate(inK, { duration: 280, easing: 'cubic-bezier(.2,.8,.3,1)' });
     if (now && now.animate && mob) now.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 220, easing: 'ease-out' });
     if (on && on.animate) on.animate(mob ? (dir >= 0 ? [{ transform: 'scaleX(.15)' }, { transform: 'none' }] : [{ opacity: .4 }, { opacity: 1 }]) : [{ transform: 'scale(.88)' }, { transform: 'none' }], { duration: mob ? 320 : 240, easing: 'cubic-bezier(.3,1.3,.5,1)' });
@@ -24881,7 +24900,7 @@ function wz3Shades(root = '#wizard') {
   $$(`${root} .wz3-cards.has, ${root} .wz3-list`).forEach(box => {
     if (box.parentElement.classList.contains('wz3-sc')) return;
     const st = box.scrollTop, w = document.createElement('div'); w.className = 'wz3-sc'; box.before(w); w.appendChild(box); if (st) box.scrollTop = st; // (moving it would lose where it was scrolled to)
-    const paint = () => { w.classList.toggle('top', box.scrollTop > 2); w.classList.toggle('bot', box.scrollTop + box.clientHeight < box.scrollHeight - 2); };
+    const paint = () => { w.classList.toggle('top', box.scrollTop > 2); w.classList.toggle('bot', box.scrollTop + box.clientHeight < box.scrollHeight - 2); w.classList.toggle('can', box.scrollHeight > box.clientHeight + 2); };
     // (set straight away, and only eased once it's on screen, so a redrawn list doesn't fade its edges in again)
     box.addEventListener('scroll', paint, { passive: true }); paint(); requestAnimationFrame(() => requestAnimationFrame(() => w.classList.add('ready')));
   });
