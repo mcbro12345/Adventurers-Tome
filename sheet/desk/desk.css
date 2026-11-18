@@ -1909,3 +1909,8 @@ select.sel-dmg { white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 
 /* Bestiary opens with nothing picked: a quiet line where the stat block goes */
 .dk-bpick { margin: 40px 0 0; text-align: center; }
+
+/* a window only a pixel or two too tall for its box: no scroll bar (see sc-nub in the script) */
+.sc-nub { overflow-y: hidden !important; }
+/* the scroll-edge divider in desk lists: the same grey line as the rest of the site, so it reads on the panels' backgrounds */
+.dk-shade::before, .dk-shade::after { border-color: rgba(127,127,127,.32) !important; }

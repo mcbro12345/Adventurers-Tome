@@ -4452,3 +4452,6 @@ select.sel-dmg { white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 
 /* No drop shadows: the soft shade drawn at the scroll edges of window lists is gone (the divider lines stay) */
 #modal-body .wz3-sc::before, #modal-body .wz3-sc::after, :root:not([data-theme="dark"]) #modal-body .wz3-sc::before, :root:not([data-theme="dark"]) #modal-body .wz3-sc::after { background: none !important; }
+
+/* a window only a pixel or two too tall for its box: no scroll bar (see sc-nub in the script) */
+.sc-nub { overflow-y: hidden !important; }
