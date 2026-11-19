@@ -68,7 +68,7 @@ const EMBED = JSON.parse($('#sheet-data').textContent || '{}');
 const BLANK_FILE = !EMBED.created;
 // On the GitHub Pages site every character shares one page, told apart by its ?c= link.
 const PATH_KEY = 'dnd-sheet-path:' + location.pathname + (window.SHEET_CHAR ? '?c=' + window.SHEET_CHAR : '');
-let S, FROM_LOCAL = false;
+let S, FROM_LOCAL = false, HIST_SAME = false;
 const LAYOUT_KEY = 'dnd-sheet-layout', PER_SHEET = !!window.SHEET_PAGES, UI_KEY = PER_SHEET ? 'dnd-sheet-ui:' + window.SHEET_CHAR : 'dnd-sheet-ui';
 function keyFor(id) { return 'dnd-sheet:' + id; }
 // A player's own preferences (Settings, theme, books, layout) always survive a newer copy of the sheet being published.
@@ -81,6 +81,8 @@ function keepPrefs(into, from) { if (!into || !from || (into.id && from.id && in
     if (id) local = JSON.parse(localStorage.getItem(keyFor(id)) || 'null');
   } catch (e) {}
   HADLOCAL = !!(local && local.created && EMBED.created && local.id === EMBED.id);
+  // the same save as last time on this device (only the site was updated since): its undo history still applies
+  HIST_SAME = HADLOCAL && N(local.savedAt) === N(EMBED.savedAt);
   if (local && local.dataRev === (EMBED.dataRev || '') && (BLANK_FILE || N(local.savedAt) >= N(EMBED.savedAt))) { S = local; FROM_LOCAL = true; }
   else S = EMBED.created ? keepPrefs(JSON.parse(JSON.stringify(EMBED)), local) : Object.assign(blankState(), { dataRev: EMBED.dataRev || '' });
   S = migrate(S);
@@ -112,6 +114,7 @@ function applyFixes(s) {
   // Built in (every sheet): encumbrance on for everyone who had it off; Istalyn's sling bullets become bullets for her pistol.
   if (!done.has('enc1')) { if (s.settings && s.settings.encumbrance === 'off') s.settings.encumbrance = 'standard'; done.add('enc1'); changed = true; }
   if (!done.has('bullets1')) { if (/^istalyn\b/i.test(String(s.name || ''))) (s.inventory || []).forEach(it => { if (it && /^sling bullets$/i.test(String(it.name || '').trim())) { it.name = 'Bullets'; it.weight = 0.2; } }); done.add('bullets1'); changed = true; }
+  (s.inventory || []).forEach(it => { if (it && it.infusion && it.infusion.rep && !it.infusion.repMods && !it.infusion.created && typeof infRepApply === 'function' && infRepApply(it)) changed = true; });
   (EMBED.fixes || []).forEach(f => {
     if (done.has(f.id) || (f.who && s.id !== f.who)) return;
     if (f.type === 'spellstore' && !(s.spells || []).some(x => x.stored)) { const it = (s.inventory || []).find(x => x.name === f.item), d = DND.spellIndex[String(f.spell).toLowerCase()];
@@ -153,7 +156,7 @@ function setP(path, val) { const ks = path.split('.'); let o = S; for (let i = 0
 // ---------- Undo history ----------
 const HMAX = 300;
 const hkey = () => keyFor(S.id || 'blank') + ':history';
-const TRACK = k => !['savedAt', 'spellFilter', 'macroSeen', 'ptyLog', 'ptyNews'].includes(k);
+const TRACK = k => !['savedAt', 'spellFilter', 'macroSeen', 'ptyLog', 'ptyNews', 'diceStats'].includes(k); // (dice stats just count rolls: nothing to undo)
 let HIST = [], REDO = [], LAST = null, pendingLabel = null;
 function snapAll() { const o = {}; for (const k in S) if (TRACK(k)) o[k] = JSON.stringify(S[k]); return o; }
 // What a change was, in words, read from what's different (for changes made without a name of their own — the undo
@@ -1698,7 +1701,7 @@ function d20(label, bonus, kind, ab, rows) {
   const note = [rm.mode !== 'normal' ? (rm.mode === 'adv' ? 'Advantage: ' : 'Disadvantage: ') + rm.why.join(', ') : '', bless ? 'Bless +1d4' : '', ex ? `Exhaustion −${ex}` : '', rm.auto ? 'Automatic failure (condition)' : ''].filter(Boolean).join(' · ');
   const n1 = (kind === 'attack' || / attack$/i.test(label)) && r.d20 === 1 ? nat1Roll(/spell attack/i.test(label) ? { t: 'spell' } : (() => { const a = (S.attacks || []).find(x => x.name + ' attack' === label); return a ? { t: a.kind === 'melee' ? 'melee' : 'ranged' } : {}; })()) : null; // (companions' to-hit rolls too)
   if (['attack', 'save', 'check'].includes(kind)) LAST_D20 = { t: Date.now(), label, bonus, kind, ab, rows, total: r.skipped ? null : r.total };
-  toast(`<b class="total">${r.total}</b><div><div>${esc(label)}</div><div class="det dd">${esc(r.detail)}</div>${note ? `<div class="det">${esc(note)}</div>` : ''}${fumHTML(n1)}${math}</div>`, r.d20 === 20 ? 'crit' : r.d20 === 1 ? 'fumble' : '', ['attack', 'save', 'check'].includes(kind) && !r.skipped && typeof inspAct === 'function' && inspFx() ? 9000 : undefined, ['attack', 'save', 'check'].includes(kind) && !r.skipped && typeof inspAct === 'function' ? inspAct(r.total, label) : null);
+  toast(`<b class="total">${r.total}</b><div><div>${esc(label)}</div><div class="det dd">${esc(r.detail)}</div>${note ? `<div class="det">${esc(note)}</div>` : ''}${fumHTML(n1)}${math}</div>`, r.d20 === 20 ? 'crit' : r.d20 === 1 ? 'fumble' : '', ...(() => { const ok = ['attack', 'save', 'check'].includes(kind) && !r.skipped, acts = ok ? [typeof inspAct === 'function' ? inspAct(r.total, label) : null, typeof tidesAct === 'function' && !n1 ? tidesAct(r, label, rm.mode) : null].filter(Boolean) : []; return [acts.length ? 9000 : undefined, acts]; })());
   return r;
 }
 const doubleDice = e => String(e || '').replace(/(\d*)d(\d+)/gi, (m, n, sd) => (2 * (N(n) || 1)) + 'd' + sd);
@@ -2045,7 +2048,7 @@ function renderVitals() {
   <div class="tile" data-zi="hd"><span class="lbl"><span class="ciw top">Hit Dice${ciBtn('hd', 'hit dice')}</span></span><span class="big" data-calc="hd"></span><span class="sub" data-calc="hdpools"></span></div>
   <div class="tile deathtile" data-zi="death"><span class="lbl">Death Saves</span><div class="death" data-calc-html="death"></div></div>
   <div class="tile condtile" data-zi="conds"><div class="tilehead"><span class="lbl">Conditions</span><button class="addc" data-act="conditions"><span class="tt">+ Add</span></button><span class="advbtns" role="group" aria-label="All d20 rolls"><button class="advb adv${S.rollAdv === 'adv' ? ' on' : ''}" data-act="rolladv" data-v="adv" aria-pressed="${S.rollAdv === 'adv'}" title="Advantage on every attack, check and save"><span class="al">Advantage</span></button><button class="advb dis${S.rollAdv === 'dis' ? ' on' : ''}" data-act="rolladv" data-v="dis" aria-pressed="${S.rollAdv === 'dis'}" title="Disadvantage on every attack, check and save"><span class="al">Disadvantage</span></button></span></div><div class="condchips" data-calc-html="conds"></div></div>
-  <div class="tile fxtile" data-zi="effects"><div class="tilehead"><span class="lbl">Active spells &amp; effects</span><button class="addc" data-act="addeffects" title="Spells and effects someone else put on you"><span class="tt">+ Add</span></button><span class="hint concnote" data-calc-html="concnote"></span></div><div class="fxchips" data-calc-html="fxchips"></div></div>
+  <div class="tile fxtile" data-zi="effects"><div class="tilehead"><span class="lbl">Active spells &amp; effects</span><button class="addc" data-act="addeffects" title="Spells and effects someone else put on you"><span class="tt">+ Add</span></button></div><div class="fxchips" data-calc-html="fxchips"></div></div>
 `;
 }
 
@@ -2109,7 +2112,18 @@ function mtabSync() {
   if (!de.classList.contains('mtabs')) de.classList.add('mtabs');
   if (!el) { el = document.createElement('div'); el.id = 'mtab'; el.className = 'mtab'; document.body.appendChild(el); mtabWire(el); }
   const ts = mtabTabs(), cur = ts.find(t => t.on) || ts[0]; if (!cur) return; const i = ts.indexOf(cur), other = ts.some(t => t.unread && !t.on);
-  { const h = `<button class="mtab-b${other ? ' unread' : ''}" aria-haspopup="menu" aria-expanded="${!!document.getElementById('mtabmenu')}" aria-label="${esc(cur.label)} — ${i + 1} of ${ts.length}. Choose a tab"><span class="mtab-ic" aria-hidden="true">${cur.ic}</span><span class="mtab-l">${esc(cur.label)}</span><span class="mtab-dots" aria-hidden="true">${ts.map(t => `<i${t.on ? ' class="on"' : ''}></i>`).join('')}</span><span class="mtab-chev">${MTAB_CHEV}</span></button>`; if (el._h !== h) { el._h = h; el.innerHTML = h; } } // (only redrawn when it changes)
+  { const h = `<button class="mtab-b${other ? ' unread' : ''}" aria-haspopup="menu" aria-expanded="${!!document.getElementById('mtabmenu')}" aria-label="${esc(cur.label)} — ${i + 1} of ${ts.length}. Choose a tab"><span class="mtab-ic" aria-hidden="true">${cur.ic}</span><span class="mtab-l">${esc(cur.label)}</span><span class="mtab-dots" aria-hidden="true">${ts.map(t => `<i${t.on ? ' class="on"' : ''}></i>`).join('')}</span><span class="mtab-chev">${MTAB_CHEV}</span></button>`; if (el._h !== h) { const k0 = el._k; el._h = h; el._k = cur.k;
+    // Changing tab morphs the pill: the old icon and name blur away, the pill eases to the new width with nothing in it
+    // to cut off, then the new icon and name blur in. (Anything else — an unread dot — just redraws.)
+    const b0 = el.querySelector('.mtab-b'), calmM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (el._mt) { el._mt.forEach(a => { try { a.cancel(); } catch (e) {} }); el._mt = null; }
+    if (!k0 || k0 === cur.k || calmM || !b0 || !b0.animate) el.innerHTML = h;
+    else { const ez = 'cubic-bezier(.3,.7,.3,1)', parts = b0.querySelectorAll('.mtab-ic, .mtab-l'), w0 = b0.getBoundingClientRect().width;
+      const outs = [...parts].map(x => x.animate([{ opacity: 1, filter: 'blur(0)' }, { opacity: 0, filter: 'blur(4px)' }], { duration: 110, easing: 'ease-in', fill: 'forwards' })); el._mt = outs;
+      (outs[0] || { finished: Promise.resolve() }).finished.then(() => { if (el._h !== h) return; el.innerHTML = h; const b = el.querySelector('.mtab-b'), w1 = b.getBoundingClientRect().width, nw = b.querySelectorAll('.mtab-ic, .mtab-l');
+        const ins = () => { el._mt = [...nw].map((x, n) => x.animate([{ opacity: 0, filter: 'blur(5px)', transform: 'translateY(4px)' }, { opacity: 1, filter: 'blur(0)', transform: 'none' }], { duration: 200, delay: n * 30, easing: ez, fill: 'backwards' })); };
+        if (Math.abs(w1 - w0) > 1) { nw.forEach(x => { x.style.opacity = '0'; }); const g = b.animate([{ width: w0 + 'px' }, { width: w1 + 'px' }], { duration: 190, easing: ez }); el._mt = [g]; g.finished.then(() => { nw.forEach(x => { x.style.opacity = ''; }); ins(); }).catch(() => { nw.forEach(x => { x.style.opacity = ''; }); }); }
+        else ins(); }).catch(() => {}); } } } // (only redrawn when it changes)
   const m = document.getElementById('mtabmenu'); if (m) mtabFill(m);
 }
 function mtabFill(m) { const ts = mtabTabs();
@@ -2575,6 +2589,15 @@ function postSheetRoll(t) {
   };
   wire();
 })();
+
+// Windows that are only a pixel or two taller than their box (rounding) don't show a scroll bar that scrolls by a pixel
+(() => { if (window.__pgNub) return; window.__pgNub = 1;
+  const SEL = '#modal-body, .modal, .wz-body, .wz-box, .pgm-t, .pgm-card, .dk-modal, .dk-mcard, .dk .drwin, .dk-setx, .pw, .pw-body, .setx, .pa-body';
+  const one = el => { const cs = getComputedStyle(el); if (!el.classList.contains('sc-nub') && !/auto|scroll/.test(cs.overflowY)) return; el.classList.remove('sc-nub'); const d = el.scrollHeight - el.clientHeight; if (d > 0 && d <= 3) { el.scrollTop = 0; el.classList.add('sc-nub'); } };
+  const all = () => document.querySelectorAll(SEL).forEach(el => { try { one(el); } catch (e) {} });
+  let raf = 0; const soon = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(all); };
+  addEventListener('resize', soon); addEventListener('click', () => setTimeout(soon, 60), true); addEventListener('input', soon, true);
+  new MutationObserver(soon).observe(document.documentElement, { childList: true, subtree: true }); setInterval(all, 1000); })();
 
 
 // ---------- Spell helpers ----------
@@ -3523,6 +3546,7 @@ function calcText(key) {
   }
   return '';
 }
+function fxChipsHTML(fx) { return fx.map((e, j) => `<span class="fxc${e.conc ? ' conc' : ''}${e.rounds != null && e.rounds <= 1 ? ' ending' : ''}" title="${esc(fxTip(e))}">${e.conc ? '<i class="cdot"></i>' : ''}<b>${esc(e.name)}</b>${e.ally ? ' (ally)' : ''}${e.from ? '<small class="fxfrom" title="Cast on you by someone else">↘</small>' : ''}${e.buff && N(e.buff.ac) && !e.ally ? ` +${N(e.buff.ac)} AC` : ''}<span class="left">${(e.readied ? 'until your next turn' : e.rage && e.rounds == null ? "until rage ends" : fmtRounds(e.rounds))}</span>${e.repeat ? `<button class="rep" data-act="repeatfx" data-j="${j}" title="Roll ${esc(e.repeat.dice)} ${esc(e.repeat.type || '')}">${esc(String(e.repeat.dice).replace(/^1d/, 'd'))}</button>` : ''}${e.conc && S.concentration ? `<button class="rep ccs" data-act="concsave" title="Roll a concentration save (CON save)">CON save</button>` : ''}<button data-act="endeffect" data-n="${esc(e.name)}" aria-label="End ${esc(e.name)}">✕</button></span>`).join(''); }
 function calcHTML(key) {
   const [k, a] = key.split(':');
   switch (k) {
@@ -3546,8 +3570,11 @@ function calcHTML(key) {
     case 'atkpips': { const n = attacksPerAction(), left = canAttack() ? n - N(S.turn.attacks) : 0; let h = ''; for (let j = 0; j < n; j++) h += `<i class="ap${j < left ? ' on' : ''}"></i>`; return h; }
     case 'fxchips': {
       const fx = S.effects || [];
-      if (!fx.length) return '<span class="hint">No spells or effects running.</span>';
-      return fx.map((e, j) => `<span class="fxc${e.conc ? ' conc' : ''}${e.rounds != null && e.rounds <= 1 ? ' ending' : ''}" title="${esc(fxTip(e))}">${e.conc ? '<i class="cdot"></i>' : ''}<b>${esc(e.name)}</b>${e.ally ? ' (ally)' : ''}${e.from ? '<small class="fxfrom" title="Cast on you by someone else">↘</small>' : ''}${e.buff && N(e.buff.ac) && !e.ally ? ` +${N(e.buff.ac)} AC` : ''}<span class="left">${(e.readied ? 'until your next turn' : e.rage && e.rounds == null ? "until rage ends" : fmtRounds(e.rounds))}</span>${e.repeat ? `<button class="rep" data-act="repeatfx" data-j="${j}" title="Roll ${esc(e.repeat.dice)} ${esc(e.repeat.type || '')}">${esc(String(e.repeat.dice).replace(/^1d/, 'd'))}</button>` : ''}${e.conc && S.concentration ? `<button class="rep ccs" data-act="concsave" title="Roll a concentration save (CON save)">CON save</button>` : ''}<button data-act="endeffect" data-n="${esc(e.name)}" aria-label="End ${esc(e.name)}">✕</button></span>`).join('');
+      // concentrating on something with no pill of its own: it gets one, with the CON save and an ✕ to end it
+      const cc = S.concentration && !fx.some(e => e.conc) ? `<span class="fxc conc" title="You're concentrating on this"><i class="cdot"></i><b>${esc(S.concentration)}</b><button class="rep ccs" data-act="concsave" title="Roll a concentration save (CON save)">CON save</button><button data-act="concend" aria-label="End concentration on ${esc(S.concentration)}">✕</button></span>` : '';
+      if (!fx.length) return cc || '<span class="hint">No spells or effects running.</span>';
+      if (cc) return cc + fxChipsHTML(fx);
+      return fxChipsHTML(fx);
     }
     case 'slotsall': {
       let h = '';
@@ -3917,6 +3944,7 @@ function mainClick(e) {
     case 'econtab': UI.econTab = b.dataset.col; saveUI(); render('combat'); refresh(); pendingLabel = null; return;
     case 'qty': { const it = S.inventory[i]; it.qty = Math.max(0, N(it.qty) + N(b.dataset.d)); update(); break; }
     case 'concsave': concCheck(10, true); break;
+    case 'concend': if (S.concentration) { breakConc('ended'); } break;
     case 'endeffect': endEffect(b.dataset.n); if ($('#condmodal.extfxm')) openExtFx(); break;
     case 'addeffects': UI.extPick = ''; openExtFx(); break;
     case 'extfx': addExtFx(b.dataset.k); break;
@@ -4338,7 +4366,7 @@ function attackRoll(i, free, opt) {
   if (!nat1 && a.kind === 'melee' && stunStrikeFeat() && stunKiLeft() > 0) acts.push({ keep: true, cls: 't-add', grp: 'stun', label: 'Stunning Strike (1 ki)', title: 'The creature you hit makes a CON save or is stunned', fn: (t, b) => { stunningStrike(); b.remove(); } });
   xr.filter(x => x.refund).forEach(x => acts.push({ label: `Missed — get ${x.what === 'Divine Smite' ? 'the slot' : 'the ki'} back`, fn: () => { x.refund(); pendingLabel = x.what + ' not used'; update(); render(); toast(`${x.what} is ready again for your next hit.`); } }));
   rh.always.forEach(x => acts.push({ label: `Missed — get ${x.src.name} back`, fn: () => { x.src.refund(); pendingLabel = x.src.name + ' not used'; update(); render(); toast(`${esc(x.src.name)} is back.`); } }));
-  acts.push(...rh.acts); { const ia = typeof inspAct === 'function' && !nat1 ? inspAct(h.total, nm + ' to hit') : null; if (ia) acts.push(ia); }
+  acts.push(...rh.acts); { const ia = typeof inspAct === 'function' && !nat1 ? inspAct(h.total, nm + ' to hit') : null; if (ia) acts.push(ia); const ta = !nat1 ? tidesAct(h, nm + ' to hit', rm.mode) : null; if (ta) acts.push(ta); }
   // What you can still add now that you know it hit: Divine Smite, Sneak Attack, Hand of Harm (each adds to this card).
   if (!nat1) acts.push(...atkAddOns(a, nm, crit, isWeapon, rm, opt, { total, byType, mainT, sneak: sr ? sr.total : 0 }, xr.filter(x => x.what).map(x => x.what)));
   if (sr && !opt.offTurn) acts.push({ label: 'Missed — Sneak Attack not used', fn: () => { S.turn.sneak = false; pendingLabel = 'Sneak Attack not used'; update(); refresh(); toast('Sneak Attack is ready again this turn.'); } });
@@ -4626,6 +4654,18 @@ function giftUse(base, label) {
   S.effects = S.effects.filter(x => x !== e); pendingLabel = 'Use ' + e.name; save(); render();
   const tot = base != null ? base + r.total : r.total;
   toast(`<b class="total">${tot}</b><div><div>${label ? esc(label) + ' + ' : ''}${esc(e.repeat.type || e.name)}</div><div class="det">${base != null ? base + ' + ' : ''}${esc(e.repeat.dice)} (${esc(r.detail)})</div><div class="det">${esc(e.name)} used</div></div>`, '', 8000, { label: 'Undo', fn: () => undo(1) });
+}
+// Tides of Chaos (wild magic sorcerer): after a straight attack roll, check or save (no advantage or disadvantage), the card
+// offers it — spend it to roll a second d20 and keep the higher one. (A spent Tides makes your next 1st+ level spell surge.)
+function tidesLeft() { const i = fxSource('Tides of Chaos'); return i >= 0 && fxLeft(i) > 0 ? i : -1; }
+function tidesAct(r, label, mode) {
+  if (!r || r.skipped || r.d20 == null || (mode && mode !== 'normal') || tidesLeft() < 0) return null; // (a straight roll only: with advantage it does nothing, with disadvantage they'd cancel)
+  return { label: 'Tides of Chaos: roll with advantage', title: 'Spend Tides of Chaos: roll another d20 and keep the higher one', fn: () => {
+    const i = tidesLeft(); if (i < 0) return toast('Tides of Chaos is already spent.', 'fumble');
+    const x = rollExpr('1d20', { label: (label ? label + ': ' : '') + 'Tides of Chaos' }); if (!x || x.skipped) return;
+    S.features[i].used = N(S.features[i].used) + 1; pendingLabel = 'Use Tides of Chaos'; save(); render();
+    const nd = Math.max(r.d20, x.total), tot = r.total - r.d20 + nd;
+    toast(`<b class="total">${tot}</b><div><div>${esc(label || 'Roll')} — Tides of Chaos</div><div class="det">d20s ${r.d20} and ${x.total}: keeps ${nd}${nd !== r.d20 ? ` (${tot - r.total > 0 ? '+' : ''}${tot - r.total})` : ' (no change)'}</div><div class="det">Tides of Chaos used — your next 1st-level or higher spell sets off a surge</div></div>`, nd === 20 ? 'crit' : '', 9000, { label: 'Undo', fn: () => undo(1) }); } };
 }
 const inspAct = (base, label) => { const e = inspFx(); return e ? { label: `+ ${e.repeat.type || 'Inspiration'} (${String(e.repeat.dice).replace(/^1d/, 'd')})`, fn: () => giftUse(base, label) } : null; };
 // Features that happen on their own as your turn comes round (Elder Champion's 10 HP, Survivor, Protective Spirit):
@@ -5119,6 +5159,9 @@ function executeCast(i, how, L, col, x) {
   if (a.wpn && wat) { eff.wpn = Object.assign({}, a.wpn, { cls: sp.cls }); lines.push(`${esc(wat.name)} now attacks with ${ABN[castInfo(sp.cls).ab] || 'your spellcasting ability'}${a.wpn.die ? ', 1' + a.wpn.die + ' damage' : ''}${a.wpn.magical ? ', magical' : ''}`); }
   let doAtk = null;
   // Buffs
+  // A spell whose bonus is only written down for casting it on others (Guidance, Resistance…) does the same when you
+  // cast it on yourself: the same effect, with the same +1d4 on your next roll.
+  if (!a.buff && self && typeof ALLYFX === 'function') { const ad = ALLYFX(sp.name); if (ad && ad.buff && !ad.pick && ad.self !== false) a.buff = Object.assign({}, ad.buff); }
   if (a.buff) {
     let bf = { ...a.buff }; if (a.upBuff) Object.keys(a.upBuff).forEach(k => { if (L >= N(k)) bf = { ...bf, ...a.upBuff[k] }; });
     eff.buff = bf; if (a.ask && !self) eff.ally = true;
@@ -7432,9 +7475,21 @@ function openInfPick(name, rep, all) {
     ${full ? `<p class="inf-warn" style="margin:0 0 8px">You already have ${aMax} infused items — this ends the oldest: <b>${esc(full.name)}</b> (${esc(infLabel(full.infusion))}).</p>` : ''}
     ${d.choose ? fld('Resistance to', `<select class="f" id="infChoice">${d.choose.map(c => `<option>${c}</option>`).join('')}</select>`) : ''}
     <div class="lbl">Choose an item you carry</div>
-    <div class="crlist">${cands.map(([it, i]) => `<button class="crrow sel" data-act="infgo" data-i="${i}"><div><b>${esc(it.name)}</b> <span class="hint">${it.weapon ? 'Weapon' : it.armor ? (it.armor.type === 'shield' ? 'Shield' : 'Armor') : 'Item'}${it.equipped ? ' · equipped' : ''}</span></div></button>`).join('') || '<p class="hint">No matching nonmagical items — create one below, or show every item.</p>'}</div>
-    <div class="row" style="margin-top:8px"><input class="f" id="infNewName" placeholder="${esc(rep || (d.item || 'Item').replace(/^(A|An) /i, '').replace(/^pair of /i, ''))}"><button class="btn sm" data-act="infgo" data-i="-1">Create it</button>${!all && !rep && d.ok ? `<button class="btn sm ghost" data-act="infpickall">Show every item</button>` : ''}</div>
+    ${cands.length ? `<div class="castopts infopts">${cands.map(([it, i]) => `<button class="castopt" data-act="infgo" data-i="${i}"><b>${esc(it.name)}</b><span class="co-sub">${it.weapon ? 'Weapon' : it.armor ? (it.armor.type === 'shield' ? 'Shield' : 'Armor') : 'Item'}${it.equipped ? ' · equipped' : ''}${it.attuned ? ' · attuned' : ''}</span></button>`).join('')}</div>` : '<p class="hint">No matching nonmagical items — create one below, or show every item.</p>'}
+    <div class="lbl" style="margin-top:12px">Or make a new one</div>
+    <div class="row inf-new"><input class="f" id="infNewName" placeholder="${esc(rep || (d.item || 'Item').replace(/^(A|An) /i, '').replace(/^pair of /i, ''))}"><button class="btn sm" data-act="infgo" data-i="-1">Create it</button>${!all && !rep && d.ok ? `<button class="btn sm ghost" data-act="infpickall">Show every item</button>` : ''}</div>
     <div class="actions"><button class="btn" data-act="close">Cancel</button></div>`);
+}
+// Replicate Magic Item into an object you already have: it gets the magic item's bonuses (AC, saves, speed…) and
+// charges, as if it were that item; ending the infusion puts back what it had. (Older infusions get this on load.)
+function infRepApply(it) {
+  const inf = it.infusion; if (!inf || !inf.rep || inf.repMods) return false;
+  const m = DND.magic.find(x => x[0] === inf.rep); if (!m) return false;
+  const md = Object.assign({}, m[6] || {}); inf.prev = inf.prev || {}; inf.prev.mods = it.mods ? JSON.parse(JSON.stringify(it.mods)) : null;
+  it.mods = Object.assign({}, it.mods || {}, md); delete it.mods.base; delete it.mods.charges; delete it.mods.heal;
+  if (md.charges && !it.charges) { it.charges = { max: md.charges, used: 0 }; inf.repCharges = true; }
+  if (md.heal && !it.heal) { it.heal = md.heal; inf.repHeal = true; }
+  inf.repMods = true; return true;
 }
 function infGo(i) {
   const P = INFPICK; if (!P) return; const d = INF[P.name] || {};
@@ -7449,6 +7504,7 @@ function infGo(i) {
   it.infusion = { name: P.name, rep: P.rep || '', at: Date.now(), prev, created: i < 0, choice: d.choose ? (($('#infChoice') || {}).value || '') : '' };
   const needAtt = P.rep ? repAttune(P.rep) : !!d.attune; if (needAtt) { it.attune = true; it.attuned = !!prev.attuned && !!prev.attune; }
   if (d.charges) { it.charges = { max: d.charges[0], used: 0, reset: 'long' }; it.infusion.charges = true; }
+  if (P.rep && i >= 0) infRepApply(it);
   if (!it.magic) it.magic = { rarity: P.rep ? ((DND.magic.find(x => x[0] === P.rep) || [])[3] || 'uncommon') : 'uncommon', type: 'infusion', src: 'TCE', name: P.rep || '' };
   if (!it.summary) it.summary = P.rep ? ((DND.magic.find(x => x[0] === P.rep) || [])[5] || '') : ((DND.options.infusion.list.find(x => x[0] === P.name) || [])[1] || '');
   pendingLabel = 'Infuse ' + it.name; closeModal(true); save(); render();
@@ -7459,6 +7515,7 @@ function infEndItem(it) {
   if (inf.created && inf.name === 'Replicate Magic Item') { const k = S.inventory.indexOf(it); if (k >= 0) { S.inventory.splice(k, 1); S.attacks = S.attacks.filter(a => a.item !== it.id); } return; }
   const p = inf.prev;
   if (p) { it.attune = p.attune; it.attuned = p.attuned; if (inf.charges) { if (p.charges) it.charges = p.charges; else delete it.charges; } if (!p.magic && it.magic && it.magic.type === 'infusion') delete it.magic; if (p.summary !== undefined) it.summary = p.summary; }
+  if (inf.repMods) { if (p && p.mods) it.mods = p.mods; else delete it.mods; if (inf.repCharges) delete it.charges; if (inf.repHeal) delete it.heal; }
   delete it.infusion;
 }
 function infEnd(i) {
@@ -10095,6 +10152,8 @@ async function ptySend(ids, kind, data, text, quiet, grp) {
   const recs = ids.map(to => ({ to, ref: PTYX().newRef(), kind, data, text }));
   if (grp && grp.entry) { grp.entry.pty = grp.entry.pty.concat(recs); persistHist(); } else { const e = ptyHistAdd(recs, text); if (grp) grp.entry = e; }
   let ok = 0; for (const r of recs) { try { await PTYX().send(r.to, kind, data, r.ref); ok++; } catch (e) { r.failed = true; console.warn('party send', e); } }
+  // an item you give away is remembered until they answer, so it can come back if they say no
+  if (kind === 'item' && data && data.item) { const sent = recs.filter(r => !r.failed); if (sent.length) S.ptyGave = (S.ptyGave || []).concat(sent.map(r => ({ ref: r.ref, to: r.to, at: Date.now(), item: JSON.parse(JSON.stringify(data.item)) }))).slice(-40); }
   if (ok) { ptyLog('out', ptyNames(ids), text); save(); if (UI.tab === 'party') render('party'); if (!quiet) toast(`${esc(text)} → <b>${esc(ptyNames(ids))}</b>${ptyFreeKind(kind) || (PTYX().info() || {}).mgr ? '' : `<div class="det">${ids.length > 1 ? 'They’re' : 'They’re'} asked to accept it on their sheet.</div>`}`, '', 6000); }
   else toast('Couldn’t reach the party right now — check your connection.', 'fumble', 7000);
   return ok;
@@ -10690,7 +10749,7 @@ function ptyAnswer(ref, ok) {
   pick.forEach(a => { const m = a.m, text = ptyDesc(m);
     if (ok) { try { m.agreed = true; const b = PTYX().snap(S); if (ptyApply(m)) ptyGot(m, b); } catch (e) { if (e instanceof NeedRoll) throw e; console.warn('party message', e); } } // (a roll it needs is fetched, then this runs again)
     else ptyLog('in', m.fromName || '', 'Said no: ' + text);
-    if (m.from && PTYX()) PTYX().send(m.from, 'reply', { ok, text, n: S.name || '' }).catch(() => {}); });
+    if (m.from && PTYX()) PTYX().send(m.from, 'reply', { ok, text, n: S.name || '', ref: m.ref || '' }).catch(() => {}); });
   if (!pendingLabel) pendingLabel = ok ? 'Accepted a party change' : 'Turned down a party change';
   save(); render(); ptyAskShow();
 }
@@ -10766,7 +10825,9 @@ function ptyApply(m) {
       pendingLabel = 'Coins from ' + who; note('Received ' + got.join(', ')); toast(`<div><b>${esc(who)}</b> gave you <b>${esc(got.join(', '))}</b></div>`, 'crit', 7000); return true; }
     case 'inspire': { S.insp = Math.min(inspMax(), Math.max(0, N(S.insp)) + 1); pendingLabel = 'Inspiration from ' + who; note('Inspiration'); toast(`<div><b>Inspiration!</b><div class="det">From ${esc(who)}${ST('inspiration') ? '' : ' (turn on Inspiration in Settings → Rules to see it on the sheet)'}</div></div>`, 'crit', 8000); return true; }
     case 'reply': { if (!d.ok && m.from && S.ptyAuras) Object.keys(S.ptyAuras).forEach(n => { if (String(d.text || '').includes(n)) { S.ptyAuras[n] = (S.ptyAuras[n] || []).filter(x => x !== m.from); R20A.no[n + '|' + m.from] = true; } });
-      note(`${d.ok ? 'They said yes' : 'They said no'}: ${d.text || ''}`); toast(`<div><b>${esc(d.n || who)}</b> ${d.ok ? 'said yes' : 'said no'}<div class="det">${esc(d.text || '')}</div></div>`, d.ok ? '' : 'alert', 6000); return true; }
+      // an item they turned down goes back into your inventory (only one you actually sent them, from your own record)
+      let back = ''; { const g = (S.ptyGave || []).find(x => d.ref && x.ref === d.ref && x.to === m.from); if (g) { S.ptyGave = S.ptyGave.filter(x => x !== g); if (!d.ok) { const it = Object.assign({}, g.item); it.id = uid(); it.equipped = false; ptyAddItem(it); back = `${N(it.qty) > 1 ? N(it.qty) + ' × ' : ''}${it.name} is back in your inventory.`; } } }
+      note(`${d.ok ? 'They said yes' : 'They said no'}: ${d.text || ''}${back ? ' — ' + back : ''}`); toast(`<div><b>${esc(d.n || who)}</b> ${d.ok ? 'said yes' : 'said no'}<div class="det">${esc(d.text || '')}</div>${back ? `<div class="det">${esc(back)}</div>` : ''}</div>`, d.ok ? '' : 'alert', 6000); return true; }
     case 'note': { note(String(d.text || '')); ptyMsgShow(who, String(d.text || '')); return true; }
     case 'undo': { const g = (S.ptyGot || []).find(x => x.ref === d.ref); if (!g) { PTY_CANCEL.add(d.ref); return false; }
       PTYX().revert(S, g.rev); S.ptyGot = S.ptyGot.filter(x => x !== g); S.hp.cur = Math.min(N(S.hp.cur), maxHp()); pendingLabel = `${who} took back: ${g.text}`; note(`Took back: ${g.text}`);
@@ -11627,7 +11688,8 @@ function rebuildAuto() {
   (S.feats || []).forEach(fn => { const ft = DND.feats.find(x => x[0] === fn), pk = ft && ft[4] && ft[4].pick; if (!pk) return;
     const ch = (S.featChoices || {})[fn] || {}, ab = pk.ab === 'asi' ? ([].concat(ch.asi || [])[0] || 'cha') : pk.ab;
     (pk.fixed || []).concat(...pk.picks.map(p => [].concat(ch[p.key] || []))).filter(Boolean).forEach(n => { const lv = N((SPI(n) || {}).level);
-      want.push({ n, cls: 'feat', src: fn, note: lv > 0 ? 'once per long rest without a slot' : '', once: lv > 0, ab, featAb: true }); }); });
+      const sab = pk.ab === 'list' ? featListAb(n) : ab;
+      want.push({ n, cls: 'feat', src: fn, note: lv > 0 ? 'once per long rest without a slot' : '', once: lv > 0, ab: sab, featAb: true }); }); });
   // Spells an item lets you cast, while you're using it (equipped, or carried if ticked; attuned if it needs it)
   S.inventory.forEach(it => { if (!hbItemOn(it)) return; const st = itemStores(it); (it.spells || []).forEach(n => want.push({ n, cls: 'other', src: it.name, note: st ? 'stored — gone once cast' : it.spellAtWill ? 'at will' : it.spellOnce ? 'once per long rest' : '', once: !st && !!it.spellOnce && !it.spellAtWill, atWill: !st && !!it.spellAtWill, stored: st, lvl: N((it.spellLevels || {})[n]), ab: (it.hb && it.hb.spellAb) || '', itemId: it.id })); });
   const keyOf = (n, cls) => n.toLowerCase() + '|' + cls;
@@ -11712,7 +11774,7 @@ function choiceOptions(def, ctx) {
     case 'feat': return bookSort(DND.feats, f => f[1], f => f[0]).map(f => [f[0], f[0] + (f[2] ? ` (${f[2]})` : '') + (f[1] !== 'PHB' ? ` · ${f[1]}` : '')]);
     case 'cantrip': if (Array.isArray(def.list)) return def.list.map(n => [n, n]);
       return DND.spells.filter(s => s.level === 0 && s.classes.includes(def.list)).sort((a, b) => abc(a.name, b.name)).map(s => [s.name, s.name]);
-    case 'spellpick': return DND.spells.filter(s => s.level === def.level && (!def.ritual || s.ritual) && (!def.schools || def.schools.includes(s.school)) && (def.list === 'any' || s.classes.includes(def.list))).sort((a, b) => abc(a.name, b.name)).map(s => [s.name, `${s.name} — ${s.summary}`]);
+    case 'spellpick': return DND.spells.filter(s => s.level === def.level && (!def.ritual || s.ritual) && (!def.schools || def.schools.includes(s.school)) && (def.lists ? [...def.lists].some(l => s.classes.includes(l)) : def.list === 'any' || s.classes.includes(def.list)) && (!def.attack || /spell attack/i.test(s.summary || ''))).sort((a, b) => abc(a.name, b.name)).map(s => [s.name, `${s.name} — ${s.summary}`]);
     case 'option': return def.options.map(([n, d]) => [n, `${n} — ${d}`]);
     case 'weapon': return DND.weapons.filter(w => !def.from || w[1] === def.from).map(w => [w[0], w[0]]);
     default: {
@@ -11751,9 +11813,13 @@ function featSubDefs(name) {
   if (e.langs) defs.push({ type: 'language', n: e.langs });
   if (e.element) defs.push({ type: 'element', n: 1, label: 'Damage type' });
   // Feats that teach a spell you choose (Fey Touched, Shadow Touched, Wood Elf Magic…): each choice is kept under its own key
-  if (e.pick) e.pick.picks.forEach(p => defs.push({ type: 'spellpick', key: p.key, n: p.n || 1, level: p.level, list: p.list || 'any', schools: p.schools, label: p.label }));
+  if (e.pick) e.pick.picks.forEach(p => defs.push({ type: 'spellpick', key: p.key, n: p.n || 1, level: p.level, list: p.list || 'any', lists: p.lists, attack: p.attack, schools: p.schools, label: p.label }));
   return defs;
 }
+// A feat cantrip from any of several class lists (Spell Sniper) is cast with that class's ability: your own class's
+// when the spell is on its list, otherwise the first list it's on
+function featListAb(n) { const sp = DND.spells.find(s => s.name === n), L = { B: 'cha', C: 'wis', D: 'wis', S: 'cha', K: 'cha', W: 'int', A: 'int', P: 'cha', R: 'wis' }, CL = { bard: 'B', cleric: 'C', druid: 'D', sorcerer: 'S', warlock: 'K', wizard: 'W' };
+  if (!sp) return 'int'; const mine = clsRows().map(r => CL[r.key]).find(l => l && sp.classes.includes(l)); return L[mine || [...'BCDSKW'].find(l => sp.classes.includes(l)) || 'W']; }
 function featSubUI(CH, id, name) {
   const ft = DND.feats.find(x => x[0] === name); if (!ft) return '';
   const defs = featSubDefs(name), e = ft[4] || {};
@@ -12405,12 +12471,13 @@ function renderWizard0() {
       b.animate(row ? [{ opacity: 0, maxWidth: '0px', transform: 'scale(.6)' }, { opacity: 1, maxWidth: w + 'px', transform: 'none' }] : [{ opacity: 0, maxHeight: '0px', minHeight: '0px', transform: 'translateX(-10px)', background: 'rgba(224,170,58,.35)' }, { opacity: 1, maxHeight: h + 'px', minHeight: h + 'px', transform: 'none', offset: .6 }, { background: 'transparent' }], { duration: 650, easing: 'cubic-bezier(.2,.8,.3,1)' }); } }); } { const l = $('#wizard .wz3-list.has'); const on = l && l.querySelector('.crrow.on'); if (on) l.scrollTop = Math.max(0, on.offsetTop - l.offsetTop - 60); }
   { const who = $('#wizard .wz3-who span'), key = who ? who.textContent : ''; if (who && W._who !== undefined && W._who !== key && who.animate) who.animate([{ opacity: 0, transform: 'translateY(4px)' }, { opacity: 1, transform: 'none' }], { duration: 260, easing: 'ease-out' }); W._who = key; }
   $$('#wizard [data-wzq]').forEach(i => filterWzSpells(i));
-  // Moving between steps: the new step slides in from the side you're heading (fades up on opening), and the step
+  // Moving between steps: the new step slides in from the way you're heading (up from below going forward in the
+  // step list down the side, sideways along the phone's step bar; fades up on opening), and the step
   // marker pops / the progress bar fills. Re-drawing the same step (picking options) doesn't animate.
   const prevSt = W._shown; W._shown = st;
   if (prevSt !== st && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) {
     const dir = prevSt == null ? 0 : st > prevSt ? 1 : -1, bd = $('#wizard .wz-body'), now = $('#wizard .wz-now'), on = $('#wizard .wz-step.on'), mob = document.documentElement.classList.contains('mobile');
-    const inK = dir ? [{ opacity: 0, transform: `translateX(${dir * 22}px)` }, { opacity: 1, transform: 'none' }] : [{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }];
+    const inK = dir ? [{ opacity: 0, transform: mob ? `translateX(${dir * 22}px)` : `translateY(${dir * 22}px)` }, { opacity: 1, transform: 'none' }] : [{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }];
     if (bd && bd.animate) bd.animate(inK, { duration: 280, easing: 'cubic-bezier(.2,.8,.3,1)' });
     if (now && now.animate && mob) now.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 220, easing: 'ease-out' });
     if (on && on.animate) on.animate(mob ? (dir >= 0 ? [{ transform: 'scaleX(.15)' }, { transform: 'none' }] : [{ opacity: .4 }, { opacity: 1 }]) : [{ transform: 'scale(.88)' }, { transform: 'none' }], { duration: mob ? 320 : 240, easing: 'cubic-bezier(.3,1.3,.5,1)' });
@@ -12581,7 +12648,7 @@ function wz3Shades(root = '#wizard') {
   $$(`${root} .wz3-cards.has, ${root} .wz3-list`).forEach(box => {
     if (box.parentElement.classList.contains('wz3-sc')) return;
     const st = box.scrollTop, w = document.createElement('div'); w.className = 'wz3-sc'; box.before(w); w.appendChild(box); if (st) box.scrollTop = st; // (moving it would lose where it was scrolled to)
-    const paint = () => { w.classList.toggle('top', box.scrollTop > 2); w.classList.toggle('bot', box.scrollTop + box.clientHeight < box.scrollHeight - 2); };
+    const paint = () => { w.classList.toggle('top', box.scrollTop > 2); w.classList.toggle('bot', box.scrollTop + box.clientHeight < box.scrollHeight - 2); w.classList.toggle('can', box.scrollHeight > box.clientHeight + 2); };
     // (set straight away, and only eased once it's on screen, so a redrawn list doesn't fade its edges in again)
     box.addEventListener('scroll', paint, { passive: true }); paint(); requestAnimationFrame(() => requestAnimationFrame(() => w.classList.add('ready')));
   });
@@ -13200,10 +13267,15 @@ function adoptRemote(d, force) {
   let mine = false;
   if (CLOUD_BASE && cloudDirty()) { try { const at = Math.max(N(next.savedAt), N(S.savedAt)); next = sheetMerge(JSON.parse(CLOUD_BASE), JSON.parse(JSON.stringify(S)), next); next.savedAt = at; mine = true; } catch (e) {} }
   CLOUD_BASE = d.sheet; CLOUD_BASE_AT = N(d.savedAt);
+  const pre = snapAll();
   S = keepLocal(migrate(next), S); if (applyFixes(S)) rebuildAuto();
   if (mine) { S.savedAt = Date.now(); writeLocal(); }
   try { localStorage.setItem(keyFor(S.id), JSON.stringify(S)); } catch (e) {}
-  HIST = []; REDO = []; LAST = snapAll(); histButtons();
+  // Undo history survives a change from elsewhere (another device, the DM, the party): only the steps that touch what
+  // just changed are dropped, since undoing them would wipe out that change. (It used to clear the whole history.)
+  { const cur = snapAll(), hit = new Set([...new Set([...Object.keys(pre), ...Object.keys(cur)])].filter(k => pre[k] !== cur[k] && k !== 'savedAt'));
+    const keep = e => { if (!e || !e.keys) return null; const keys = {}; Object.keys(e.keys).forEach(k => { if (!hit.has(k)) keys[k] = e.keys[k]; }); return Object.keys(keys).length || e.pty ? Object.assign({}, e, { keys }) : null; };
+    HIST = HIST.map(keep).filter(Boolean); REDO = REDO.map(keep).filter(Boolean); LAST = cur; persistHist(); histButtons(); }
   applySources(S.sources); applyTheme(); render();
   scrollTo(sx, sy);
   setSyncState('Live · synced ' + clock());
@@ -13258,7 +13330,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && CL
 
 // ---------- Boot ----------
 // For the GitHub Pages loader (new characters get their link once created).
-window.sheetState = () => S; window.sheetToast = toast;
+window.sheetState = () => S; window.sheetToast = toast; window.sheetHist = () => ({ undo: HIST.map(h => h.label), redo: REDO.map(h => h.label), keys: HIST.length ? Object.keys(HIST[HIST.length - 1].keys) : [] }); window.sheetUndo = n => undo(n); window.sheetRedo = n => redo(n); window.sheetSnap = () => JSON.stringify(snapAll());
 window.sheetSet = (k, v) => { S[k] = v; pendingLabel = null; save(); render('header'); };
 window.sheetSummary = () => ({ name: S.name || '', player: S.player || '', race: S.raceName || '', cls: S.created ? classLabel() : '', level: S.created ? lvl() : 0, portrait: S.portrait || '', acc: /^#[0-9a-f]{6}$/i.test((S.theme || {}).accent || '') ? S.theme.accent : '', hp: S.created ? N(S.hp && S.hp.cur) + '/' + maxHp() : '' });
 if (S.created) applySources(S.sources);
@@ -13267,7 +13339,7 @@ const staleStore = () => (S.spells || []).some(sp => { const it = sp.item && (S.
 // The second Psychic Blade became a proper bonus-action attack: sheets made before that pick it up now.
 const staleBonusAtk = () => (S.attacks || []).some(a => a.auto === 'feature' && /^Psychic Blade \(bonus/i.test(a.name) && !a.bonus);
 if (S.created && (FIXED || staleStore() || staleBonusAtk())) { const at = S.savedAt; rebuildAuto(); writeLocal(); S.savedAt = at; } // one-off fixes don't count as a newer edit (a newer synced copy still wins)
-loadHist(FROM_LOCAL);
+loadHist(FROM_LOCAL || HIST_SAME);
 applyLayout(); applyTheme();
 if (S.created) { render(); setTimeout(afterUpdate, 50); }
 else openWizard();
