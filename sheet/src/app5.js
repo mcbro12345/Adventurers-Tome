@@ -72,7 +72,8 @@ function rebuildAuto() {
   (S.feats || []).forEach(fn => { const ft = DND.feats.find(x => x[0] === fn), pk = ft && ft[4] && ft[4].pick; if (!pk) return;
     const ch = (S.featChoices || {})[fn] || {}, ab = pk.ab === 'asi' ? ([].concat(ch.asi || [])[0] || 'cha') : pk.ab;
     (pk.fixed || []).concat(...pk.picks.map(p => [].concat(ch[p.key] || []))).filter(Boolean).forEach(n => { const lv = N((SPI(n) || {}).level);
-      want.push({ n, cls: 'feat', src: fn, note: lv > 0 ? 'once per long rest without a slot' : '', once: lv > 0, ab, featAb: true }); }); });
+      const sab = pk.ab === 'list' ? featListAb(n) : ab;
+      want.push({ n, cls: 'feat', src: fn, note: lv > 0 ? 'once per long rest without a slot' : '', once: lv > 0, ab: sab, featAb: true }); }); });
   // Spells an item lets you cast, while you're using it (equipped, or carried if ticked; attuned if it needs it)
   S.inventory.forEach(it => { if (!hbItemOn(it)) return; const st = itemStores(it); (it.spells || []).forEach(n => want.push({ n, cls: 'other', src: it.name, note: st ? 'stored — gone once cast' : it.spellAtWill ? 'at will' : it.spellOnce ? 'once per long rest' : '', once: !st && !!it.spellOnce && !it.spellAtWill, atWill: !st && !!it.spellAtWill, stored: st, lvl: N((it.spellLevels || {})[n]), ab: (it.hb && it.hb.spellAb) || '', itemId: it.id })); });
   const keyOf = (n, cls) => n.toLowerCase() + '|' + cls;
@@ -157,7 +158,7 @@ function choiceOptions(def, ctx) {
     case 'feat': return bookSort(DND.feats, f => f[1], f => f[0]).map(f => [f[0], f[0] + (f[2] ? ` (${f[2]})` : '') + (f[1] !== 'PHB' ? ` · ${f[1]}` : '')]);
     case 'cantrip': if (Array.isArray(def.list)) return def.list.map(n => [n, n]);
       return DND.spells.filter(s => s.level === 0 && s.classes.includes(def.list)).sort((a, b) => abc(a.name, b.name)).map(s => [s.name, s.name]);
-    case 'spellpick': return DND.spells.filter(s => s.level === def.level && (!def.ritual || s.ritual) && (!def.schools || def.schools.includes(s.school)) && (def.list === 'any' || s.classes.includes(def.list))).sort((a, b) => abc(a.name, b.name)).map(s => [s.name, `${s.name} — ${s.summary}`]);
+    case 'spellpick': return DND.spells.filter(s => s.level === def.level && (!def.ritual || s.ritual) && (!def.schools || def.schools.includes(s.school)) && (def.lists ? [...def.lists].some(l => s.classes.includes(l)) : def.list === 'any' || s.classes.includes(def.list)) && (!def.attack || /spell attack/i.test(s.summary || ''))).sort((a, b) => abc(a.name, b.name)).map(s => [s.name, `${s.name} — ${s.summary}`]);
     case 'option': return def.options.map(([n, d]) => [n, `${n} — ${d}`]);
     case 'weapon': return DND.weapons.filter(w => !def.from || w[1] === def.from).map(w => [w[0], w[0]]);
     default: {
@@ -196,9 +197,13 @@ function featSubDefs(name) {
   if (e.langs) defs.push({ type: 'language', n: e.langs });
   if (e.element) defs.push({ type: 'element', n: 1, label: 'Damage type' });
   // Feats that teach a spell you choose (Fey Touched, Shadow Touched, Wood Elf Magic…): each choice is kept under its own key
-  if (e.pick) e.pick.picks.forEach(p => defs.push({ type: 'spellpick', key: p.key, n: p.n || 1, level: p.level, list: p.list || 'any', schools: p.schools, label: p.label }));
+  if (e.pick) e.pick.picks.forEach(p => defs.push({ type: 'spellpick', key: p.key, n: p.n || 1, level: p.level, list: p.list || 'any', lists: p.lists, attack: p.attack, schools: p.schools, label: p.label }));
   return defs;
 }
+// A feat cantrip from any of several class lists (Spell Sniper) is cast with that class's ability: your own class's
+// when the spell is on its list, otherwise the first list it's on
+function featListAb(n) { const sp = DND.spells.find(s => s.name === n), L = { B: 'cha', C: 'wis', D: 'wis', S: 'cha', K: 'cha', W: 'int', A: 'int', P: 'cha', R: 'wis' }, CL = { bard: 'B', cleric: 'C', druid: 'D', sorcerer: 'S', warlock: 'K', wizard: 'W' };
+  if (!sp) return 'int'; const mine = clsRows().map(r => CL[r.key]).find(l => l && sp.classes.includes(l)); return L[mine || [...'BCDSKW'].find(l => sp.classes.includes(l)) || 'W']; }
 function featSubUI(CH, id, name) {
   const ft = DND.feats.find(x => x[0] === name); if (!ft) return '';
   const defs = featSubDefs(name), e = ft[4] || {};
@@ -1646,10 +1651,15 @@ function adoptRemote(d, force) {
   let mine = false;
   if (CLOUD_BASE && cloudDirty()) { try { const at = Math.max(N(next.savedAt), N(S.savedAt)); next = sheetMerge(JSON.parse(CLOUD_BASE), JSON.parse(JSON.stringify(S)), next); next.savedAt = at; mine = true; } catch (e) {} }
   CLOUD_BASE = d.sheet; CLOUD_BASE_AT = N(d.savedAt);
+  const pre = snapAll();
   S = keepLocal(migrate(next), S); if (applyFixes(S)) rebuildAuto();
   if (mine) { S.savedAt = Date.now(); writeLocal(); }
   try { localStorage.setItem(keyFor(S.id), JSON.stringify(S)); } catch (e) {}
-  HIST = []; REDO = []; LAST = snapAll(); histButtons();
+  // Undo history survives a change from elsewhere (another device, the DM, the party): only the steps that touch what
+  // just changed are dropped, since undoing them would wipe out that change. (It used to clear the whole history.)
+  { const cur = snapAll(), hit = new Set([...new Set([...Object.keys(pre), ...Object.keys(cur)])].filter(k => pre[k] !== cur[k] && k !== 'savedAt'));
+    const keep = e => { if (!e || !e.keys) return null; const keys = {}; Object.keys(e.keys).forEach(k => { if (!hit.has(k)) keys[k] = e.keys[k]; }); return Object.keys(keys).length || e.pty ? Object.assign({}, e, { keys }) : null; };
+    HIST = HIST.map(keep).filter(Boolean); REDO = REDO.map(keep).filter(Boolean); LAST = cur; persistHist(); histButtons(); }
   applySources(S.sources); applyTheme(); render();
   scrollTo(sx, sy);
   setSyncState('Live · synced ' + clock());
@@ -1704,7 +1714,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && CL
 
 // ---------- Boot ----------
 // For the GitHub Pages loader (new characters get their link once created).
-window.sheetState = () => S; window.sheetToast = toast;
+window.sheetState = () => S; window.sheetToast = toast; window.sheetHist = () => ({ undo: HIST.map(h => h.label), redo: REDO.map(h => h.label), keys: HIST.length ? Object.keys(HIST[HIST.length - 1].keys) : [] }); window.sheetUndo = n => undo(n); window.sheetRedo = n => redo(n); window.sheetSnap = () => JSON.stringify(snapAll());
 window.sheetSet = (k, v) => { S[k] = v; pendingLabel = null; save(); render('header'); };
 window.sheetSummary = () => ({ name: S.name || '', player: S.player || '', race: S.raceName || '', cls: S.created ? classLabel() : '', level: S.created ? lvl() : 0, portrait: S.portrait || '', acc: /^#[0-9a-f]{6}$/i.test((S.theme || {}).accent || '') ? S.theme.accent : '', hp: S.created ? N(S.hp && S.hp.cur) + '/' + maxHp() : '' });
 if (S.created) applySources(S.sources);
@@ -1713,7 +1723,7 @@ const staleStore = () => (S.spells || []).some(sp => { const it = sp.item && (S.
 // The second Psychic Blade became a proper bonus-action attack: sheets made before that pick it up now.
 const staleBonusAtk = () => (S.attacks || []).some(a => a.auto === 'feature' && /^Psychic Blade \(bonus/i.test(a.name) && !a.bonus);
 if (S.created && (FIXED || staleStore() || staleBonusAtk())) { const at = S.savedAt; rebuildAuto(); writeLocal(); S.savedAt = at; } // one-off fixes don't count as a newer edit (a newer synced copy still wins)
-loadHist(FROM_LOCAL);
+loadHist(FROM_LOCAL || HIST_SAME);
 applyLayout(); applyTheme();
 if (S.created) { render(); setTimeout(afterUpdate, 50); }
 else openWizard();

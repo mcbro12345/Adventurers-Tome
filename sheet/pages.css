@@ -3778,3 +3778,11 @@ html:not(.mobile) #wizard .wzh2 .hl-t { font-size: 36px; } html:not(.mobile) #wi
 html:not(.mobile) #wizard .wzh2 .hub-acct .pg-ava { width: 40px !important; height: 40px !important; }
 /* steady scroll-edge lines: a quieter line, like the Notes list's in the DM's Desk */
 .pg-shade::before, .pg-shade::after { border-color: rgba(127,127,127,.2); }
+/* an unknown creature in the players' turn order: just a ? in the usual round picture */
+.to-np.to-unk { font: 800 15px/1 Georgia, serif; }
+
+/* players: the turn order hidden with ✕ comes back from this corner button */
+#pgturn-btn { position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 8990; display: inline-flex; align-items: center; gap: 7px; padding: 9px 15px; border-radius: 999px; border: 1px solid #c9962b; background: #1a2131; color: #f3e9cf; font: 700 .88rem system-ui, sans-serif; cursor: pointer; }
+#pgturn-btn span { color: #c9962b; }
+html.mobile #pgturn-btn { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); right: 12px; }
+@media (prefers-color-scheme: light) { #pgturn-btn { background: #fffaf0; color: #1f2a44; } }

@@ -1929,6 +1929,17 @@ select.sel-dmg { white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   .dk[data-tab=bestiary] .dk-blist .dk-mlist2::before, .dk[data-tab=bestiary] .dk-blist .dk-mlist2::after { display: none !important; }
   .dk[data-tab=bestiary] .dk-blist .dk-bcount { margin-bottom: -2px; }
 }
+/* steady scroll-edge lines elsewhere on the desk: the same quiet line colour as the Notes list's */
+.dk-shade::before, .dk-shade::after { border-color: var(--line2) !important; }
+
+/* Reordering encounters: a ⠿ grip at the start of each row (always there on touch screens, on hover with a mouse) */
+.dk-tsgrip { flex: none; align-self: stretch; display: grid; place-items: center; width: 18px; margin-right: -4px; color: var(--soft); cursor: grab; touch-action: none; font-size: .95rem; border-radius: 8px; user-select: none; -webkit-user-select: none; }
+@media (hover: hover) { .dk-tsgrip { opacity: 0; transition: opacity .15s; } .dk-tsrow:hover .dk-tsgrip { opacity: 1; } .dk-tsgrip:hover { color: var(--ink); } }
+.dk-ts.dk-tshold { visibility: hidden; }
+.dk-tsghost { box-sizing: border-box; background: var(--card2) !important; border: 1px solid var(--line) !important; border-radius: 10px !important; }
+.dk-tsghost .dk-tkids { display: none; }
+.dk-tsghost .dk-tsgrip { opacity: 1; cursor: grabbing; }
+body.dk-tsdragging, body.dk-tsdragging * { cursor: grabbing !important; user-select: none !important; }
 
 /* DM's Desk: the homebrew item builder — the same look as the character sheet's (extra.css .hbb-*), scoped to #hbd */
 #hbd .hbb-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }

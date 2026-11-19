@@ -3071,7 +3071,8 @@ html.mobile .cg-tools .icon-btn, html.mobile .spg .cath-tools .icon-btn { min-he
 html.mobile .sp-top .sp-name { min-width: 0; }
 .cgmov > .cspg-h + .cg-tools { top: 19px !important; transform: translateY(-50%); }
 .spn + .notetip { margin-left: 4px; }
-.econ .pill.partial { border-color: var(--gold); color: var(--gold-ink); background: var(--gold-soft); }
+/* part-way through your attacks (1/2 attacks): still green — the action isn't used up yet */
+.econ .pill.partial { border-color: var(--green); color: var(--green); background: transparent; }
 .stunrow { margin-top: 6px; gap: 8px; align-items: center; flex-wrap: nowrap; }
 .stunrow .btn { flex: none; }
 .stunrow .hint { font-size: .74rem; line-height: 1.3; }
@@ -5124,4 +5125,12 @@ select.sel-dmg { white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 
 /* a window only a pixel or two too tall for its box: no scroll bar (see sc-nub in the script) */
 .sc-nub { overflow-y: hidden !important; }
+
+/* Scroll-edge dividers: like the Notes list's, they're simply there (edge to edge) the whole time a list can scroll,
+   instead of appearing as it scrolls */
+.pg-shade.sc-can::before, .pg-shade.sc-can::after, .dk-shade.sc-can::before, .dk-shade.sc-can::after, .nt-sl .nt-sl-wrap.sc-can::before, .nt-sl .nt-sl-wrap.sc-can::after,
+#wizard .wz3 .wz3-sc.can::before, #wizard .wz3 .wz3-sc.can::after, #modal-body .wz3-sc.can::before, #modal-body .wz3-sc.can::after { opacity: 1; transition: none; }
+.pg-shade::before, .pg-shade::after, .dk-shade::before, .dk-shade::after { margin-left: calc(-1 * var(--sh-pl, 0px)); margin-right: calc(-1 * var(--sh-pr, 0px)); }
+/* steady scroll-edge lines: a quieter line, like the Notes list's in the DM's Desk */
+.pg-shade::before, .pg-shade::after { border-color: rgba(127,127,127,.2); }
 

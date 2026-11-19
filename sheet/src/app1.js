@@ -68,7 +68,7 @@ const EMBED = JSON.parse($('#sheet-data').textContent || '{}');
 const BLANK_FILE = !EMBED.created;
 // On the GitHub Pages site every character shares one page, told apart by its ?c= link.
 const PATH_KEY = 'dnd-sheet-path:' + location.pathname + (window.SHEET_CHAR ? '?c=' + window.SHEET_CHAR : '');
-let S, FROM_LOCAL = false;
+let S, FROM_LOCAL = false, HIST_SAME = false;
 const LAYOUT_KEY = 'dnd-sheet-layout', PER_SHEET = !!window.SHEET_PAGES, UI_KEY = PER_SHEET ? 'dnd-sheet-ui:' + window.SHEET_CHAR : 'dnd-sheet-ui';
 function keyFor(id) { return 'dnd-sheet:' + id; }
 // A player's own preferences (Settings, theme, books, layout) always survive a newer copy of the sheet being published.
@@ -81,6 +81,8 @@ function keepPrefs(into, from) { if (!into || !from || (into.id && from.id && in
     if (id) local = JSON.parse(localStorage.getItem(keyFor(id)) || 'null');
   } catch (e) {}
   HADLOCAL = !!(local && local.created && EMBED.created && local.id === EMBED.id);
+  // the same save as last time on this device (only the site was updated since): its undo history still applies
+  HIST_SAME = HADLOCAL && N(local.savedAt) === N(EMBED.savedAt);
   if (local && local.dataRev === (EMBED.dataRev || '') && (BLANK_FILE || N(local.savedAt) >= N(EMBED.savedAt))) { S = local; FROM_LOCAL = true; }
   else S = EMBED.created ? keepPrefs(JSON.parse(JSON.stringify(EMBED)), local) : Object.assign(blankState(), { dataRev: EMBED.dataRev || '' });
   S = migrate(S);
@@ -154,7 +156,7 @@ function setP(path, val) { const ks = path.split('.'); let o = S; for (let i = 0
 // ---------- Undo history ----------
 const HMAX = 300;
 const hkey = () => keyFor(S.id || 'blank') + ':history';
-const TRACK = k => !['savedAt', 'spellFilter', 'macroSeen', 'ptyLog', 'ptyNews'].includes(k);
+const TRACK = k => !['savedAt', 'spellFilter', 'macroSeen', 'ptyLog', 'ptyNews', 'diceStats'].includes(k); // (dice stats just count rolls: nothing to undo)
 let HIST = [], REDO = [], LAST = null, pendingLabel = null;
 function snapAll() { const o = {}; for (const k in S) if (TRACK(k)) o[k] = JSON.stringify(S[k]); return o; }
 // What a change was, in words, read from what's different (for changes made without a name of their own — the undo

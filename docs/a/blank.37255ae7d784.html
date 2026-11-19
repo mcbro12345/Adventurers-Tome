@@ -3086,7 +3086,8 @@ html.mobile .cg-tools .icon-btn, html.mobile .spg .cath-tools .icon-btn { min-he
 html.mobile .sp-top .sp-name { min-width: 0; }
 .cgmov > .cspg-h + .cg-tools { top: 19px !important; transform: translateY(-50%); }
 .spn + .notetip { margin-left: 4px; }
-.econ .pill.partial { border-color: var(--gold); color: var(--gold-ink); background: var(--gold-soft); }
+/* part-way through your attacks (1/2 attacks): still green — the action isn't used up yet */
+.econ .pill.partial { border-color: var(--green); color: var(--green); background: transparent; }
 .stunrow { margin-top: 6px; gap: 8px; align-items: center; flex-wrap: nowrap; }
 .stunrow .btn { flex: none; }
 .stunrow .hint { font-size: .74rem; line-height: 1.3; }
@@ -5145,6 +5146,8 @@ select.sel-dmg { white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 .pg-shade.sc-can::before, .pg-shade.sc-can::after, .dk-shade.sc-can::before, .dk-shade.sc-can::after, .nt-sl .nt-sl-wrap.sc-can::before, .nt-sl .nt-sl-wrap.sc-can::after,
 #wizard .wz3 .wz3-sc.can::before, #wizard .wz3 .wz3-sc.can::after, #modal-body .wz3-sc.can::before, #modal-body .wz3-sc.can::after { opacity: 1; transition: none; }
 .pg-shade::before, .pg-shade::after, .dk-shade::before, .dk-shade::after { margin-left: calc(-1 * var(--sh-pl, 0px)); margin-right: calc(-1 * var(--sh-pr, 0px)); }
+/* steady scroll-edge lines: a quieter line, like the Notes list's in the DM's Desk */
+.pg-shade::before, .pg-shade::after { border-color: rgba(127,127,127,.2); }
 
 </style>
 </head>
@@ -6646,7 +6649,7 @@ DND.feats = [
   ['Shield Master', 'PHB', '', 'Bonus-action shove after attacking; add shield AC to DEX saves; evasion-like reaction.'],
   ['Skilled', 'PHB', '', 'Gain proficiency in any combination of three skills or tools.', { skills: 3 }],
   ['Skulker', 'PHB', 'DEX 13', 'Hide when lightly obscured; missing doesn\'t reveal you; dim light doesn\'t hinder Perception.'],
-  ['Spell Sniper', 'PHB', 'Spellcasting', 'Double range of attack spells; ignore half and three-quarters cover; learn one attack cantrip.'],
+  ['Spell Sniper', 'PHB', 'Spellcasting', 'Double range of attack spells; ignore half and three-quarters cover; learn one attack cantrip.', { pick: { ab: 'list', picks: [{ key: 'cantrip', level: 0, lists: 'BCDSKW', attack: true, label: 'Cantrip that needs an attack roll (bard, cleric, druid, sorcerer, warlock or wizard)' }] } }],
   ['Tavern Brawler', 'PHB', '', '+1 STR or CON; improvised weapon proficiency; unarmed strikes deal 1d4; bonus-action grapple.', { asi: ['str', 'con'] }],
   ['Tough', 'PHB', '', '+2 max HP per level.', { hpPerLevel: 2 }],
   ['War Caster', 'PHB', 'Spellcasting', 'Advantage on concentration saves; cast with hands full; cast a spell as an opportunity attack.'],
@@ -13977,7 +13980,7 @@ function d20(label, bonus, kind, ab, rows) {
   const note = [rm.mode !== 'normal' ? (rm.mode === 'adv' ? 'Advantage: ' : 'Disadvantage: ') + rm.why.join(', ') : '', bless ? 'Bless +1d4' : '', ex ? `Exhaustion −${ex}` : '', rm.auto ? 'Automatic failure (condition)' : ''].filter(Boolean).join(' · ');
   const n1 = (kind === 'attack' || / attack$/i.test(label)) && r.d20 === 1 ? nat1Roll(/spell attack/i.test(label) ? { t: 'spell' } : (() => { const a = (S.attacks || []).find(x => x.name + ' attack' === label); return a ? { t: a.kind === 'melee' ? 'melee' : 'ranged' } : {}; })()) : null; // (companions' to-hit rolls too)
   if (['attack', 'save', 'check'].includes(kind)) LAST_D20 = { t: Date.now(), label, bonus, kind, ab, rows, total: r.skipped ? null : r.total };
-  toast(`<b class="total">${r.total}</b><div><div>${esc(label)}</div><div class="det dd">${esc(r.detail)}</div>${note ? `<div class="det">${esc(note)}</div>` : ''}${fumHTML(n1)}${math}</div>`, r.d20 === 20 ? 'crit' : r.d20 === 1 ? 'fumble' : '', ['attack', 'save', 'check'].includes(kind) && !r.skipped && typeof inspAct === 'function' && inspFx() ? 9000 : undefined, ['attack', 'save', 'check'].includes(kind) && !r.skipped && typeof inspAct === 'function' ? inspAct(r.total, label) : null);
+  toast(`<b class="total">${r.total}</b><div><div>${esc(label)}</div><div class="det dd">${esc(r.detail)}</div>${note ? `<div class="det">${esc(note)}</div>` : ''}${fumHTML(n1)}${math}</div>`, r.d20 === 20 ? 'crit' : r.d20 === 1 ? 'fumble' : '', ...(() => { const ok = ['attack', 'save', 'check'].includes(kind) && !r.skipped, acts = ok ? [typeof inspAct === 'function' ? inspAct(r.total, label) : null, typeof tidesAct === 'function' && !n1 ? tidesAct(r, label, rm.mode) : null].filter(Boolean) : []; return [acts.length ? 9000 : undefined, acts]; })());
   return r;
 }
 const doubleDice = e => String(e || '').replace(/(\d*)d(\d+)/gi, (m, n, sd) => (2 * (N(n) || 1)) + 'd' + sd);
@@ -16642,7 +16645,7 @@ function attackRoll(i, free, opt) {
   if (!nat1 && a.kind === 'melee' && stunStrikeFeat() && stunKiLeft() > 0) acts.push({ keep: true, cls: 't-add', grp: 'stun', label: 'Stunning Strike (1 ki)', title: 'The creature you hit makes a CON save or is stunned', fn: (t, b) => { stunningStrike(); b.remove(); } });
   xr.filter(x => x.refund).forEach(x => acts.push({ label: `Missed — get ${x.what === 'Divine Smite' ? 'the slot' : 'the ki'} back`, fn: () => { x.refund(); pendingLabel = x.what + ' not used'; update(); render(); toast(`${x.what} is ready again for your next hit.`); } }));
   rh.always.forEach(x => acts.push({ label: `Missed — get ${x.src.name} back`, fn: () => { x.src.refund(); pendingLabel = x.src.name + ' not used'; update(); render(); toast(`${esc(x.src.name)} is back.`); } }));
-  acts.push(...rh.acts); { const ia = typeof inspAct === 'function' && !nat1 ? inspAct(h.total, nm + ' to hit') : null; if (ia) acts.push(ia); }
+  acts.push(...rh.acts); { const ia = typeof inspAct === 'function' && !nat1 ? inspAct(h.total, nm + ' to hit') : null; if (ia) acts.push(ia); const ta = !nat1 ? tidesAct(h, nm + ' to hit', rm.mode) : null; if (ta) acts.push(ta); }
   // What you can still add now that you know it hit: Divine Smite, Sneak Attack, Hand of Harm (each adds to this card).
   if (!nat1) acts.push(...atkAddOns(a, nm, crit, isWeapon, rm, opt, { total, byType, mainT, sneak: sr ? sr.total : 0 }, xr.filter(x => x.what).map(x => x.what)));
   if (sr && !opt.offTurn) acts.push({ label: 'Missed — Sneak Attack not used', fn: () => { S.turn.sneak = false; pendingLabel = 'Sneak Attack not used'; update(); refresh(); toast('Sneak Attack is ready again this turn.'); } });
@@ -16930,6 +16933,18 @@ function giftUse(base, label) {
   S.effects = S.effects.filter(x => x !== e); pendingLabel = 'Use ' + e.name; save(); render();
   const tot = base != null ? base + r.total : r.total;
   toast(`<b class="total">${tot}</b><div><div>${label ? esc(label) + ' + ' : ''}${esc(e.repeat.type || e.name)}</div><div class="det">${base != null ? base + ' + ' : ''}${esc(e.repeat.dice)} (${esc(r.detail)})</div><div class="det">${esc(e.name)} used</div></div>`, '', 8000, { label: 'Undo', fn: () => undo(1) });
+}
+// Tides of Chaos (wild magic sorcerer): after a straight attack roll, check or save (no advantage or disadvantage), the card
+// offers it — spend it to roll a second d20 and keep the higher one. (A spent Tides makes your next 1st+ level spell surge.)
+function tidesLeft() { const i = fxSource('Tides of Chaos'); return i >= 0 && fxLeft(i) > 0 ? i : -1; }
+function tidesAct(r, label, mode) {
+  if (!r || r.skipped || r.d20 == null || (mode && mode !== 'normal') || tidesLeft() < 0) return null; // (a straight roll only: with advantage it does nothing, with disadvantage they'd cancel)
+  return { label: 'Tides of Chaos: roll with advantage', title: 'Spend Tides of Chaos: roll another d20 and keep the higher one', fn: () => {
+    const i = tidesLeft(); if (i < 0) return toast('Tides of Chaos is already spent.', 'fumble');
+    const x = rollExpr('1d20', { label: (label ? label + ': ' : '') + 'Tides of Chaos' }); if (!x || x.skipped) return;
+    S.features[i].used = N(S.features[i].used) + 1; pendingLabel = 'Use Tides of Chaos'; save(); render();
+    const nd = Math.max(r.d20, x.total), tot = r.total - r.d20 + nd;
+    toast(`<b class="total">${tot}</b><div><div>${esc(label || 'Roll')} — Tides of Chaos</div><div class="det">d20s ${r.d20} and ${x.total}: keeps ${nd}${nd !== r.d20 ? ` (${tot - r.total > 0 ? '+' : ''}${tot - r.total})` : ' (no change)'}</div><div class="det">Tides of Chaos used — your next 1st-level or higher spell sets off a surge</div></div>`, nd === 20 ? 'crit' : '', 9000, { label: 'Undo', fn: () => undo(1) }); } };
 }
 const inspAct = (base, label) => { const e = inspFx(); return e ? { label: `+ ${e.repeat.type || 'Inspiration'} (${String(e.repeat.dice).replace(/^1d/, 'd')})`, fn: () => giftUse(base, label) } : null; };
 // Features that happen on their own as your turn comes round (Elder Champion's 10 HP, Survivor, Protective Spirit):
@@ -17423,6 +17438,9 @@ function executeCast(i, how, L, col, x) {
   if (a.wpn && wat) { eff.wpn = Object.assign({}, a.wpn, { cls: sp.cls }); lines.push(`${esc(wat.name)} now attacks with ${ABN[castInfo(sp.cls).ab] || 'your spellcasting ability'}${a.wpn.die ? ', 1' + a.wpn.die + ' damage' : ''}${a.wpn.magical ? ', magical' : ''}`); }
   let doAtk = null;
   // Buffs
+  // A spell whose bonus is only written down for casting it on others (Guidance, Resistance…) does the same when you
+  // cast it on yourself: the same effect, with the same +1d4 on your next roll.
+  if (!a.buff && self && typeof ALLYFX === 'function') { const ad = ALLYFX(sp.name); if (ad && ad.buff && !ad.pick && ad.self !== false) a.buff = Object.assign({}, ad.buff); }
   if (a.buff) {
     let bf = { ...a.buff }; if (a.upBuff) Object.keys(a.upBuff).forEach(k => { if (L >= N(k)) bf = { ...bf, ...a.upBuff[k] }; });
     eff.buff = bf; if (a.ask && !self) eff.ally = true;
@@ -22413,6 +22431,8 @@ async function ptySend(ids, kind, data, text, quiet, grp) {
   const recs = ids.map(to => ({ to, ref: PTYX().newRef(), kind, data, text }));
   if (grp && grp.entry) { grp.entry.pty = grp.entry.pty.concat(recs); persistHist(); } else { const e = ptyHistAdd(recs, text); if (grp) grp.entry = e; }
   let ok = 0; for (const r of recs) { try { await PTYX().send(r.to, kind, data, r.ref); ok++; } catch (e) { r.failed = true; console.warn('party send', e); } }
+  // an item you give away is remembered until they answer, so it can come back if they say no
+  if (kind === 'item' && data && data.item) { const sent = recs.filter(r => !r.failed); if (sent.length) S.ptyGave = (S.ptyGave || []).concat(sent.map(r => ({ ref: r.ref, to: r.to, at: Date.now(), item: JSON.parse(JSON.stringify(data.item)) }))).slice(-40); }
   if (ok) { ptyLog('out', ptyNames(ids), text); save(); if (UI.tab === 'party') render('party'); if (!quiet) toast(`${esc(text)} → <b>${esc(ptyNames(ids))}</b>${ptyFreeKind(kind) || (PTYX().info() || {}).mgr ? '' : `<div class="det">${ids.length > 1 ? 'They’re' : 'They’re'} asked to accept it on their sheet.</div>`}`, '', 6000); }
   else toast('Couldn’t reach the party right now — check your connection.', 'fumble', 7000);
   return ok;
@@ -23008,7 +23028,7 @@ function ptyAnswer(ref, ok) {
   pick.forEach(a => { const m = a.m, text = ptyDesc(m);
     if (ok) { try { m.agreed = true; const b = PTYX().snap(S); if (ptyApply(m)) ptyGot(m, b); } catch (e) { if (e instanceof NeedRoll) throw e; console.warn('party message', e); } } // (a roll it needs is fetched, then this runs again)
     else ptyLog('in', m.fromName || '', 'Said no: ' + text);
-    if (m.from && PTYX()) PTYX().send(m.from, 'reply', { ok, text, n: S.name || '' }).catch(() => {}); });
+    if (m.from && PTYX()) PTYX().send(m.from, 'reply', { ok, text, n: S.name || '', ref: m.ref || '' }).catch(() => {}); });
   if (!pendingLabel) pendingLabel = ok ? 'Accepted a party change' : 'Turned down a party change';
   save(); render(); ptyAskShow();
 }
@@ -23084,7 +23104,9 @@ function ptyApply(m) {
       pendingLabel = 'Coins from ' + who; note('Received ' + got.join(', ')); toast(`<div><b>${esc(who)}</b> gave you <b>${esc(got.join(', '))}</b></div>`, 'crit', 7000); return true; }
     case 'inspire': { S.insp = Math.min(inspMax(), Math.max(0, N(S.insp)) + 1); pendingLabel = 'Inspiration from ' + who; note('Inspiration'); toast(`<div><b>Inspiration!</b><div class="det">From ${esc(who)}${ST('inspiration') ? '' : ' (turn on Inspiration in Settings → Rules to see it on the sheet)'}</div></div>`, 'crit', 8000); return true; }
     case 'reply': { if (!d.ok && m.from && S.ptyAuras) Object.keys(S.ptyAuras).forEach(n => { if (String(d.text || '').includes(n)) { S.ptyAuras[n] = (S.ptyAuras[n] || []).filter(x => x !== m.from); R20A.no[n + '|' + m.from] = true; } });
-      note(`${d.ok ? 'They said yes' : 'They said no'}: ${d.text || ''}`); toast(`<div><b>${esc(d.n || who)}</b> ${d.ok ? 'said yes' : 'said no'}<div class="det">${esc(d.text || '')}</div></div>`, d.ok ? '' : 'alert', 6000); return true; }
+      // an item they turned down goes back into your inventory (only one you actually sent them, from your own record)
+      let back = ''; { const g = (S.ptyGave || []).find(x => d.ref && x.ref === d.ref && x.to === m.from); if (g) { S.ptyGave = S.ptyGave.filter(x => x !== g); if (!d.ok) { const it = Object.assign({}, g.item); it.id = uid(); it.equipped = false; ptyAddItem(it); back = `${N(it.qty) > 1 ? N(it.qty) + ' × ' : ''}${it.name} is back in your inventory.`; } } }
+      note(`${d.ok ? 'They said yes' : 'They said no'}: ${d.text || ''}${back ? ' — ' + back : ''}`); toast(`<div><b>${esc(d.n || who)}</b> ${d.ok ? 'said yes' : 'said no'}<div class="det">${esc(d.text || '')}</div>${back ? `<div class="det">${esc(back)}</div>` : ''}</div>`, d.ok ? '' : 'alert', 6000); return true; }
     case 'note': { note(String(d.text || '')); ptyMsgShow(who, String(d.text || '')); return true; }
     case 'undo': { const g = (S.ptyGot || []).find(x => x.ref === d.ref); if (!g) { PTY_CANCEL.add(d.ref); return false; }
       PTYX().revert(S, g.rev); S.ptyGot = S.ptyGot.filter(x => x !== g); S.hp.cur = Math.min(N(S.hp.cur), maxHp()); pendingLabel = `${who} took back: ${g.text}`; note(`Took back: ${g.text}`);
@@ -23945,7 +23967,8 @@ function rebuildAuto() {
   (S.feats || []).forEach(fn => { const ft = DND.feats.find(x => x[0] === fn), pk = ft && ft[4] && ft[4].pick; if (!pk) return;
     const ch = (S.featChoices || {})[fn] || {}, ab = pk.ab === 'asi' ? ([].concat(ch.asi || [])[0] || 'cha') : pk.ab;
     (pk.fixed || []).concat(...pk.picks.map(p => [].concat(ch[p.key] || []))).filter(Boolean).forEach(n => { const lv = N((SPI(n) || {}).level);
-      want.push({ n, cls: 'feat', src: fn, note: lv > 0 ? 'once per long rest without a slot' : '', once: lv > 0, ab, featAb: true }); }); });
+      const sab = pk.ab === 'list' ? featListAb(n) : ab;
+      want.push({ n, cls: 'feat', src: fn, note: lv > 0 ? 'once per long rest without a slot' : '', once: lv > 0, ab: sab, featAb: true }); }); });
   // Spells an item lets you cast, while you're using it (equipped, or carried if ticked; attuned if it needs it)
   S.inventory.forEach(it => { if (!hbItemOn(it)) return; const st = itemStores(it); (it.spells || []).forEach(n => want.push({ n, cls: 'other', src: it.name, note: st ? 'stored — gone once cast' : it.spellAtWill ? 'at will' : it.spellOnce ? 'once per long rest' : '', once: !st && !!it.spellOnce && !it.spellAtWill, atWill: !st && !!it.spellAtWill, stored: st, lvl: N((it.spellLevels || {})[n]), ab: (it.hb && it.hb.spellAb) || '', itemId: it.id })); });
   const keyOf = (n, cls) => n.toLowerCase() + '|' + cls;
@@ -24030,7 +24053,7 @@ function choiceOptions(def, ctx) {
     case 'feat': return bookSort(DND.feats, f => f[1], f => f[0]).map(f => [f[0], f[0] + (f[2] ? ` (${f[2]})` : '') + (f[1] !== 'PHB' ? ` · ${f[1]}` : '')]);
     case 'cantrip': if (Array.isArray(def.list)) return def.list.map(n => [n, n]);
       return DND.spells.filter(s => s.level === 0 && s.classes.includes(def.list)).sort((a, b) => abc(a.name, b.name)).map(s => [s.name, s.name]);
-    case 'spellpick': return DND.spells.filter(s => s.level === def.level && (!def.ritual || s.ritual) && (!def.schools || def.schools.includes(s.school)) && (def.list === 'any' || s.classes.includes(def.list))).sort((a, b) => abc(a.name, b.name)).map(s => [s.name, `${s.name} — ${s.summary}`]);
+    case 'spellpick': return DND.spells.filter(s => s.level === def.level && (!def.ritual || s.ritual) && (!def.schools || def.schools.includes(s.school)) && (def.lists ? [...def.lists].some(l => s.classes.includes(l)) : def.list === 'any' || s.classes.includes(def.list)) && (!def.attack || /spell attack/i.test(s.summary || ''))).sort((a, b) => abc(a.name, b.name)).map(s => [s.name, `${s.name} — ${s.summary}`]);
     case 'option': return def.options.map(([n, d]) => [n, `${n} — ${d}`]);
     case 'weapon': return DND.weapons.filter(w => !def.from || w[1] === def.from).map(w => [w[0], w[0]]);
     default: {
@@ -24069,9 +24092,13 @@ function featSubDefs(name) {
   if (e.langs) defs.push({ type: 'language', n: e.langs });
   if (e.element) defs.push({ type: 'element', n: 1, label: 'Damage type' });
   // Feats that teach a spell you choose (Fey Touched, Shadow Touched, Wood Elf Magic…): each choice is kept under its own key
-  if (e.pick) e.pick.picks.forEach(p => defs.push({ type: 'spellpick', key: p.key, n: p.n || 1, level: p.level, list: p.list || 'any', schools: p.schools, label: p.label }));
+  if (e.pick) e.pick.picks.forEach(p => defs.push({ type: 'spellpick', key: p.key, n: p.n || 1, level: p.level, list: p.list || 'any', lists: p.lists, attack: p.attack, schools: p.schools, label: p.label }));
   return defs;
 }
+// A feat cantrip from any of several class lists (Spell Sniper) is cast with that class's ability: your own class's
+// when the spell is on its list, otherwise the first list it's on
+function featListAb(n) { const sp = DND.spells.find(s => s.name === n), L = { B: 'cha', C: 'wis', D: 'wis', S: 'cha', K: 'cha', W: 'int', A: 'int', P: 'cha', R: 'wis' }, CL = { bard: 'B', cleric: 'C', druid: 'D', sorcerer: 'S', warlock: 'K', wizard: 'W' };
+  if (!sp) return 'int'; const mine = clsRows().map(r => CL[r.key]).find(l => l && sp.classes.includes(l)); return L[mine || [...'BCDSKW'].find(l => sp.classes.includes(l)) || 'W']; }
 function featSubUI(CH, id, name) {
   const ft = DND.feats.find(x => x[0] === name); if (!ft) return '';
   const defs = featSubDefs(name), e = ft[4] || {};
@@ -25577,7 +25604,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && CL
 
 // ---------- Boot ----------
 // For the GitHub Pages loader (new characters get their link once created).
-window.sheetState = () => S; window.sheetToast = toast;
+window.sheetState = () => S; window.sheetToast = toast; window.sheetHist = () => ({ undo: HIST.map(h => h.label), redo: REDO.map(h => h.label), keys: HIST.length ? Object.keys(HIST[HIST.length - 1].keys) : [] }); window.sheetUndo = n => undo(n); window.sheetRedo = n => redo(n); window.sheetSnap = () => JSON.stringify(snapAll());
 window.sheetSet = (k, v) => { S[k] = v; pendingLabel = null; save(); render('header'); };
 window.sheetSummary = () => ({ name: S.name || '', player: S.player || '', race: S.raceName || '', cls: S.created ? classLabel() : '', level: S.created ? lvl() : 0, portrait: S.portrait || '', acc: /^#[0-9a-f]{6}$/i.test((S.theme || {}).accent || '') ? S.theme.accent : '', hp: S.created ? N(S.hp && S.hp.cur) + '/' + maxHp() : '' });
 if (S.created) applySources(S.sources);
