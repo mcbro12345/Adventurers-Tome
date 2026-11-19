@@ -2402,7 +2402,8 @@ html.mobile .cg-tools .icon-btn, html.mobile .spg .cath-tools .icon-btn { min-he
 html.mobile .sp-top .sp-name { min-width: 0; }
 .cgmov > .cspg-h + .cg-tools { top: 19px !important; transform: translateY(-50%); }
 .spn + .notetip { margin-left: 4px; }
-.econ .pill.partial { border-color: var(--gold); color: var(--gold-ink); background: var(--gold-soft); }
+/* part-way through your attacks (1/2 attacks): still green — the action isn't used up yet */
+.econ .pill.partial { border-color: var(--green); color: var(--green); background: transparent; }
 .stunrow { margin-top: 6px; gap: 8px; align-items: center; flex-wrap: nowrap; }
 .stunrow .btn { flex: none; }
 .stunrow .hint { font-size: .74rem; line-height: 1.3; }

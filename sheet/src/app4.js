@@ -520,7 +520,7 @@ function attackRoll(i, free, opt) {
   if (!nat1 && a.kind === 'melee' && stunStrikeFeat() && stunKiLeft() > 0) acts.push({ keep: true, cls: 't-add', grp: 'stun', label: 'Stunning Strike (1 ki)', title: 'The creature you hit makes a CON save or is stunned', fn: (t, b) => { stunningStrike(); b.remove(); } });
   xr.filter(x => x.refund).forEach(x => acts.push({ label: `Missed — get ${x.what === 'Divine Smite' ? 'the slot' : 'the ki'} back`, fn: () => { x.refund(); pendingLabel = x.what + ' not used'; update(); render(); toast(`${x.what} is ready again for your next hit.`); } }));
   rh.always.forEach(x => acts.push({ label: `Missed — get ${x.src.name} back`, fn: () => { x.src.refund(); pendingLabel = x.src.name + ' not used'; update(); render(); toast(`${esc(x.src.name)} is back.`); } }));
-  acts.push(...rh.acts); { const ia = typeof inspAct === 'function' && !nat1 ? inspAct(h.total, nm + ' to hit') : null; if (ia) acts.push(ia); }
+  acts.push(...rh.acts); { const ia = typeof inspAct === 'function' && !nat1 ? inspAct(h.total, nm + ' to hit') : null; if (ia) acts.push(ia); const ta = !nat1 ? tidesAct(h, nm + ' to hit', rm.mode) : null; if (ta) acts.push(ta); }
   // What you can still add now that you know it hit: Divine Smite, Sneak Attack, Hand of Harm (each adds to this card).
   if (!nat1) acts.push(...atkAddOns(a, nm, crit, isWeapon, rm, opt, { total, byType, mainT, sneak: sr ? sr.total : 0 }, xr.filter(x => x.what).map(x => x.what)));
   if (sr && !opt.offTurn) acts.push({ label: 'Missed — Sneak Attack not used', fn: () => { S.turn.sneak = false; pendingLabel = 'Sneak Attack not used'; update(); refresh(); toast('Sneak Attack is ready again this turn.'); } });
@@ -808,6 +808,18 @@ function giftUse(base, label) {
   S.effects = S.effects.filter(x => x !== e); pendingLabel = 'Use ' + e.name; save(); render();
   const tot = base != null ? base + r.total : r.total;
   toast(`<b class="total">${tot}</b><div><div>${label ? esc(label) + ' + ' : ''}${esc(e.repeat.type || e.name)}</div><div class="det">${base != null ? base + ' + ' : ''}${esc(e.repeat.dice)} (${esc(r.detail)})</div><div class="det">${esc(e.name)} used</div></div>`, '', 8000, { label: 'Undo', fn: () => undo(1) });
+}
+// Tides of Chaos (wild magic sorcerer): after a straight attack roll, check or save (no advantage or disadvantage), the card
+// offers it — spend it to roll a second d20 and keep the higher one. (A spent Tides makes your next 1st+ level spell surge.)
+function tidesLeft() { const i = fxSource('Tides of Chaos'); return i >= 0 && fxLeft(i) > 0 ? i : -1; }
+function tidesAct(r, label, mode) {
+  if (!r || r.skipped || r.d20 == null || (mode && mode !== 'normal') || tidesLeft() < 0) return null; // (a straight roll only: with advantage it does nothing, with disadvantage they'd cancel)
+  return { label: 'Tides of Chaos: roll with advantage', title: 'Spend Tides of Chaos: roll another d20 and keep the higher one', fn: () => {
+    const i = tidesLeft(); if (i < 0) return toast('Tides of Chaos is already spent.', 'fumble');
+    const x = rollExpr('1d20', { label: (label ? label + ': ' : '') + 'Tides of Chaos' }); if (!x || x.skipped) return;
+    S.features[i].used = N(S.features[i].used) + 1; pendingLabel = 'Use Tides of Chaos'; save(); render();
+    const nd = Math.max(r.d20, x.total), tot = r.total - r.d20 + nd;
+    toast(`<b class="total">${tot}</b><div><div>${esc(label || 'Roll')} — Tides of Chaos</div><div class="det">d20s ${r.d20} and ${x.total}: keeps ${nd}${nd !== r.d20 ? ` (${tot - r.total > 0 ? '+' : ''}${tot - r.total})` : ' (no change)'}</div><div class="det">Tides of Chaos used — your next 1st-level or higher spell sets off a surge</div></div>`, nd === 20 ? 'crit' : '', 9000, { label: 'Undo', fn: () => undo(1) }); } };
 }
 const inspAct = (base, label) => { const e = inspFx(); return e ? { label: `+ ${e.repeat.type || 'Inspiration'} (${String(e.repeat.dice).replace(/^1d/, 'd')})`, fn: () => giftUse(base, label) } : null; };
 // Features that happen on their own as your turn comes round (Elder Champion's 10 HP, Survivor, Protective Spirit):
@@ -1301,6 +1313,9 @@ function executeCast(i, how, L, col, x) {
   if (a.wpn && wat) { eff.wpn = Object.assign({}, a.wpn, { cls: sp.cls }); lines.push(`${esc(wat.name)} now attacks with ${ABN[castInfo(sp.cls).ab] || 'your spellcasting ability'}${a.wpn.die ? ', 1' + a.wpn.die + ' damage' : ''}${a.wpn.magical ? ', magical' : ''}`); }
   let doAtk = null;
   // Buffs
+  // A spell whose bonus is only written down for casting it on others (Guidance, Resistance…) does the same when you
+  // cast it on yourself: the same effect, with the same +1d4 on your next roll.
+  if (!a.buff && self && typeof ALLYFX === 'function') { const ad = ALLYFX(sp.name); if (ad && ad.buff && !ad.pick && ad.self !== false) a.buff = Object.assign({}, ad.buff); }
   if (a.buff) {
     let bf = { ...a.buff }; if (a.upBuff) Object.keys(a.upBuff).forEach(k => { if (L >= N(k)) bf = { ...bf, ...a.upBuff[k] }; });
     eff.buff = bf; if (a.ask && !self) eff.ally = true;

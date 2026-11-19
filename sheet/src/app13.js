@@ -46,6 +46,8 @@ async function ptySend(ids, kind, data, text, quiet, grp) {
   const recs = ids.map(to => ({ to, ref: PTYX().newRef(), kind, data, text }));
   if (grp && grp.entry) { grp.entry.pty = grp.entry.pty.concat(recs); persistHist(); } else { const e = ptyHistAdd(recs, text); if (grp) grp.entry = e; }
   let ok = 0; for (const r of recs) { try { await PTYX().send(r.to, kind, data, r.ref); ok++; } catch (e) { r.failed = true; console.warn('party send', e); } }
+  // an item you give away is remembered until they answer, so it can come back if they say no
+  if (kind === 'item' && data && data.item) { const sent = recs.filter(r => !r.failed); if (sent.length) S.ptyGave = (S.ptyGave || []).concat(sent.map(r => ({ ref: r.ref, to: r.to, at: Date.now(), item: JSON.parse(JSON.stringify(data.item)) }))).slice(-40); }
   if (ok) { ptyLog('out', ptyNames(ids), text); save(); if (UI.tab === 'party') render('party'); if (!quiet) toast(`${esc(text)} → <b>${esc(ptyNames(ids))}</b>${ptyFreeKind(kind) || (PTYX().info() || {}).mgr ? '' : `<div class="det">${ids.length > 1 ? 'They’re' : 'They’re'} asked to accept it on their sheet.</div>`}`, '', 6000); }
   else toast('Couldn’t reach the party right now — check your connection.', 'fumble', 7000);
   return ok;
@@ -641,7 +643,7 @@ function ptyAnswer(ref, ok) {
   pick.forEach(a => { const m = a.m, text = ptyDesc(m);
     if (ok) { try { m.agreed = true; const b = PTYX().snap(S); if (ptyApply(m)) ptyGot(m, b); } catch (e) { if (e instanceof NeedRoll) throw e; console.warn('party message', e); } } // (a roll it needs is fetched, then this runs again)
     else ptyLog('in', m.fromName || '', 'Said no: ' + text);
-    if (m.from && PTYX()) PTYX().send(m.from, 'reply', { ok, text, n: S.name || '' }).catch(() => {}); });
+    if (m.from && PTYX()) PTYX().send(m.from, 'reply', { ok, text, n: S.name || '', ref: m.ref || '' }).catch(() => {}); });
   if (!pendingLabel) pendingLabel = ok ? 'Accepted a party change' : 'Turned down a party change';
   save(); render(); ptyAskShow();
 }
@@ -717,7 +719,9 @@ function ptyApply(m) {
       pendingLabel = 'Coins from ' + who; note('Received ' + got.join(', ')); toast(`<div><b>${esc(who)}</b> gave you <b>${esc(got.join(', '))}</b></div>`, 'crit', 7000); return true; }
     case 'inspire': { S.insp = Math.min(inspMax(), Math.max(0, N(S.insp)) + 1); pendingLabel = 'Inspiration from ' + who; note('Inspiration'); toast(`<div><b>Inspiration!</b><div class="det">From ${esc(who)}${ST('inspiration') ? '' : ' (turn on Inspiration in Settings → Rules to see it on the sheet)'}</div></div>`, 'crit', 8000); return true; }
     case 'reply': { if (!d.ok && m.from && S.ptyAuras) Object.keys(S.ptyAuras).forEach(n => { if (String(d.text || '').includes(n)) { S.ptyAuras[n] = (S.ptyAuras[n] || []).filter(x => x !== m.from); R20A.no[n + '|' + m.from] = true; } });
-      note(`${d.ok ? 'They said yes' : 'They said no'}: ${d.text || ''}`); toast(`<div><b>${esc(d.n || who)}</b> ${d.ok ? 'said yes' : 'said no'}<div class="det">${esc(d.text || '')}</div></div>`, d.ok ? '' : 'alert', 6000); return true; }
+      // an item they turned down goes back into your inventory (only one you actually sent them, from your own record)
+      let back = ''; { const g = (S.ptyGave || []).find(x => d.ref && x.ref === d.ref && x.to === m.from); if (g) { S.ptyGave = S.ptyGave.filter(x => x !== g); if (!d.ok) { const it = Object.assign({}, g.item); it.id = uid(); it.equipped = false; ptyAddItem(it); back = `${N(it.qty) > 1 ? N(it.qty) + ' × ' : ''}${it.name} is back in your inventory.`; } } }
+      note(`${d.ok ? 'They said yes' : 'They said no'}: ${d.text || ''}${back ? ' — ' + back : ''}`); toast(`<div><b>${esc(d.n || who)}</b> ${d.ok ? 'said yes' : 'said no'}<div class="det">${esc(d.text || '')}</div>${back ? `<div class="det">${esc(back)}</div>` : ''}</div>`, d.ok ? '' : 'alert', 6000); return true; }
     case 'note': { note(String(d.text || '')); ptyMsgShow(who, String(d.text || '')); return true; }
     case 'undo': { const g = (S.ptyGot || []).find(x => x.ref === d.ref); if (!g) { PTY_CANCEL.add(d.ref); return false; }
       PTYX().revert(S, g.rev); S.ptyGot = S.ptyGot.filter(x => x !== g); S.hp.cur = Math.min(N(S.hp.cur), maxHp()); pendingLabel = `${who} took back: ${g.text}`; note(`Took back: ${g.text}`);

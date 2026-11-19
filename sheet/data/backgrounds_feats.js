@@ -72,7 +72,7 @@ DND.feats = [
   ['Shield Master', 'PHB', '', 'Bonus-action shove after attacking; add shield AC to DEX saves; evasion-like reaction.'],
   ['Skilled', 'PHB', '', 'Gain proficiency in any combination of three skills or tools.', { skills: 3 }],
   ['Skulker', 'PHB', 'DEX 13', 'Hide when lightly obscured; missing doesn\'t reveal you; dim light doesn\'t hinder Perception.'],
-  ['Spell Sniper', 'PHB', 'Spellcasting', 'Double range of attack spells; ignore half and three-quarters cover; learn one attack cantrip.'],
+  ['Spell Sniper', 'PHB', 'Spellcasting', 'Double range of attack spells; ignore half and three-quarters cover; learn one attack cantrip.', { pick: { ab: 'list', picks: [{ key: 'cantrip', level: 0, lists: 'BCDSKW', attack: true, label: 'Cantrip that needs an attack roll (bard, cleric, druid, sorcerer, warlock or wizard)' }] } }],
   ['Tavern Brawler', 'PHB', '', '+1 STR or CON; improvised weapon proficiency; unarmed strikes deal 1d4; bonus-action grapple.', { asi: ['str', 'con'] }],
   ['Tough', 'PHB', '', '+2 max HP per level.', { hpPerLevel: 2 }],
   ['War Caster', 'PHB', 'Spellcasting', 'Advantage on concentration saves; cast with hands full; cast a spell as an opportunity attack.'],
