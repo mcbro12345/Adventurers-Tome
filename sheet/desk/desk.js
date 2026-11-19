@@ -4778,31 +4778,38 @@ async function onLootAct(act, b) {
   }
 }
 // ==== ITEMPARSE END ====
-// Reordering encounters: hold the ⠿ grip and drag, the same as reordering characters in the lobby. The row keeps its place
-// (invisible) while a copy follows your finger; the others slide out of the way; letting go drops it there.
+// Reordering encounters: hold the ⠿ grip and drag, the same as reordering characters in the lobby. The row itself
+// lifts and follows your pointer (an open encounter folds up while you carry it), the others slide out of the way, and
+// letting go drops it there — opening it back up if it was open.
 (() => { let RD = null;
   const rowsOf = l => [...l.querySelectorAll(':scope > .dk-ts')];
   const slide = (rows, mutate) => { const before = new Map(rows.map(x => [x, x.getBoundingClientRect().top])); mutate();
     rows.forEach(x => { const dy = before.get(x) - x.getBoundingClientRect().top; if (!dy) return; x.style.transition = 'none'; x.style.transform = `translateY(${dy}px)`; requestAnimationFrame(() => { x.style.transition = 'transform .18s ease'; x.style.transform = ''; }); }); };
+  const natTop = r => r.getBoundingClientRect().top - (RD ? RD.t : 0); // where the row sits without the drag offset
   document.addEventListener('pointerdown', e => { const g = e.target.closest && e.target.closest('.dk-tsgrip'); if (!g || e.button > 0) return; const r = g.closest('.dk-ts'), list = r && r.parentElement; if (!list) return; e.preventDefault();
-    const b = r.getBoundingClientRect(), gh = r.cloneNode(true); gh.classList.add('dk-tsghost'); gh.removeAttribute('data-sid');
-    Object.assign(gh.style, { position: 'fixed', left: b.left + 'px', top: b.top + 'px', width: b.width + 'px', margin: 0, zIndex: 80, pointerEvents: 'none' });
-    (list.closest('.dk-rail') || list.parentElement).appendChild(gh); // (inside the panel, so it keeps the row's look) r.classList.add('dk-tshold'); document.body.classList.add('dk-tsdragging');
-    RD = { r, gh, list, dy: e.clientY - b.top, y: e.clientY, raf: 0 }; try { g.setPointerCapture(e.pointerId); } catch (x) {} });
-  const step = () => { const d = RD; if (!d) return; d.raf = 0; const lr = d.list.getBoundingClientRect(), h = d.gh.offsetHeight;
-    d.gh.style.top = Math.max(lr.top, Math.min(lr.bottom - h, d.y - d.dy)) + 'px';
-    const rows = rowsOf(d.list), peers = rows.filter(x => x !== d.r), mid = d.y - d.dy + h / 2, tgt = peers.find(x => { const bb = x.getBoundingClientRect(); return mid < bb.top + bb.height / 2; }), last = peers[peers.length - 1];
-    if (last && (tgt ? d.r.nextElementSibling !== tgt : last.nextElementSibling !== d.r)) slide(peers, () => tgt ? tgt.before(d.r) : last.after(d.r));
+    const kids = r.querySelector(':scope > .dk-tkids'), y0 = r.getBoundingClientRect().top;
+    // fold an open encounter while it's carried (the rows under it close the gap)
+    if (kids) slide(rowsOf(list).filter(x => x !== r), () => { kids.style.display = 'none'; });
+    r.classList.add('dk-tslift'); document.body.classList.add('dk-tsdragging');
+    RD = { r, list, kids, dy: e.clientY - y0, y: e.clientY, t: 0, raf: 0 }; RD.t = 0; try { g.setPointerCapture(e.pointerId); } catch (x) {} });
+  const place = () => { const d = RD, lr = d.list.getBoundingClientRect(), h = d.r.offsetHeight, want = Math.max(lr.top, Math.min(lr.bottom - h, d.y - d.dy)); d.t = 0; d.r.style.transform = ''; d.t = want - d.r.getBoundingClientRect().top; d.r.style.transform = `translateY(${d.t}px)`; return want; };
+  const step = () => { const d = RD; if (!d) return; d.raf = 0; const want = place(), h = d.r.offsetHeight;
+    const peers = rowsOf(d.list).filter(x => x !== d.r), mid = want + h / 2, tgt = peers.find(x => { const bb = x.getBoundingClientRect(); return mid < bb.top + bb.height / 2; }), last = peers[peers.length - 1];
+    if (last && (tgt ? d.r.nextElementSibling !== tgt : last.nextElementSibling !== d.r)) { slide(peers, () => tgt ? tgt.before(d.r) : last.after(d.r)); place(); }
     // near the list's top or bottom edge it scrolls along
-    const edge = 44; if (d.y < lr.top + edge && d.list.scrollTop > 0) { d.list.scrollTop -= 8; d.raf = requestAnimationFrame(step); } else if (d.y > lr.bottom - edge && d.list.scrollTop + d.list.clientHeight < d.list.scrollHeight) { d.list.scrollTop += 8; d.raf = requestAnimationFrame(step); } };
+    const lr = d.list.getBoundingClientRect(), edge = 44;
+    if (d.y < lr.top + edge && d.list.scrollTop > 0) { d.list.scrollTop -= 8; d.raf = requestAnimationFrame(step); } else if (d.y > lr.bottom - edge && d.list.scrollTop + d.list.clientHeight < d.list.scrollHeight) { d.list.scrollTop += 8; d.raf = requestAnimationFrame(step); } };
   document.addEventListener('pointermove', e => { if (!RD) return; e.preventDefault(); RD.y = e.clientY; if (!RD.raf) RD.raf = requestAnimationFrame(step); }, { passive: false });
-  const end = () => { if (!RD) return; const d = RD; RD = null; if (d.raf) cancelAnimationFrame(d.raf); const pb = d.r.getBoundingClientRect();
-    d.gh.style.transition = 'top .16s ease'; d.gh.style.top = pb.top + 'px';
-    setTimeout(() => { d.gh.remove(); d.r.classList.remove('dk-tshold'); document.body.classList.remove('dk-tsdragging');
+  const end = () => { if (!RD) return; const d = RD; RD = null; if (d.raf) cancelAnimationFrame(d.raf);
+    d.r.style.transition = 'transform .16s ease'; d.r.style.transform = '';
+    setTimeout(() => { d.r.style.transition = ''; d.r.classList.remove('dk-tslift'); document.body.classList.remove('dk-tsdragging');
       const ids = rowsOf(d.list).map(x => x.dataset.sid), at = new Map(ids.map((id, i) => [id, i]));
-      if (ids.join() === S.sessions.map(s => s.id).join()) return;
+      const moved = ids.join() !== S.sessions.map(s => s.id).join();
+      // unfold it again if it was open
+      if (d.kids) slide(rowsOf(d.list).filter(x => x !== d.r), () => { d.kids.style.display = ''; });
+      if (!moved) return;
       S.sessions.sort((a, b) => (at.has(a.id) ? at.get(a.id) : 1e9) - (at.has(b.id) ? at.get(b.id) : 1e9)); S.sessions.forEach((s, i) => { s.ord = i; });
-      save(); paint(); }, 170); };
+      setTimeout(() => { save(); paint(); }, 200); }, 170); };
   document.addEventListener('pointerup', end); document.addEventListener('pointercancel', end); })();
 window.pgDesk = { hostsParty: true, mount, unmount, _t: () => ({ NT, clean, mdToHtml, htmlToMd, pageByTitle, S, UI, LOG, R20, GEN, NPCG, PLANUI, findInst, analyze, parseStatBlock, parseStatBlocks, normPaste, parseMulti, casterInfo, toRead, encStats, shapePlan }) };
 })();
